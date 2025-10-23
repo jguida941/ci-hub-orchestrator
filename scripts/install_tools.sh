@@ -18,8 +18,6 @@ curl -fsSLo "$TMP_DIR/cosign" "https://github.com/sigstore/cosign/releases/downl
 chmod +x "$TMP_DIR/cosign"
 sudo mv "$TMP_DIR/cosign" /usr/local/bin/cosign
 
-# Install syft
-curl -fsSLo "$TMP_DIR/syft.tar.gz" "https://github.com/anchore/syft/releases/download/${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
-tar -xzf "$TMP_DIR/syft.tar.gz" -C "$TMP_DIR" syft
-chmod +x "$TMP_DIR/syft"
-sudo mv "$TMP_DIR/syft" /usr/local/bin/syft
+# Install syft using official installer
+curl -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh \
+  | sudo sh -s -- -b /usr/local/bin "${SYFT_VERSION}"
