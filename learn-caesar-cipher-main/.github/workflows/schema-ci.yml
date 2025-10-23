@@ -1,0 +1,32 @@
+name: schema-ci
+
+on:
+  pull_request:
+    paths:
+      - 'schema/**'
+      - 'scripts/validate_schema.py'
+      - '.github/workflows/schema-ci.yml'
+      - 'fixtures/pipeline_run_v1_2/**'
+  push:
+    branches: [ main ]
+    paths:
+      - 'schema/**'
+      - 'scripts/validate_schema.py'
+      - '.github/workflows/schema-ci.yml'
+      - 'fixtures/pipeline_run_v1_2/**'
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install jsonschema
+      - name: Validate NDJSON fixtures
+        run: |
+          scripts/validate_schema.py fixtures/pipeline_run_v1_2/sample.ndjson

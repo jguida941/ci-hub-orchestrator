@@ -1,0 +1,20 @@
+version: 2
+models:
+  - name: pipeline_runs
+    tests:
+      - dbt_utils.freshness:
+          warn_after: {count: 10, period: minute}
+          error_after: {count: 15, period: minute}
+      - dbt_utils.expression_is_true:
+          expression: "COUNT(*) > 0"
+      - dbt_utils.accepted_range:
+          column_name: null_rate
+          max_value: 0.01
+  - name: test_resilience
+    tests:
+      - dbt_utils.recency:
+          field: updated_at
+          interval: 10
+      - dbt_utils.not_null_proportion:
+          column_name: resilience_score
+          at_least: 0.99

@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e caesar_cli[dev]
+
+      - name: Ruff
+        run: |
+          ruff check .
+
+      - name: Mypy
+        run: |
+          cd caesar_cli
+          mypy src
+
+      - name: Pytest
+        run: |
+          cd caesar_cli
+          pytest --cov=caesarcipher --cov-report=xml
+
+      - name: Upload coverage artifact
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: caesar_cli/coverage.xml
+
+      - name: Build package (sdist + wheel)
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+        run: |
+          cd caesar_cli
+          python -m build
+

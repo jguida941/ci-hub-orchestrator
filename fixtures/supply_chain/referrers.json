@@ -1,0 +1,7 @@
+{
+  "referrers": [
+    {"annotation": "sbom-spdx"},
+    {"annotation": "sbom-cyclonedx"},
+    {"annotation": "slsa-provenance-v1"}
+  ]
+}

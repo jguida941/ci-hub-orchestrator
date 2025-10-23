@@ -1,0 +1,13 @@
+{
+  "vulnerabilities": [
+    {"id": "CVE-2025-0001", "cvss": 9.1, "epss_percentile": 0.8},
+    {"id": "CVE-2024-9999", "cvss": 5.0, "epss_percentile": 0.2}
+  ],
+  "vex": [
+    {"id": "CVE-2025-0001", "status": "not_affected"}
+  ],
+  "policy": {
+    "cvss_threshold": 7.0,
+    "epss_threshold": 0.7
+  }
+}

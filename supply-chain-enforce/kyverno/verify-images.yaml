@@ -1,0 +1,77 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-supply-chain
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: verify-image-digest
+      match:
+        any:
+          - resources:
+              kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]
+              namespaces: ["dev", "staging", "prod"]
+      validate:
+        message: "Container image must match approved digests"
+        pattern:
+          spec:
+            template:
+              spec:
+                containers:
+                  - name: "*"
+                    image: "{{ request.object.spec.template.spec.containers[?].image }}"
+      verifyImages:
+        - imageReferences:
+            - "registry.example.com/prod/*"
+          attestors:
+            - count: 1
+              entries:
+                - keys:
+                    publicKeys: []
+                  repositories:
+                    - "oci://registry.example.com/policies/prod-digests"
+    - name: verify-provenance
+      match:
+        any:
+          - resources:
+              kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]
+      verifyImages:
+        - imageReferences:
+            - "registry.example.com/*"
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    url: https://fulcio.sigstore.dev
+                    issuer: "https://token.actions.githubusercontent.com"
+                    subject: "repo:org/ci-intelligence-hub:ref:refs/tags/*"
+                  attestation:
+                    type: in-toto
+                    conditions:
+                      - all:
+                          - key: "$.predicateType"
+                            operator: Equals
+                            value: "https://slsa.dev/provenance/v1"
+    - name: require-sbom-referrers
+      match:
+        any:
+          - resources:
+              kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]
+      verifyImages:
+        - imageReferences:
+            - "registry.example.com/*"
+          attestors:
+            - count: 1
+              entries:
+                - keyless:
+                    url: https://fulcio.sigstore.dev
+                    issuer: "https://token.actions.githubusercontent.com"
+                    subject: "repo:org/ci-intelligence-hub:environment:prod"
+                  attestation:
+                    type: custom
+                    conditions:
+                      - all:
+                          - key: "$.predicateType"
+                            operator: Equals
+                            value: "https://example.com/policy/oci-referrers"
