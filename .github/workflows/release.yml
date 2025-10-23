@@ -91,11 +91,17 @@ jobs:
         run: |
           cosign sign --yes --keyless "${{ steps.digest.outputs.digest }}"
 
+      - name: Ensure evidence directory
+        run: |
+          mkdir -p "$EVIDENCE_DIR"
+
       - name: Upload signing evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: signing-metadata
           path: ${{ env.EVIDENCE_DIR }}
+        continue-on-error: true
 
   generate-provenance:
     needs: build-sign-publish

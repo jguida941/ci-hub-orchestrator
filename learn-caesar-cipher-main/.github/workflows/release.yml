@@ -70,14 +70,6 @@ jobs:
           SUBJECT="{\"name\":\"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\",\"digest\":{\"sha256\":\"$SHA\"}}"
           echo "base64_subject=$(echo -n "$SUBJECT" | base64 -w0)" >> "$GITHUB_OUTPUT"
 
-      - name: Prepare SLSA subjects
-        id: subjects
-        run: |
-          DIGEST="${{ steps.digest.outputs.digest }}"
-          SHA="${DIGEST##*:}"
-          SUBJECT="{\"name\":\"${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}\",\"digest\":{\"sha256\":\"$SHA\"}}"
-          echo "base64_subject=$(echo -n "$SUBJECT" | base64 -w0)" >> "$GITHUB_OUTPUT"
-
       - name: Generate SBOMs
         run: |
           IMAGE_URI="${{ steps.digest.outputs.digest }}"
@@ -103,11 +95,17 @@ jobs:
         run: |
           cosign sign --yes --keyless "${{ steps.digest.outputs.digest }}"
 
+      - name: Ensure evidence directory
+        run: |
+          mkdir -p artifacts/evidence
+
       - name: Upload signing evidence
+        if: ${{ always() }}
         uses: actions/upload-artifact@v4
         with:
           name: signing-metadata
           path: artifacts/evidence
+        continue-on-error: true
 
   generate-provenance:
     needs: build-sign-publish
