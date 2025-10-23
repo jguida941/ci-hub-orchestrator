@@ -61,6 +61,14 @@ jobs:
           echo "image_ref=${REGISTRY}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}" >> "$GITHUB_OUTPUT"
           echo "digest=$(cosign triangulate "${REGISTRY}/${IMAGE_NAME}:${{ steps.vars.outputs.tag }}")" >> "$GITHUB_OUTPUT"
 
+      - name: Prepare SLSA subjects
+        id: subjects
+        run: |
+          DIGEST="${{ steps.digest.outputs.digest }}"
+          SHA="${DIGEST##*:}"
+          SUBJECT="{\"name\":\"${REGISTRY}/${IMAGE_NAME}\",\"digest\":{\"sha256\":\"$SHA\"}}"
+          echo "base64_subject=$(echo -n "$SUBJECT" | base64 -w0)" >> "$GITHUB_OUTPUT"
+
       - name: Generate SBOMs
         run: |
           IMAGE_URI="${{ steps.digest.outputs.digest }}"
@@ -71,7 +79,7 @@ jobs:
       - name: Generate provenance predicate
         uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.0.0
         with:
-          build-artifact-path: artifacts
+          base64-subjects: ${{ steps.subjects.outputs.base64_subject }}
           upload-assets: false
 
       - name: Sign image with cosign (keyless)
