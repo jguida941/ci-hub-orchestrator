@@ -213,8 +213,10 @@ jobs:
           cp fixtures/supply_chain/issuer_subject.json policy-inputs/issuer_subject.json
           cp fixtures/supply_chain/vulnerabilities.json policy-inputs/vulnerabilities.json
       - name: Install OPA
+        env:
+          OPA_VERSION: v0.63.0
         run: |
-          curl -L -o opa https://openpolicyagent.org/downloads/latest/opa_linux_amd64
+          curl -L -o opa "https://github.com/open-policy-agent/opa/releases/download/${OPA_VERSION}/opa_linux_amd64_static"
           chmod +x opa
           sudo mv opa /usr/local/bin/opa
       - name: Verify referrers present (placeholder)
