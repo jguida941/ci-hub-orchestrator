@@ -55,9 +55,9 @@ jobs:
   build-sign-publish:
     needs: project-tests
     runs-on: ubuntu-22.04
-    env:
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ci-intel/app
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/ci-intel-app
       SBOM_DIR: artifacts/sbom
       EVIDENCE_DIR: artifacts/evidence
     outputs:
