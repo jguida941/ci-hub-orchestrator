@@ -151,7 +151,6 @@ jobs:
       base64-subjects: ${{ needs.build-sign-publish.outputs.subject_b64 }}
       upload-assets: true
       provenance-name: predicate
-      provenance-path: predicate
       private-repository: ${{ github.event.repository.private }}
     secrets: inherit
 
@@ -201,7 +200,7 @@ jobs:
           path: |
             artifacts/evidence
             artifacts/sbom
-            artifacts/predicate.intoto.jsonl
+            artifacts/predicate
 
   policy-gates:
     needs: build-sign-publish
