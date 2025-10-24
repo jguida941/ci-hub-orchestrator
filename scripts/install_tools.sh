@@ -20,9 +20,28 @@ chmod +x "$TMP_DIR/cosign"
 sudo mv "$TMP_DIR/cosign" /usr/local/bin/cosign
 
 # Install rekor-cli
-curl -fsSLo "$TMP_DIR/rekor-cli" "https://github.com/sigstore/rekor/releases/download/${REKOR_VERSION}/rekor-cli-linux-amd64"
-chmod +x "$TMP_DIR/rekor-cli"
-sudo mv "$TMP_DIR/rekor-cli" /usr/local/bin/rekor-cli
+REKOR_BIN=""
+if curl -fsSLo "$TMP_DIR/rekor.tar.gz" "https://github.com/sigstore/rekor/releases/download/${REKOR_VERSION}/rekor-cli-linux-amd64.tar.gz"; then
+  if tar -xzf "$TMP_DIR/rekor.tar.gz" -C "$TMP_DIR"; then
+    if [[ -f "$TMP_DIR/rekor-cli-linux-amd64" ]]; then
+      REKOR_BIN="$TMP_DIR/rekor-cli-linux-amd64"
+    elif [[ -f "$TMP_DIR/rekor-cli" ]]; then
+      REKOR_BIN="$TMP_DIR/rekor-cli"
+    fi
+  fi
+fi
+
+if [[ -z "$REKOR_BIN" ]]; then
+  echo "[install_tools] Rekor tarball missing expected binary; falling back to raw executable" >&2
+  if ! curl -fsSLo "$TMP_DIR/rekor-cli-linux-amd64" "https://github.com/sigstore/rekor/releases/download/${REKOR_VERSION}/rekor-cli-linux-amd64"; then
+    echo "[install_tools] Failed to download rekor CLI binary" >&2
+    exit 1
+  fi
+  REKOR_BIN="$TMP_DIR/rekor-cli-linux-amd64"
+fi
+
+chmod +x "$REKOR_BIN"
+sudo mv "$REKOR_BIN" /usr/local/bin/rekor-cli
 
 # Install syft using official installer
 curl -fsSL https://raw.githubusercontent.com/anchore/syft/main/install.sh \

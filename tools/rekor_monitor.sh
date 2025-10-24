@@ -18,11 +18,21 @@ if ! command -v rekor-cli >/dev/null 2>&1; then
   exit 1
 fi
 
+HAS_LOG_URL=1
+if ! rekor-cli search --help 2>&1 | grep -q -- "--log-url"; then
+  HAS_LOG_URL=0
+fi
+
 TIMESTAMP=$(date -u '+%Y%m%dT%H%M%SZ')
 PROOF_PATH="$OUTPUT_DIR/rekor-proof-${TIMESTAMP}.json"
 
-rekor-cli search --sha "$DIGEST" --log-url "$REKOR_LOG" --format json > "$OUTPUT_DIR/rekor-search-${TIMESTAMP}.json"
-rekor-cli verify --uuid "$(jq -r '.[0].uuid' "$OUTPUT_DIR/rekor-search-${TIMESTAMP}.json")" --log-url "$REKOR_LOG" --format json > "$PROOF_PATH"
+if [[ "$HAS_LOG_URL" -eq 1 ]]; then
+  rekor-cli search --sha "$DIGEST" --log-url "$REKOR_LOG" --format json > "$OUTPUT_DIR/rekor-search-${TIMESTAMP}.json"
+  rekor-cli verify --uuid "$(jq -r '.[0].uuid' "$OUTPUT_DIR/rekor-search-${TIMESTAMP}.json")" --log-url "$REKOR_LOG" --format json > "$PROOF_PATH"
+else
+  rekor-cli --rekor_server "$REKOR_LOG" search --sha "$DIGEST" --format json > "$OUTPUT_DIR/rekor-search-${TIMESTAMP}.json"
+  rekor-cli --rekor_server "$REKOR_LOG" verify --uuid "$(jq -r '.[0].uuid' "$OUTPUT_DIR/rekor-search-${TIMESTAMP}.json")" --format json > "$PROOF_PATH"
+fi
 
 echo "Stored Rekor inclusion proof at $PROOF_PATH"
 
