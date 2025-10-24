@@ -54,10 +54,15 @@ attest_provenance() {
     IFS=',' read -r -a types <<< "$raw_types"
     IFS="$old_ifs"
   else
-    types=("slsaprovenance" "slsa-provenance")
+    types=("slsaprovenance@v1" "slsaprovenance" "slsa-provenance")
   fi
 
+  local tried=()
   for type in "${types[@]}"; do
+    if [[ -z "$type" ]]; then
+      continue
+    fi
+    tried+=("$type")
     echo "[publish_referrers] Signing provenance with cosign type '${type}'"
     if cosign attest --predicate "$predicate" --type "$type" "$subject"; then
       return 0
@@ -65,7 +70,7 @@ attest_provenance() {
     >&2 echo "[publish_referrers] cosign attest failed for type '${type}'"
   done
 
-  >&2 echo "[publish_referrers] Unable to sign provenance; tried types: ${types[*]}"
+  >&2 echo "[publish_referrers] Unable to sign provenance; tried types: ${tried[*]}"
   return 1
 }
 
