@@ -261,9 +261,9 @@ PY
             --slurpfile cdx /tmp/cdx.json \
             --slurpfile spdx /tmp/spdx.json \
             --slurpfile prov /tmp/prov.json \
-            '{cyclonedx: ((($cdx[0] // {}).manifests // []) | length > 0),
-              spdx: ((($spdx[0] // {}).manifests // []) | length > 0),
-              provenance: ((($prov[0] // {}).manifests // []) | length > 0)}' \
+            '{cyclonedx: ((($cdx[0] // {}).referrers // []) | length > 0),
+              spdx: ((($spdx[0] // {}).referrers // []) | length > 0),
+              provenance: ((($prov[0] // {}).referrers // []) | length > 0)}' \
             > policy-inputs/referrers.json
       - name: Copy placeholder policy fixtures
         run: |
