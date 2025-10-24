@@ -54,27 +54,34 @@ FOUND_UUID=""
 UUID=""
 
 if [[ -s "$INDEX_FILE" ]]; then
-  REKOR_LINES=()
-  while IFS= read -r line; do
-    REKOR_LINES+=("$line")
-  done < "$INDEX_FILE"
+  if command -v mapfile >/dev/null 2>&1; then
+    mapfile -t REKOR_LINES < "$INDEX_FILE"
+  else
+    REKOR_LINES=()
+    while IFS= read -r line; do
+      REKOR_LINES+=("$line")
+    done < "$INDEX_FILE"
+  fi
 
   for ((idx=${#REKOR_LINES[@]}-1; idx>=0; idx--)); do
     raw_line="${REKOR_LINES[idx]}"
+    raw_line="${raw_line%%#*}"
     [[ -z "$raw_line" ]] && continue
-    read -r index stored_digest <<<"$raw_line"
+    set -- $raw_line
+    index="${1:-}"
+    stored_digest="${2:-}"
     index="${index//[[:space:]]/}"
     stored_digest="${stored_digest//[[:space:]]/}"
     [[ -z "$index" ]] && continue
     ENTRY_PATH="$OUTPUT_DIR/rekor-entry-${index}.json"
     if [[ "$HAS_LOG_URL" -eq 1 ]]; then
       if ! rekor-cli log-entry get --log-index "$index" --log-url "$REKOR_LOG" --format json > "$ENTRY_PATH"; then
-        >&2 echo "[rekor_monitor] Failed to fetch log entry $index via --log-url; retrying cache fallback"
+        >&2 echo "[rekor_monitor] Failed to fetch log entry $index via --log-url; skipping cached index"
         continue
       fi
     else
       if ! rekor-cli --rekor_server "$REKOR_LOG" log-entry get --log-index "$index" --format json > "$ENTRY_PATH"; then
-        >&2 echo "[rekor_monitor] Failed to fetch log entry $index via --rekor_server; retrying cache fallback"
+        >&2 echo "[rekor_monitor] Failed to fetch log entry $index via --rekor_server; skipping cached index"
         continue
       fi
     fi
@@ -91,15 +98,12 @@ if [[ -s "$INDEX_FILE" ]]; then
       fi
     fi
     if [[ "$MATCHED" == false ]]; then
-      FOUND_UUID_DIGEST=$(jq -r '
-        def decode_payload($val):
-          $val
-          | select(type=="string")
-          | @base64d
-          | (try fromjson catch empty);
+      FOUND_UUID_DIGEST=$(jq -r --arg uuid "$FOUND_UUID" '
+        def decode_payload($v):
+          $v | select(type=="string") | @base64d | (try fromjson catch empty);
 
         def normalize:
-          (toascii | ascii_downcase)
+          ascii_downcase
           | ltrimstr("sha256:")
           | select(test("^[0-9a-f]{64}$"));
 
@@ -114,27 +118,23 @@ if [[ -s "$INDEX_FILE" ]]; then
             (decode_payload($entry.spec?.content?.envelope?.payload?) | .subject?[]?.digest?.sha256)
           ]
           | map(select(type=="string"))
-          | map(normalize);
+          | map(normalize)
+          | .[];
 
-        def entry_digests($record):
-          ($record.body
-            | @base64d
-            | (try fromjson catch empty))
-          | if type=="array" then
-              [ .[] | gather(.)[] ]
+        (.[$uuid].body | select(type=="string"))
+        | @base64d
+        | (try fromjson catch empty) as $decoded
+        | if $decoded == null then empty
+          else (
+            if $decoded | type == "array" then
+              [$decoded[] | gather(.)]
             else
-              gather(.)
-            end;
-
-        (
-          if type=="array" then
-            [ .[] | entry_digests(.)[] ]
-          else
-            entry_digests(.)
+              [gather($decoded)]
+            end
+            | map(select(. != null and . != ""))
+            | .[0] // empty
+          )
           end
-        )
-        | map(select(. != null and . != ""))
-        | .[0] // empty
       ' "$ENTRY_PATH")
       found_norm="$(normalize_digest "$FOUND_UUID_DIGEST")"
       if [[ -n "$found_norm" && "$found_norm" == "$EXPECTED_DIGEST" ]]; then
@@ -159,17 +159,19 @@ if [[ -z "$UUID" ]]; then
 
   for (( attempt=1; attempt<=MAX_ATTEMPTS; attempt++ )); do
     if [[ "$HAS_LOG_URL" -eq 1 ]]; then
-      rekor-cli search --sha "$EXPECTED_DIGEST" --log-url "$REKOR_LOG" --format json > "$SEARCH_PATH"
+      rekor-cli search --sha "$EXPECTED_DIGEST" --log-url "$REKOR_LOG" --format json > "$SEARCH_PATH" || true
     else
-      rekor-cli --rekor_server "$REKOR_LOG" search --sha "$EXPECTED_DIGEST" --format json > "$SEARCH_PATH"
+      rekor-cli --rekor_server "$REKOR_LOG" search --sha "$EXPECTED_DIGEST" --format json > "$SEARCH_PATH" || true
     fi
 
     UUID=$(jq -r '
       if type=="string" then .
       elif type=="array" then
         (.[0]
-          | if type=="string" then . else (.uuid // .UUID // empty) end)
-      elif type=="object" then (.uuid // .UUID // empty)
+          | if type=="string" then .
+            else (.uuid // .UUID // empty)
+            end)
+      elif type=="object" then (.uuid // .UUID // .UUIDs?[0] // .uuids?[0] // .results?[0] // empty)
       else empty end
     ' "$SEARCH_PATH")
 

@@ -2,6 +2,7 @@
 # This keeps the CI/CD automation repo clean while always pulling the latest cipher sources.
 
 FROM python:3.12-slim AS builder
+ARG DEBIAN_FRONTEND=noninteractive
 WORKDIR /workspace
 
 # Install git so we can clone external repositories during the build.

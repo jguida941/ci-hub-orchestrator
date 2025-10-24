@@ -87,6 +87,10 @@ jobs:
       - name: Build and push multi-arch image
         id: build
         uses: docker/build-push-action@v5
+        env:
+          DOCKER_BUILDKIT: 1
+          BUILDKIT_RETRY_SOCKET_ERRORS: 1
+          BUILDKIT_PUSH_RETRIES: 10
         with:
           context: .
           file: ./Dockerfile
