@@ -14,6 +14,7 @@ PROVENANCE="$5"
 VEX_JSON="${6:-}"
 
 : "${COSIGN_EXPERIMENTAL:=1}"
+: "${COSIGN_YES:=1}"
 
 check_file() {
   local path="$1"
@@ -33,6 +34,12 @@ if ! command -v cosign >/dev/null 2>&1; then
   exit 1
 fi
 
+COSIGN_VERSION_STR=$(cosign version 2>/dev/null || true)
+if [[ -n "$COSIGN_VERSION_STR" ]]; then
+  echo "[publish_referrers] Using cosign version:"
+  printf '%s\n' "$COSIGN_VERSION_STR"
+fi
+
 if ! command -v oras >/dev/null 2>&1; then
   >&2 echo "oras CLI not found; install via https://oras.land/install"
   exit 1
@@ -42,6 +49,33 @@ if ! command -v jq >/dev/null 2>&1; then
   >&2 echo "jq CLI not found; install via https://stedolan.github.io/jq/"
   exit 1
 fi
+
+OIDC_TOKEN=""
+fetch_oidc_token() {
+  if [[ -n "$OIDC_TOKEN" ]]; then
+    return 0
+  fi
+  if [[ -n "${COSIGN_IDENTITY_TOKEN:-}" ]]; then
+    OIDC_TOKEN="$COSIGN_IDENTITY_TOKEN"
+    return 0
+  fi
+  if [[ -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" && -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
+    local audience="${COSIGN_OIDC_AUDIENCE:-sigstore}"
+    local url="${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${audience}"
+    local response
+    if ! response=$(curl -sf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" "$url"); then
+      >&2 echo "[publish_referrers] Failed to fetch GitHub OIDC token"
+      return 1
+    fi
+    OIDC_TOKEN=$(printf '%s' "$response" | jq -r '.value // empty')
+    if [[ -z "$OIDC_TOKEN" ]]; then
+      >&2 echo "[publish_referrers] Empty OIDC token fetched from GitHub"
+      return 1
+    fi
+    return 0
+  fi
+  return 1
+}
 
 attest_provenance() {
   local subject="$1"
@@ -54,7 +88,14 @@ attest_provenance() {
     IFS=',' read -r -a types <<< "$raw_types"
     IFS="$old_ifs"
   else
-    types=("slsaprovenance@v1" "slsaprovenance" "slsa-provenance")
+    types=(
+      "https://slsa.dev/provenance/v1"
+      "https://slsa.dev/provenance/v1.0"
+      "https://slsa.dev/provenance/v0.2"
+      "slsaprovenance@v1"
+      "slsaprovenance"
+      "slsa-provenance"
+    )
   fi
 
   local tried=()
@@ -64,7 +105,11 @@ attest_provenance() {
     fi
     tried+=("$type")
     echo "[publish_referrers] Signing provenance with cosign type '${type}'"
-    if cosign attest --predicate "$predicate" --type "$type" "$subject"; then
+    local args=(attest --predicate "$predicate" --type "$type")
+    if fetch_oidc_token; then
+      args+=("--identity-token" "$OIDC_TOKEN")
+    fi
+    if cosign "${args[@]}" "$subject"; then
       return 0
     fi
     >&2 echo "[publish_referrers] cosign attest failed for type '${type}'"
