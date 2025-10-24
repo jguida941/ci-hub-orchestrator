@@ -109,24 +109,10 @@ jobs:
         id: subjects
         run: |
           DIGEST="${{ steps.refs.outputs.digest }}"
-          export DIGEST
-          export REGISTRY
-          export IMAGE_NAME
-          python - <<'PY' >> "$GITHUB_OUTPUT"
-import base64
-import json
-import os
-
-name = f"{os.environ['REGISTRY']}/{os.environ['IMAGE_NAME']}"
-digest = os.environ['DIGEST']
-sha = digest.split("sha256:")[-1]
-subjects = [{
-    "name": name,
-    "digest": {"sha256": sha},
-}]
-encoded = base64.b64encode(json.dumps(subjects).encode("utf-8")).decode("utf-8")
-print(f"base64_subject={encoded}")
-PY
+          SHA="${DIGEST#sha256:}"
+          SUBJECTS_JSON=$(jq -nc --arg name "${REGISTRY}/${IMAGE_NAME}" --arg sha "$SHA" \
+            '[{"name":$name,"digest":{"sha256":$sha}}]')
+          echo "base64_subject=$(printf '%s' "$SUBJECTS_JSON" | base64 -w0)" >> "$GITHUB_OUTPUT"
 
       - name: Generate SBOMs
         run: |
@@ -196,7 +182,11 @@ PY
 
       - name: Prepare provenance file
         run: |
-          cp artifacts/predicate/predicate.intoto.jsonl artifacts/slsa-provenance.json
+          if [[ -f artifacts/predicate.intoto.jsonl ]]; then
+            cp artifacts/predicate.intoto.jsonl artifacts/slsa-provenance.json
+          else
+            cp artifacts/predicate/predicate.intoto.jsonl artifacts/slsa-provenance.json
+          fi
 
       - name: Publish SBOM/provenance referrers
         run: |
