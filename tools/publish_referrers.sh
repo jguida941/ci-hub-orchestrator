@@ -137,7 +137,7 @@ run_cosign_attest() {
   local tmp_file
   tmp_file=$(mktemp)
   local status
-  local subject="${@: -1}"
+  local subject="${!#}"
   local subject_digest=""
   if [[ "$subject" == *@* ]]; then
     subject_digest="${subject##*@}"

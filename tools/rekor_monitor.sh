@@ -18,6 +18,11 @@ if ! command -v rekor-cli >/dev/null 2>&1; then
   exit 1
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+  >&2 echo "jq not found; install via https://stedolan.github.io/jq/"
+  exit 1
+fi
+
 HAS_LOG_URL=1
 if ! rekor-cli search --help 2>&1 | grep -q -- "--log-url"; then
   HAS_LOG_URL=0
@@ -27,7 +32,15 @@ TIMESTAMP=$(date -u '+%Y%m%dT%H%M%SZ')
 PROOF_PATH="$OUTPUT_DIR/rekor-proof-${TIMESTAMP}.json"
 SEARCH_PATH="$OUTPUT_DIR/rekor-search-${TIMESTAMP}.json"
 INDEX_FILE="$OUTPUT_DIR/rekor-indices.txt"
-EXPECTED_DIGEST="${DIGEST#sha256:}"
+
+normalize_digest() {
+  local value="${1:-}"
+  value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
+  value="${value#sha256:}"
+  printf '%s' "$value"
+}
+
+EXPECTED_DIGEST="$(normalize_digest "$DIGEST")"
 
 # Copy indices from workspace if present
 if [[ -f "artifacts/evidence/rekor-indices.txt" ]]; then
@@ -41,10 +54,15 @@ FOUND_UUID=""
 UUID=""
 
 if [[ -s "$INDEX_FILE" ]]; then
-  mapfile -t REVERSED_INDICES < <(tac "$INDEX_FILE")
-  for raw_line in "${REVERSED_INDICES[@]}"; do
+  REKOR_LINES=()
+  while IFS= read -r line; do
+    REKOR_LINES+=("$line")
+  done < "$INDEX_FILE"
+
+  for ((idx=${#REKOR_LINES[@]}-1; idx>=0; idx--)); do
+    raw_line="${REKOR_LINES[idx]}"
     [[ -z "$raw_line" ]] && continue
-    IFS=' ' read -r index stored_digest <<<"$raw_line"
+    read -r index stored_digest <<<"$raw_line"
     index="${index//[[:space:]]/}"
     stored_digest="${stored_digest//[[:space:]]/}"
     [[ -z "$index" ]] && continue
@@ -67,60 +85,59 @@ if [[ -s "$INDEX_FILE" ]]; then
     fi
     MATCHED=false
     if [[ -n "$stored_digest" ]]; then
-      stored_no_prefix="${stored_digest#sha256:}"
-      if [[ "$stored_digest" == "$DIGEST" || "$stored_no_prefix" == "$EXPECTED_DIGEST" ]]; then
+      stored_norm="$(normalize_digest "$stored_digest")"
+      if [[ "$stored_norm" == "$EXPECTED_DIGEST" ]]; then
         MATCHED=true
       fi
     fi
     if [[ "$MATCHED" == false ]]; then
       FOUND_UUID_DIGEST=$(jq -r '
-        def records:
-          if type=="array" then .[] else .[] end;
-        def decode_body($record):
-          $record.body | @base64d | fromjson;
-        def candidate_payloads($entry):
+        def decode_payload($val):
+          $val
+          | select(type=="string")
+          | @base64d
+          | (try fromjson catch empty);
+
+        def normalize:
+          (toascii | ascii_downcase)
+          | ltrimstr("sha256:")
+          | select(test("^[0-9a-f]{64}$"));
+
+        def gather($entry):
           [
-            $entry,
-            $entry.spec?.data?,
-            $entry.spec?.content?,
-            $entry.spec?.content?.payload?,
-            ($entry.spec?.content?.payload? | select(type=="string") | @base64d | fromjson),
-            ($entry.spec?.content?.envelope?.payload? | select(type=="string") | @base64d | fromjson)
-          ];
-        def first_sha($entry):
-          (candidate_payloads($entry)
-            | map(
-                if type=="object" then
-                  if (.digest?.sha256?) then .digest.sha256
-                  elif (.sha256?) then .sha256
-                  elif (.value? | type=="string" and (.value | test("^[0-9a-fA-F]{64}$"))) then .value
-                  else empty end
-                else empty end
-              )
-            | map(select(.!=null and .!=""))
-            | .[0]
-          ) // empty;
-        [
-          records
-          | decode_body(.)
-          | [
-              .spec?.data?.hash?.value,
-              .spec?.data?.hash?.sha256,
-              .spec?.artifactHash?.sha256,
-              .spec?.artifactHash?.value,
-              (.spec?.subject?[]?.digest?.sha256),
-              (.spec?.content?.payload? | select(type=="string") | @base64d | fromjson | .subject[]?.digest.sha256),
-              (.spec?.content?.envelope?.payload? | select(type=="string") | @base64d | fromjson | .subject[]?.digest.sha256),
-              first_sha(.)
-            ]
-            | map(select(.!=null and .!=""))
-            | .[0]
-        ]
-        | map(select(.!=null and .!=""))
+            $entry.spec?.data?.hash?.value,
+            $entry.spec?.data?.hash?.sha256,
+            $entry.spec?.artifactHash?.value,
+            $entry.spec?.artifactHash?.sha256,
+            ($entry.spec?.subject?[]?.digest?.sha256),
+            (decode_payload($entry.spec?.content?.payload?) | .subject?[]?.digest?.sha256),
+            (decode_payload($entry.spec?.content?.envelope?.payload?) | .subject?[]?.digest?.sha256)
+          ]
+          | map(select(type=="string"))
+          | map(normalize);
+
+        def entry_digests($record):
+          ($record.body
+            | @base64d
+            | (try fromjson catch empty))
+          | if type=="array" then
+              [ .[] | gather(.)[] ]
+            else
+              gather(.)
+            end;
+
+        (
+          if type=="array" then
+            [ .[] | entry_digests(.)[] ]
+          else
+            entry_digests(.)
+          end
+        )
+        | map(select(. != null and . != ""))
         | .[0] // empty
-      ' "$ENTRY_PATH" | head -n1)
-      digest_no_prefix="${FOUND_UUID_DIGEST#sha256:}"
-      if [[ -n "$FOUND_UUID_DIGEST" && ( "$FOUND_UUID_DIGEST" == "$DIGEST" || "$digest_no_prefix" == "$EXPECTED_DIGEST" ) ]]; then
+      ' "$ENTRY_PATH")
+      found_norm="$(normalize_digest "$FOUND_UUID_DIGEST")"
+      if [[ -n "$found_norm" && "$found_norm" == "$EXPECTED_DIGEST" ]]; then
         MATCHED=true
       fi
     fi
@@ -129,7 +146,7 @@ if [[ -s "$INDEX_FILE" ]]; then
     fi
     FOUND_UUID=""
   done
-  unset REVERSED_INDICES
+  unset REKOR_LINES
 fi
 
 if [[ -n "$FOUND_UUID" ]]; then
@@ -142,19 +159,18 @@ if [[ -z "$UUID" ]]; then
 
   for (( attempt=1; attempt<=MAX_ATTEMPTS; attempt++ )); do
     if [[ "$HAS_LOG_URL" -eq 1 ]]; then
-      rekor-cli search --sha "$DIGEST" --log-url "$REKOR_LOG" --format json > "$SEARCH_PATH"
+      rekor-cli search --sha "$EXPECTED_DIGEST" --log-url "$REKOR_LOG" --format json > "$SEARCH_PATH"
     else
-      rekor-cli --rekor_server "$REKOR_LOG" search --sha "$DIGEST" --format json > "$SEARCH_PATH"
+      rekor-cli --rekor_server "$REKOR_LOG" search --sha "$EXPECTED_DIGEST" --format json > "$SEARCH_PATH"
     fi
 
     UUID=$(jq -r '
-      if type == "array" then
-        (.[0].uuid // empty)
-      elif type == "object" then
-        (.uuid // empty)
-      else
-        empty
-      end
+      if type=="string" then .
+      elif type=="array" then
+        (.[0]
+          | if type=="string" then . else (.uuid // .UUID // empty) end)
+      elif type=="object" then (.uuid // .UUID // empty)
+      else empty end
     ' "$SEARCH_PATH")
 
     if [[ -n "$UUID" ]]; then
