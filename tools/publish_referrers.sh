@@ -18,6 +18,8 @@ VEX_JSON="${6:-}"
 export COSIGN_EXPERIMENTAL
 export COSIGN_YES
 
+REKOR_INDEX_FILE=${REKOR_INDEX_FILE:-artifacts/evidence/rekor-indices.txt}
+
 check_file() {
   local path="$1"
   local label="$2"
@@ -116,6 +118,42 @@ fetch_oidc_token() {
   return 1
 }
 
+append_rekor_index_file() {
+  local file="$1"
+  local digest="$2"
+  local index
+  index=$(awk '/tlog entry created with index:/ {print $NF}' "$file" | grep -E '^[0-9]+$' | tail -n1 || true)
+  if [[ -n "$index" ]]; then
+    mkdir -p "$(dirname "$REKOR_INDEX_FILE")"
+    if [[ -n "$digest" ]]; then
+      printf '%s %s\n' "$index" "$digest" >> "$REKOR_INDEX_FILE"
+    else
+      printf '%s\n' "$index" >> "$REKOR_INDEX_FILE"
+    fi
+  fi
+}
+
+run_cosign_attest() {
+  local tmp_file
+  tmp_file=$(mktemp)
+  local status
+  local subject="${@: -1}"
+  local subject_digest=""
+  if [[ "$subject" == *@* ]]; then
+    subject_digest="${subject##*@}"
+  fi
+  if [[ -z "$subject_digest" && -n "$IMAGE_DIGEST" ]]; then
+    subject_digest="$IMAGE_DIGEST"
+  fi
+  set +e
+  cosign "$@" 2>&1 | tee "$tmp_file"
+  status=${PIPESTATUS[0]}
+  set -e
+  append_rekor_index_file "$tmp_file" "$subject_digest"
+  rm -f "$tmp_file"
+  return "$status"
+}
+
 attest_provenance() {
   local subject="$1"
   local predicate="$2"
@@ -177,7 +215,7 @@ attest_provenance() {
       >&2 echo "[publish_referrers] Proceeding without explicit identity token (fallback to device flow)"
       echo "[publish_referrers] cosign command: cosign ${args[*]} $subject"
     fi
-    if cosign "${args[@]}" "$subject"; then
+    if run_cosign_attest "${args[@]}" "$subject"; then
       return 0
     fi
     >&2 echo "[publish_referrers] cosign attest failed for type '${type}'"
@@ -205,7 +243,7 @@ sign_with_token() {
     >&2 echo "[publish_referrers] Proceeding without explicit identity token for type '${predicate_type}'"
     echo "[publish_referrers] cosign command: cosign ${args[*]} $subject"
   fi
-  cosign "${args[@]}" "$subject"
+  run_cosign_attest "${args[@]}" "$subject"
 }
 
 push_referrer() {
