@@ -2,18 +2,17 @@ package supplychain.oci_referrers
 
 default allow = false
 
-required = {"sbom-spdx", "sbom-cyclonedx", "slsa-provenance-v1"}
+required := {"cyclonedx", "spdx", "provenance"}
+
+missing := {item |
+  item := required[_]
+  not has(item)
+}
 
 allow {
-  not missing[_]
+  count(missing) == 0
 }
 
-missing[item] {
-  item := required[_]
-  not has_referrer(item)
-}
-
-has_referrer(item) {
-  ref := input.referrers[_]
-  ref.annotation == item
+has(item) {
+  input[item] == true
 }

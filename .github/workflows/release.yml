@@ -109,9 +109,24 @@ jobs:
         id: subjects
         run: |
           DIGEST="${{ steps.refs.outputs.digest }}"
-          SHA="${DIGEST#sha256:}"
-          SUBJECT="{\"name\":\"${REGISTRY}/${IMAGE_NAME}\",\"digest\":{\"sha256\":\"$SHA\"}}"
-          echo "base64_subject=$(echo -n "$SUBJECT" | base64 -w0)" >> "$GITHUB_OUTPUT"
+          export DIGEST
+          export REGISTRY
+          export IMAGE_NAME
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+import base64
+import json
+import os
+
+name = f"{os.environ['REGISTRY']}/{os.environ['IMAGE_NAME']}"
+digest = os.environ['DIGEST']
+sha = digest.split("sha256:")[-1]
+subjects = [{
+    "name": name,
+    "digest": {"sha256": sha},
+}]
+encoded = base64.b64encode(json.dumps(subjects).encode("utf-8")).decode("utf-8")
+print(f"base64_subject={encoded}")
+PY
 
       - name: Generate SBOMs
         run: |
@@ -203,45 +218,77 @@ jobs:
             artifacts/predicate
 
   policy-gates:
-    needs: build-sign-publish
+    needs:
+      - build-sign-publish
+      - generate-provenance
+      - collect-evidence
     runs-on: ubuntu-22.04
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/ci-intel-app
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-      - name: Prepare policy inputs
+      - name: Install jq and ORAS
         run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          curl -sL https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz \
+            | tar -xz -f -
+          sudo mv oras /usr/local/bin/oras
+      - name: Login to registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build referrer policy input
+        run: |
+          set -euo pipefail
+          REF="${{ needs.build-sign-publish.outputs.digest_ref }}"
           mkdir -p policy-inputs
-          cp fixtures/supply_chain/referrers.json policy-inputs/referrers.json
+          discover() {
+            local type="$1"
+            local out="$2"
+            if ! oras discover -o json --artifact-type "$type" "$REF" > "$out"; then
+              echo '{"manifests":[]}' > "$out"
+            fi
+          }
+          discover application/vnd.cyclonedx+json /tmp/cdx.json
+          discover application/spdx+json /tmp/spdx.json
+          discover application/vnd.in-toto+json /tmp/prov.json
+          jq -n \
+            --slurpfile cdx /tmp/cdx.json \
+            --slurpfile spdx /tmp/spdx.json \
+            --slurpfile prov /tmp/prov.json \
+            '{cyclonedx: ((($cdx[0] // {}).manifests // []) | length > 0),
+              spdx: ((($spdx[0] // {}).manifests // []) | length > 0),
+              provenance: ((($prov[0] // {}).manifests // []) | length > 0)}' \
+            > policy-inputs/referrers.json
+      - name: Copy placeholder policy fixtures
+        run: |
           cp fixtures/supply_chain/issuer_subject.json policy-inputs/issuer_subject.json
           cp fixtures/supply_chain/vulnerabilities.json policy-inputs/vulnerabilities.json
       - name: Install OPA
-        env:
-          OPA_VERSION: v0.63.0
         run: |
-          curl -L -o opa "https://github.com/open-policy-agent/opa/releases/download/${OPA_VERSION}/opa_linux_amd64_static"
-          chmod +x opa
-          sudo mv opa /usr/local/bin/opa
-      - name: Verify referrers present (placeholder)
+          curl -L -o /usr/local/bin/opa https://github.com/open-policy-agent/opa/releases/download/v0.63.0/opa_linux_amd64_static
+          chmod +x /usr/local/bin/opa
+      - name: Verify referrers present
         run: |
           set -euo pipefail
-          if ! RESULT=$(opa eval \
+          opa check policies/oci_referrers.rego
+          RESULT=$(opa eval \
             --data policies/oci_referrers.rego \
             --input policy-inputs/referrers.json \
             --format raw \
-            'data.supplychain.oci_referrers.allow'); then
-            echo "[policy] OPA evaluation error (oci_referrers)" >&2
-            exit 1
-          fi
+            'data.supplychain.oci_referrers.allow')
           if [[ "$RESULT" != "true" ]]; then
             echo "[policy] Required referrers missing:"
             opa eval \
               --data policies/oci_referrers.rego \
               --input policy-inputs/referrers.json \
               --format json \
-              'data.supplychain.oci_referrers.missing' \
-              | jq .
+              'data.supplychain.oci_referrers.missing' | jq .
             exit 1
           fi
           echo "[policy] OCI referrers present"
