@@ -8,22 +8,38 @@ import json
 import os
 import subprocess
 import sys
+import re
 from pathlib import Path
 from typing import Tuple
+
+
+ANSI_ESCAPE = re.compile(r"\x1B\[[0-9;]*[A-Za-z]")
+
+
+def _strip_ansi(text: str) -> str:
+    return ANSI_ESCAPE.sub("", text)
 
 
 def _parse_identity(stdout: str) -> Tuple[str, str]:
     issuer: str | None = None
     subject: str | None = None
     for raw_line in stdout.splitlines():
-        line = raw_line.strip()
+        line = _strip_ansi(raw_line).strip()
+        if not line:
+            continue
         lowered = line.lower()
-        if "certificate identity:" in lowered:
-            _, _, remainder = line.partition(":")
-            subject = remainder.strip()
-        elif "certificate oidc issuer:" in lowered or "certificate issuer:" in lowered:
-            _, _, remainder = line.partition(":")
-            issuer = remainder.strip()
+        if "certificate identity" in lowered:
+            if ":" in line:
+                _, _, remainder = line.rpartition(":")
+                subject = remainder.strip()
+            else:
+                subject = line.split("certificate identity", 1)[-1].strip()
+        elif "certificate oidc issuer" in lowered or "certificate issuer" in lowered:
+            if ":" in line:
+                _, _, remainder = line.rpartition(":")
+                issuer = remainder.strip()
+            else:
+                issuer = line.split("certificate", 1)[-1].strip()
     if not issuer or not subject:
         raise ValueError("unable to parse issuer/subject from cosign output")
     return issuer, subject
