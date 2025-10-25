@@ -396,15 +396,21 @@ jobs:
           set -euo pipefail
           VERSION_NUMBER="${GRYPE_VERSION#v}"
           ARCHIVE="grype_${VERSION_NUMBER}_linux_amd64.tar.gz"
+          RELEASE_URL="https://github.com/anchore/grype/releases/download/${GRYPE_VERSION}/${ARCHIVE}"
           TMP_DIR=$(mktemp -d)
-          curl -sSfL "https://github.com/anchore/grype/releases/download/${GRYPE_VERSION}/${ARCHIVE}" \
-            -o "${TMP_DIR}/${ARCHIVE}"
-          curl -sSfL "https://github.com/anchore/grype/releases/download/${GRYPE_VERSION}/${ARCHIVE}.sha256" \
-            -o "${TMP_DIR}/${ARCHIVE}.sha256"
-          (cd "${TMP_DIR}" && sha256sum -c "${ARCHIVE}.sha256")
-          tar -xzf "${TMP_DIR}/${ARCHIVE}" -C "${TMP_DIR}" grype
+          cleanup() { rm -rf "$TMP_DIR"; }
+          trap cleanup EXIT
+          if ! curl -fsSL "$RELEASE_URL" -o "${TMP_DIR}/${ARCHIVE}"; then
+            echo "[policy] Grype release ${GRYPE_VERSION} not found at ${RELEASE_URL}" >&2
+            exit 1
+          fi
+          if ! curl -fsSL "${RELEASE_URL}.sha256" -o "${TMP_DIR}/${ARCHIVE}.sha256"; then
+            echo "[policy] Failed to download checksum for ${GRYPE_VERSION}" >&2
+            exit 1
+          fi
+          (cd "$TMP_DIR" && sha256sum -c "${ARCHIVE}.sha256")
+          tar -xzf "${TMP_DIR}/${ARCHIVE}" -C "$TMP_DIR" grype
           sudo install -m 0755 "${TMP_DIR}/grype" /usr/local/bin/grype
-          rm -rf "${TMP_DIR}"
       - name: Login to registry
         uses: docker/login-action@v3
         with:
