@@ -320,8 +320,19 @@ push_referrer "$SPDX_SBOM" "application/spdx+json" "sbom-spdx" "$IMAGE_DIGEST"
 echo "[publish_referrers] Uploading CycloneDX SBOM referrer"
 push_referrer "$CYCLO_SBOM" "application/vnd.cyclonedx+json" "sbom-cyclonedx" "$IMAGE_DIGEST"
 
+PROVENANCE_CANONICAL="$PROVENANCE"
+PROVENANCE_TO_UPLOAD="$PROVENANCE"
+if [[ -f "$PROVENANCE" ]]; then
+  PROVENANCE_TO_UPLOAD="artifacts/slsa-provenance.filtered.jsonl"
+  python3 -m tools.export_provenance_envelope \
+    --source "$PROVENANCE" \
+    --destination "$PROVENANCE_TO_UPLOAD" \
+    --digest "$IMAGE_DIGEST" \
+    --mode envelope
+fi
+
 echo "[publish_referrers] Uploading SLSA provenance referrer"
-push_referrer "$PROVENANCE" "application/vnd.in-toto+json" "slsa-provenance-v1" "$IMAGE_DIGEST"
+push_referrer "$PROVENANCE_TO_UPLOAD" "application/vnd.in-toto+json" "slsa-provenance-v1" "$IMAGE_DIGEST"
 
 if [[ -n "$VEX_JSON" ]]; then
   check_file "$VEX_JSON" "VEX advisory"
@@ -330,7 +341,7 @@ if [[ -n "$VEX_JSON" ]]; then
 fi
 
 echo "[publish_referrers] Signing referrers with cosign (OIDC)"
-attest_provenance "${IMAGE_REF}@${IMAGE_DIGEST}" "$PROVENANCE"
+attest_provenance "${IMAGE_REF}@${IMAGE_DIGEST}" "$PROVENANCE_TO_UPLOAD"
 sign_with_token "$SPDX_SBOM" "spdx" "${IMAGE_REF}@${IMAGE_DIGEST}"
 sign_with_token "$CYCLO_SBOM" "cyclonedx" "${IMAGE_REF}@${IMAGE_DIGEST}"
 

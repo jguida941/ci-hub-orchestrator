@@ -1,3 +1,4 @@
+import base64
 import json
 from pathlib import Path
 import tempfile
@@ -47,3 +48,29 @@ class TestProvenanceIO(unittest.TestCase):
         self.assertIn("\n", content)
         parsed = json.loads(content)
         self.assertEqual(len(parsed), 1)
+
+    def test_decode_statement_round_trip(self):
+        statement = {"subject": [{"name": "img", "digest": {"sha256": "aaa"}}]}
+        payload = base64.b64encode(json.dumps(statement).encode("utf-8")).decode("utf-8")
+        envelope = {"payloadType": "in-toto", "payload": payload}
+        decoded = provenance_io.decode_statement(envelope)
+        self.assertEqual(decoded["subject"][0]["digest"]["sha256"], "aaa")
+
+    def test_select_envelope_by_digest(self):
+        def make_envelope(hex_digest):
+            stmt = {"subject": [{"name": "img", "digest": {"sha256": hex_digest}}]}
+            payload = base64.b64encode(json.dumps(stmt).encode("utf-8")).decode("utf-8")
+            return {"payloadType": "in-toto", "payload": payload}
+
+        records = [make_envelope("aaa"), make_envelope("bbb")]
+        selected = provenance_io.select_envelope(records, "sha256:bbb", 0)
+        decoded = provenance_io.decode_statement(selected)
+        self.assertEqual(
+            provenance_io.normalize_digest(decoded["subject"][0]["digest"]["sha256"]),
+            "sha256:bbb",
+        )
+
+    def test_select_envelope_out_of_range(self):
+        records = [{"payloadType": "in-toto", "payload": "aaa"}]
+        with self.assertRaises(provenance_io.ProvenanceParseError):
+            provenance_io.select_envelope(records, None, 10)
