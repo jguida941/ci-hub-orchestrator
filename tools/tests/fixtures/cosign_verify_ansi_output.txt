@@ -1,5 +1,5 @@
 Verification for ghcr.io/example/app@sha256:abc
 [1mThe following checks were performed on each of these signatures:[0m
   - The cosign claims were validated
-  - [32mCertificate identity:[0m repo:example/app:ref:refs/tags/v1.2.3
-  - [33mCertificate OIDC issuer:[0m https://token.actions.githubusercontent.com
+[32mCertificate subject:[0m repo:example/app:ref:refs/tags/v1.2.3
+[33mCertificate issuer URL:[0m https://token.actions.githubusercontent.com

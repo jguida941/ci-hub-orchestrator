@@ -14,8 +14,12 @@ from typing import Tuple
 
 
 ANSI_ESCAPE = re.compile(r"\x1B\[[0-9;]*[A-Za-z]")
-IDENTITY_RE = re.compile(r"certificate identity\s*:?\s*(.+)", re.IGNORECASE)
-ISSUER_RE = re.compile(r"certificate (?:oidc )?issuer\s*:?\s*(.+)", re.IGNORECASE)
+IDENTITY_RE = re.compile(
+    r"certificate (?:identity|subject)\s*:?\s*(.+)", re.IGNORECASE
+)
+ISSUER_RE = re.compile(
+    r"certificate (?:oidc )?issuer(?: url)?\s*:?\s*(.+)", re.IGNORECASE
+)
 
 
 def _strip_ansi(text: str) -> str:

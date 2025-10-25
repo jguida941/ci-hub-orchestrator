@@ -1,0 +1,6 @@
+Verification for ghcr.io/example/app@sha256:def
+The following checks were performed on each of these signatures:
+  - The cosign claims were validated
+Certificate subject: repo:example/app:ref:refs/heads/main
+Certificate issuer URL: https://token.actions.githubusercontent.com
+Debug: Something else

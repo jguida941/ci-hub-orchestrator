@@ -1,0 +1,9 @@
+Verification for ghcr.io/example/app@sha256:abc
+The following checks were performed on each of these signatures:
+  - Certificate identity: repo:example/app:ref:refs/tags/v1.0.0
+  - Certificate OIDC issuer: https://token.actions.githubusercontent.com
+
+Verification for ghcr.io/example/app@sha256:def
+The following checks were performed on each of these signatures:
+  - Certificate identity: repo:example/app:ref:refs/tags/v2.0.0
+  - Certificate OIDC issuer: https://token.actions.githubusercontent.com

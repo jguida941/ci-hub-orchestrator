@@ -13,8 +13,8 @@ class BuildIssuerSubjectInputTests(unittest.TestCase):
 Verification for ghcr.io/example/app@sha256:abc
 The following checks were performed on each of these signatures:
   - The cosign claims were validated
-  - Certificate identity: repo:example/app:ref:refs/tags/v1.2.3
-  - Certificate OIDC issuer: https://token.actions.githubusercontent.com
+Certificate subject: repo:example/app:ref:refs/tags/v1.2.3
+Certificate issuer URL: https://token.actions.githubusercontent.com
 """
         issuer, subject = issuer_subject._parse_identity(sample)
         self.assertEqual(subject, "repo:example/app:ref:refs/tags/v1.2.3")
@@ -41,6 +41,36 @@ Certificate issuer https://token.actions.githubusercontent.com
         issuer, subject = issuer_subject._parse_identity(sample)
         self.assertEqual(
             subject, "repo:example/app:ref:refs/tags/v1.2.3"
+        )
+        self.assertEqual(
+            issuer,
+            "https://token.actions.githubusercontent.com",
+        )
+
+    def test_parse_identity_from_verbose_cosign_fixture(self) -> None:
+        fixture = (
+            Path(__file__).with_name("fixtures")
+            / "cosign_verify_verbose_output.txt"
+        )
+        sample = fixture.read_text()
+        issuer, subject = issuer_subject._parse_identity(sample)
+        self.assertEqual(
+            subject, "repo:example/app:ref:refs/heads/main"
+        )
+        self.assertEqual(
+            issuer,
+            "https://token.actions.githubusercontent.com",
+        )
+
+    def test_parse_identity_from_multi_signature_fixture(self) -> None:
+        fixture = (
+            Path(__file__).with_name("fixtures")
+            / "cosign_verify_multi_signature_output.txt"
+        )
+        sample = fixture.read_text()
+        issuer, subject = issuer_subject._parse_identity(sample)
+        self.assertEqual(
+            subject, "repo:example/app:ref:refs/tags/v2.0.0"
         )
         self.assertEqual(
             issuer,
