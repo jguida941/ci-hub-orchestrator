@@ -14,16 +14,16 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 # Fetch the Caesar cipher project at a fixed commit to guarantee hermetic builds.
-RUN bash -o pipefail -c '\
+RUN bash -o pipefail -c " \
     set -euo pipefail; \
-    curl -fsSL "https://github.com/jguida941/learn-caesar-cipher/archive/${CAESAR_SHA}.tar.gz" \
+    curl -fsSL \"https://github.com/jguida941/learn-caesar-cipher/archive/${CAESAR_SHA}.tar.gz\" \
       | tar -xz -C /workspace; \
-    if [[ ! -d "/workspace/learn-caesar-cipher-${CAESAR_SHA}" ]]; then \
-      echo "Failed to locate extracted project for commit ${CAESAR_SHA}"; \
+    if [[ ! -d \"/workspace/learn-caesar-cipher-${CAESAR_SHA}\" ]]; then \
+      echo \"Failed to locate extracted project for commit ${CAESAR_SHA}\"; \
       exit 1; \
     fi; \
-    mv "/workspace/learn-caesar-cipher-${CAESAR_SHA}" /workspace/learn-caesar-cipher \
-  '
+    mv \"/workspace/learn-caesar-cipher-${CAESAR_SHA}\" /workspace/learn-caesar-cipher \
+  "
 
 WORKDIR /workspace/learn-caesar-cipher/caesar_cli
 

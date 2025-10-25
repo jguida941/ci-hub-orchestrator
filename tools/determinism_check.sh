@@ -67,25 +67,66 @@ KERNEL=$(uname -s)
 ARCH=$(uname -m)
 GIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-jq -n \
-  --arg image_ref "$IMAGE_REF" \
-  --arg manifest_sha256 "$MANIFEST_SHA" \
-  --arg recorded_at "$RECORDED_AT" \
-  --arg host "$HOSTNAME" \
-  --arg kernel "$KERNEL" \
-  --arg arch "$ARCH" \
-  --arg pipeline_commit "$GIT_SHA" \
-  '{
-    image_ref: $image_ref,
-    manifest_sha256: $manifest_sha256,
-    recorded_at: $recorded_at,
-    builder: {
-      host: $host,
-      kernel: $kernel,
-      arch: $arch
+if command -v jq >/dev/null 2>&1; then
+  jq -n \
+    --arg image_ref "$IMAGE_REF" \
+    --arg manifest_sha256 "$MANIFEST_SHA" \
+    --arg recorded_at "$RECORDED_AT" \
+    --arg host "$HOSTNAME" \
+    --arg kernel "$KERNEL" \
+    --arg arch "$ARCH" \
+    --arg pipeline_commit "$GIT_SHA" \
+    '{
+      image_ref: $image_ref,
+      manifest_sha256: $manifest_sha256,
+      recorded_at: $recorded_at,
+      builder: {
+        host: $host,
+        kernel: $kernel,
+        arch: $arch
+      },
+      pipeline_commit: $pipeline_commit
+    }' > "$METADATA_PATH"
+else
+  PYTHON_BIN=""
+  if command -v python3 >/dev/null 2>&1; then
+    PYTHON_BIN=$(command -v python3)
+  elif command -v python >/dev/null 2>&1; then
+    PYTHON_BIN=$(command -v python)
+  fi
+
+  if [[ -n "$PYTHON_BIN" ]]; then
+    IMAGE_REF="$IMAGE_REF" \
+    MANIFEST_SHA="$MANIFEST_SHA" \
+    RECORDED_AT="$RECORDED_AT" \
+    HOSTNAME="$HOSTNAME" \
+    KERNEL="$KERNEL" \
+    ARCH="$ARCH" \
+    GIT_SHA="$GIT_SHA" \
+    "$PYTHON_BIN" - <<'PY' > "$METADATA_PATH"
+import json
+import os
+import sys
+
+data = {
+    "image_ref": os.environ.get("IMAGE_REF", ""),
+    "manifest_sha256": os.environ.get("MANIFEST_SHA", ""),
+    "recorded_at": os.environ.get("RECORDED_AT", ""),
+    "builder": {
+        "host": os.environ.get("HOSTNAME", ""),
+        "kernel": os.environ.get("KERNEL", ""),
+        "arch": os.environ.get("ARCH", ""),
     },
-    pipeline_commit: $pipeline_commit
-  }' > "$METADATA_PATH"
+    "pipeline_commit": os.environ.get("GIT_SHA", ""),
+}
+json.dump(data, sys.stdout, indent=2)
+sys.stdout.write("\n")
+PY
+  else
+    >&2 echo "[determinism_check] jq or python is required to generate metadata JSON"
+    exit 1
+  fi
+fi
 
 cat > "$SUMMARY_PATH" <<SUMMARY
 Determinism evidence
