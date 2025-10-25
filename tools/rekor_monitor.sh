@@ -28,6 +28,18 @@ if ! rekor-cli search --help 2>&1 | grep -q -- "--log-url"; then
   HAS_LOG_URL=0
 fi
 
+LOG_ENTRY_CMD=()
+if rekor-cli log-entry --help >/dev/null 2>&1; then
+  LOG_ENTRY_CMD=(log-entry get)
+elif rekor-cli logentry --help >/dev/null 2>&1; then
+  LOG_ENTRY_CMD=(logentry get)
+elif rekor-cli get --help >/dev/null 2>&1; then
+  LOG_ENTRY_CMD=(get)
+else
+  >&2 echo "rekor-cli missing log-entry/logentry/get commands; please update rekor-cli"
+  exit 1
+fi
+
 TIMESTAMP=$(date -u '+%Y%m%dT%H%M%SZ')
 PROOF_PATH="$OUTPUT_DIR/rekor-proof-${TIMESTAMP}.json"
 SEARCH_PATH="$OUTPUT_DIR/rekor-search-${TIMESTAMP}.json"
@@ -38,6 +50,25 @@ normalize_digest() {
   value="$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')"
   value="${value#sha256:}"
   printf '%s' "$value"
+}
+
+rekor_log_entry_get() {
+  local selector="$1"
+  local value="$2"
+  local dest="$3"
+  local -a cmd=(rekor-cli)
+  if [[ "$HAS_LOG_URL" -eq 1 ]]; then
+    cmd+=(--log-url "$REKOR_LOG")
+  else
+    cmd+=(--rekor_server "$REKOR_LOG")
+  fi
+  cmd+=("${LOG_ENTRY_CMD[@]}")
+  cmd+=("$selector" "$value" --format json)
+  if ! "${cmd[@]}" > "$dest"; then
+    rm -f "$dest"
+    return 1
+  fi
+  return 0
 }
 
 EXPECTED_DIGEST="$(normalize_digest "$DIGEST")"
@@ -74,16 +105,13 @@ if [[ -s "$INDEX_FILE" ]]; then
     stored_digest="${stored_digest//[[:space:]]/}"
     [[ -z "$index" ]] && continue
     ENTRY_PATH="$OUTPUT_DIR/rekor-entry-${index}.json"
-    if [[ "$HAS_LOG_URL" -eq 1 ]]; then
-      if ! rekor-cli log-entry get --log-index "$index" --log-url "$REKOR_LOG" --format json > "$ENTRY_PATH"; then
+    if ! rekor_log_entry_get --log-index "$index" "$ENTRY_PATH"; then
+      if [[ "$HAS_LOG_URL" -eq 1 ]]; then
         >&2 echo "[rekor_monitor] Failed to fetch log entry $index via --log-url; skipping cached index"
-        continue
-      fi
-    else
-      if ! rekor-cli --rekor_server "$REKOR_LOG" log-entry get --log-index "$index" --format json > "$ENTRY_PATH"; then
+      else
         >&2 echo "[rekor_monitor] Failed to fetch log entry $index via --rekor_server; skipping cached index"
-        continue
       fi
+      continue
     fi
     echo "Stored Rekor log entry $index at $ENTRY_PATH"
     FOUND_UUID=$(jq -r 'keys[0] // empty' "$ENTRY_PATH")
@@ -196,14 +224,8 @@ fi
 if [[ -n "$INDEX_FILE" ]]; then
   tmp_entry=$(mktemp)
   fetch_ok=0
-  if [[ "$HAS_LOG_URL" -eq 1 ]]; then
-    if rekor-cli log-entry get --uuid "$UUID" --log-url "$REKOR_LOG" --format json > "$tmp_entry"; then
-      fetch_ok=1
-    fi
-  else
-    if rekor-cli --rekor_server "$REKOR_LOG" log-entry get --uuid "$UUID" --format json > "$tmp_entry"; then
-      fetch_ok=1
-    fi
+  if rekor_log_entry_get --uuid "$UUID" "$tmp_entry"; then
+    fetch_ok=1
   fi
   if [[ $fetch_ok -eq 1 ]]; then
     log_index=$(jq -r 'keys[0] as $k | .[$k].logIndex // empty' "$tmp_entry")

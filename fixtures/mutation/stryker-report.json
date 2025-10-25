@@ -1,0 +1,19 @@
+{
+  "schemaVersion": "1.0",
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": 0
+  },
+  "metrics": {
+    "mutationScore": 62.5,
+    "killed": 5,
+    "survived": 2,
+    "noCoverage": 1,
+    "timedOut": 0,
+    "compileErrors": 0,
+    "runtimeErrors": 0,
+    "ignored": 0,
+    "totalMutants": 8
+  }
+}

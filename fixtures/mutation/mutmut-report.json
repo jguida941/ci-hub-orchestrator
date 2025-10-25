@@ -1,0 +1,11 @@
+{
+  "tool": "mutmut",
+  "version": "2.4.0",
+  "stats": {
+    "total_mutants": 6,
+    "killed": 4,
+    "survived": 1,
+    "timeout": 1,
+    "skipped": 0
+  }
+}

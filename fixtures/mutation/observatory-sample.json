@@ -1,0 +1,31 @@
+{
+  "version": "v1",
+  "repo": "example/repo",
+  "branch": "feature/mutation",
+  "commit_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "min_resilience": 0.65,
+  "targets": [
+    {
+      "name": "frontend",
+      "tool": "stryker",
+      "parser": "stryker",
+      "report_path": "stryker-report.json",
+      "threshold": 0.60,
+      "labels": {
+        "language": "typescript",
+        "test_suite": "web-unit"
+      }
+    },
+    {
+      "name": "backend",
+      "tool": "mutmut",
+      "parser": "mutmut_json",
+      "report_path": "mutmut-report.json",
+      "threshold": 0.70,
+      "labels": {
+        "language": "python",
+        "test_suite": "api-unit"
+      }
+    }
+  ]
+}
