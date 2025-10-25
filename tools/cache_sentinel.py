@@ -64,11 +64,17 @@ def command_record(args: argparse.Namespace) -> int:
     entries = []
     for file_path in iter_files(cache_dir, args.max_files):
         rel_path = file_path.relative_to(cache_dir).as_posix()
+        try:
+            size = file_path.stat().st_size
+            digest = compute_digest(file_path)
+        except (OSError, IOError) as exc:
+            print(f"[cache_sentinel] warning: skipping {rel_path}: {exc}", file=sys.stderr)
+            continue
         entries.append(
             {
                 "path": rel_path,
-                "size": file_path.stat().st_size,
-                HASH_ALGO: compute_digest(file_path),
+                "size": size,
+                HASH_ALGO: digest,
             }
         )
 
@@ -81,8 +87,12 @@ def command_record(args: argparse.Namespace) -> int:
     }
 
     output = Path(args.output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(manifest, indent=2) + "\n")
+    try:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(manifest, indent=2) + "\n")
+    except OSError as exc:
+        print(f"[cache_sentinel] failed to write manifest '{output}': {exc}", file=sys.stderr)
+        return 1
     print(f"[cache_sentinel] Recorded {len(entries)} cache entries to {output}")
     return 0
 
@@ -98,28 +108,68 @@ def command_verify(args: argparse.Namespace) -> int:
         print(f"[cache_sentinel] manifest '{manifest_path}' not found", file=sys.stderr)
         return 1
 
-    manifest = json.loads(manifest_path.read_text())
-    entries = manifest.get("entries", [])
+    try:
+        manifest_raw = manifest_path.read_text()
+    except OSError as exc:
+        print(f"[cache_sentinel] unable to read manifest '{manifest_path}': {exc}", file=sys.stderr)
+        return 1
+    try:
+        manifest = json.loads(manifest_raw)
+    except json.JSONDecodeError as exc:
+        print(f"[cache_sentinel] failed to parse manifest '{manifest_path}': {exc}", file=sys.stderr)
+        return 1
+
+    if manifest.get("version") != 1:
+        print(f"[cache_sentinel] unsupported manifest version: {manifest.get('version')}", file=sys.stderr)
+        return 1
+    manifest_algo = manifest.get("algorithm")
+    if manifest_algo != HASH_ALGO:
+        print(
+            f"[cache_sentinel] manifest algorithm '{manifest_algo}' does not match current algorithm '{HASH_ALGO}'",
+            file=sys.stderr,
+        )
+        return 1
+
+    entries = manifest.get("entries")
+    if not isinstance(entries, list):
+        print("[cache_sentinel] manifest missing 'entries' list", file=sys.stderr)
+        return 1
     mismatches = []
     missing = []
     moved = []
 
     for entry in entries:
-        rel_path = entry["path"]
-        expected = entry.get(HASH_ALGO) or entry.get("blake3")
+        rel_path = entry.get("path")
+        if not isinstance(rel_path, str):
+            print(f"[cache_sentinel] manifest entry missing path: {entry}", file=sys.stderr)
+            continue
+        expected = entry.get(HASH_ALGO)
+        if expected is None:
+            print(f"[cache_sentinel] manifest entry for {rel_path} missing {HASH_ALGO} digest; skipping", file=sys.stderr)
+            missing.append(rel_path)
+            continue
         target = cache_dir / rel_path
         if not target.exists():
             missing.append(rel_path)
             continue
-        actual = compute_digest(target)
+        try:
+            actual = compute_digest(target)
+        except (OSError, IOError) as exc:
+            print(f"[cache_sentinel] error reading {target}: {exc}", file=sys.stderr)
+            missing.append(rel_path)
+            continue
         if actual != expected:
             print(
                 f"[cache_sentinel] mismatch for {target} (expected {expected}, got {actual}); quarantining",
                 file=sys.stderr,
             )
             destination = quarantine_dir / rel_path
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(str(target), str(destination))
+            try:
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(target), str(destination))
+            except (OSError, IOError) as exc:
+                print(f"[cache_sentinel] failed to quarantine {target}: {exc}", file=sys.stderr)
+                continue
             mismatches.append(rel_path)
             moved.append(str(destination))
 
@@ -138,8 +188,12 @@ def command_verify(args: argparse.Namespace) -> int:
     }
     if args.report:
         report_path = Path(args.report)
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps(details, indent=2) + "\n")
+        try:
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(json.dumps(details, indent=2) + "\n")
+        except OSError as exc:
+            print(f"[cache_sentinel] failed to write report '{report_path}': {exc}", file=sys.stderr)
+            status = 1
     print(json.dumps(details, indent=2))
     return status
 

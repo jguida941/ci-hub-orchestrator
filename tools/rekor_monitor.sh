@@ -143,22 +143,41 @@ def entry_items:
         []
       end;
   gather(.);
-JQ
-)
-
-REKOR_SEARCH_SUMMARY_JQ=$(cat <<'JQ'
 def pick_uuid($entry):
-  [
-    $entry.uuid,
-    $entry.UUID,
-    $entry.uuids?[0],
-    $entry.UUIDs?[0],
-    ($entry.logEntry | select(type=="object") | .uuid),
-    ($entry.attestation | select(type=="object") | .uuid)
-  ]
-  | map(select(type=="string" and length > 0))
-  | .[0];
-
+  if ($entry | type) != "object" then empty
+  else
+    [
+      $entry.uuid,
+      $entry.UUID,
+      $entry.uuids?[0],
+      $entry.UUIDs?[0],
+      $entry.results?[0],
+      ($entry.logEntry | select(type=="object") | .uuid),
+      ($entry.attestation | select(type=="object") | .uuid)
+    ]
+    | map(select(is_uuid))
+    | .[0]
+  end;
+def take_uuid($value; $allow_raw):
+  if $value == null then empty
+  elif $value | type == "string" then
+    if $allow_raw and ($value | is_uuid) then $value else empty end
+  elif $value | type == "object" then
+    (
+      pick_uuid($value)
+    )
+    // (
+      [ $value[]? | take_uuid(.; false) ]
+      | map(select(. != ""))
+      | .[0]
+    )
+  elif $value | type == "array" then
+    [ $value[]? | take_uuid(.; $allow_raw) ]
+    | map(select(. != ""))
+    | .[0]
+  else
+    empty
+  end;
 def pick_log_index($entry):
   [
     $entry.logIndex,
@@ -168,7 +187,13 @@ def pick_log_index($entry):
   ]
   | map(select(. != null))
   | .[0];
+def cached_entry_log_index:
+  (entry_items | .[0]?.value) as $entry
+  | (pick_log_index($entry) // empty);
+JQ
+)
 
+REKOR_SEARCH_SUMMARY_JQ=$(cat <<'JQ'
 def pick_log_id($entry):
   [
     $entry.logID,
@@ -258,21 +283,6 @@ if [[ -s "$INDEX_FILE" ]]; then
     fi
     echo "Stored Rekor log entry $index at $ENTRY_PATH"
     candidate_uuid=$(jq -r "${REKOR_JQ_HELPERS}"'
-      def pick_uuid($entry):
-        if ($entry | type) != "object" then empty
-        else
-          [
-            $entry.uuid,
-            $entry.UUID,
-            $entry.uuids?[0],
-            $entry.UUIDs?[0],
-            $entry.results?[0],
-            ($entry.logEntry | select(type=="object") | .uuid),
-            ($entry.attestation | select(type=="object") | .uuid)
-          ]
-          | map(select(is_uuid))
-          | .[0]
-        end;
       (entry_items | .[0]?) as $item
       | if $item == null then empty
         else (
@@ -393,41 +403,7 @@ ${REKOR_SEARCH_SUMMARY_JQ}
       fi
     fi
 
-    UUID=$(jq -r '
-      def is_uuid:
-        (type == "string") and ((test("^[0-9a-fA-F]{64}$")) or (test("^[0-9a-fA-F]{80}$")));
-      def from_entry($entry):
-        [
-          $entry.uuid,
-          $entry.UUID,
-          $entry.uuids?[0],
-          $entry.UUIDs?[0],
-          $entry.results?[0],
-          ($entry.logEntry | select(type=="object") | .uuid),
-          ($entry.attestation | select(type=="object") | .uuid)
-        ]
-        | map(select(is_uuid))
-        | .[0];
-      def take_uuid($value; $allow_raw):
-        if $value == null then empty
-        elif $value | type == "string" then
-          if $allow_raw and ($value | is_uuid) then $value else empty end
-        elif $value | type == "object" then
-          (
-            from_entry($value)
-          )
-          // (
-            [ $value[]? | take_uuid(.; false) ]
-            | map(select(. != ""))
-            | .[0]
-          )
-        elif $value | type == "array" then
-          [ $value[]? | take_uuid(.; $allow_raw) ]
-          | map(select(. != ""))
-          | .[0]
-        else
-          empty
-        end;
+    UUID=$(jq -r "${REKOR_JQ_HELPERS}"'
       (take_uuid(.; true) // empty)
     ' "$SEARCH_PATH")
     >&2 echo "[rekor_monitor] Parsed UUID: ${UUID}" 
@@ -485,7 +461,7 @@ if [[ -n "$INDEX_FILE" ]]; then
   fi
   if [[ $fetch_ok -eq 1 ]]; then
     log_index=$(jq -r "${REKOR_JQ_HELPERS}"'
-      (entry_items | .[0]?.value | .logIndex) // empty
+      (cached_entry_log_index // empty)
     ' "$tmp_entry")
     if [[ -n "$log_index" ]]; then
       mkdir -p "$(dirname "$INDEX_FILE")"

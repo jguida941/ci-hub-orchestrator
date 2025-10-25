@@ -350,8 +350,9 @@ jobs:
       - name: Record cache manifest
         run: |
           set -euo pipefail
-          CACHE_DIR="$HOME/.cache/pip"
+          CACHE_DIR="$(python3 -m pip cache dir)"
           mkdir -p artifacts/evidence/cache
+          mkdir -p "$CACHE_DIR"
           python3 tools/cache_sentinel.py record \
             --cache-dir "$CACHE_DIR" \
             --output artifacts/evidence/cache/cache-manifest.json \
@@ -362,7 +363,8 @@ jobs:
           COSIGN_EXPERIMENTAL: "1"
         run: |
           set -euo pipefail
-          CACHE_DIR="$HOME/.cache/pip"
+          CACHE_DIR="$(python3 -m pip cache dir)"
+          mkdir -p "$CACHE_DIR"
           python3 tools/cache_sentinel.py verify \
             --cache-dir "$CACHE_DIR" \
             --manifest artifacts/evidence/cache/cache-manifest.json \

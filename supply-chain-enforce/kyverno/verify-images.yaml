@@ -60,12 +60,12 @@ spec:
                 - keyless:
                     url: https://fulcio.sigstore.dev
                     issuer: "https://token.actions.githubusercontent.com"
-                    subject: "https://github.com/jguida941/ci-cd-hub/.github/workflows/release.yml@refs/tags/*"
+                    subject: &github_workflow_identity "https://github.com/jguida941/ci-cd-hub/.github/workflows/release.yml@refs/*"
                   rekor:
                     url: https://rekor.sigstore.dev
                   annotations:
                     cosign.sigstore.dev/certificate-oidc-issuer: "https://token.actions.githubusercontent.com"
-                    cosign.sigstore.dev/certificate-identity: "https://github.com/jguida941/ci-cd-hub/.github/workflows/release.yml@refs/tags/*"
+                    cosign.sigstore.dev/certificate-identity: *github_workflow_identity
                   attestation:
                     type: https://slsa.dev/provenance/v1
           attestations:
