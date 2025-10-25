@@ -1,18 +1,18 @@
 package supplychain.oci_referrers
 
-default allow = false
+default allow := false
 
 required := {"cyclonedx", "spdx", "provenance"}
 
 missing := {item |
-  item := required[_]
-  not has(item)
+	item := required[_]
+	not has(item)
 }
 
-allow {
-  count(missing) == 0
+allow if {
+	count(missing) == 0
 }
 
-has(item) {
-  input[item] == true
+has(item) if {
+	input[item] == true
 }

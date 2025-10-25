@@ -1,33 +1,34 @@
 package supplychain.sbom_vex
 
-default allow = false
+default allow := false
 
-allow {
+allow if {
   not high_risk_without_vex
 }
 
-high_risk_without_vex {
-  vuln := input.vulnerabilities[_]
-  vuln.cvss >= input.policy.cvss_threshold
-  not vex_not_affected[vuln.id]
+high_risk_without_vex if {
+  vulner := input.vulnerabilities[_]
+  vulner.cvss >= input.policy.cvss_threshold
+  not rule_vex_not_affected(vulner.id)
 }
 
-high_risk_without_vex {
-  vuln := input.vulnerabilities[_]
-  vuln.epss_percentile >= input.policy.epss_threshold
-  not vex_not_affected[vuln.id]
+high_risk_without_vex if {
+  vulner := input.vulnerabilities[_]
+  vulner.epss_percentile >= input.policy.epss_threshold
+  not rule_vex_not_affected(vulner.id)
 }
 
-vex_not_affected[id] {
+rule_vex_not_affected(id) if {
   record := input.vex[_]
   record.id == id
   record.status == "not_affected"
 }
 
-violations[vuln.id] {
-  vuln := input.vulnerabilities[_]
-  vuln.cvss >= input.policy.cvss_threshold
-  not vex_not_affected[vuln.id]
+violations contains id if {
+  vulner := input.vulnerabilities[_]
+  vulner.cvss >= input.policy.cvss_threshold
+  not rule_vex_not_affected(vulner.id)
+  id := vulner.id
 }
 
 message := {id: "Requires VEX justification" | id := violations[_]}
