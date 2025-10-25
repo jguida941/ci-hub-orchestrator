@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ci-cd-hub"
+version = "0.0.0"
+description = "Helper tools and policies for the CI Intelligence Hub"
+authors = [
+  { name = "CI Intel", email = "ci-intel@example.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools]
+packages = ["tools"]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "."
+]
+testpaths = [
+  "tools/tests"
+]

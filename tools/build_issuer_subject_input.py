@@ -14,6 +14,8 @@ from typing import Tuple
 
 
 ANSI_ESCAPE = re.compile(r"\x1B\[[0-9;]*[A-Za-z]")
+IDENTITY_RE = re.compile(r"certificate identity\s*:?\s*(.+)", re.IGNORECASE)
+ISSUER_RE = re.compile(r"certificate (?:oidc )?issuer\s*:?\s*(.+)", re.IGNORECASE)
 
 
 def _strip_ansi(text: str) -> str:
@@ -27,19 +29,13 @@ def _parse_identity(stdout: str) -> Tuple[str, str]:
         line = _strip_ansi(raw_line).strip()
         if not line:
             continue
-        lowered = line.lower()
-        if "certificate identity" in lowered:
-            if ":" in line:
-                _, _, remainder = line.rpartition(":")
-                subject = remainder.strip()
-            else:
-                subject = line.split("certificate identity", 1)[-1].strip()
-        elif "certificate oidc issuer" in lowered or "certificate issuer" in lowered:
-            if ":" in line:
-                _, _, remainder = line.rpartition(":")
-                issuer = remainder.strip()
-            else:
-                issuer = line.split("certificate", 1)[-1].strip()
+        identity_match = IDENTITY_RE.search(line)
+        if identity_match:
+            subject = identity_match.group(1).strip()
+            continue
+        issuer_match = ISSUER_RE.search(line)
+        if issuer_match:
+            issuer = issuer_match.group(1).strip()
     if not issuer or not subject:
         raise ValueError("unable to parse issuer/subject from cosign output")
     return issuer, subject

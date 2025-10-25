@@ -23,6 +23,29 @@ The following checks were performed on each of these signatures:
             "https://token.actions.githubusercontent.com",
         )
 
+    def test_parse_identity_handles_colonless_lines(self) -> None:
+        sample = """
+Verification for ghcr.io/example/app@sha256:def
+Certificate identity repo:example/app:ref:refs/heads/main
+Certificate issuer https://token.actions.githubusercontent.com
+"""
+        issuer, subject = issuer_subject._parse_identity(sample)
+        self.assertEqual(subject, "repo:example/app:ref:refs/heads/main")
+        self.assertEqual(issuer, "https://token.actions.githubusercontent.com")
+    def test_parse_identity_from_ansi_colored_fixture(self) -> None:
+        fixture = (
+            Path(__file__).with_name("fixtures") / "cosign_verify_ansi_output.txt"
+        )
+        sample = fixture.read_text()
+        issuer, subject = issuer_subject._parse_identity(sample)
+        self.assertEqual(
+            subject, "repo:example/app:ref:refs/tags/v1.2.3"
+        )
+        self.assertEqual(
+            issuer,
+            "https://token.actions.githubusercontent.com",
+        )
+
     def test_parse_identity_raises_on_missing_fields(self) -> None:
         with self.assertRaises(ValueError):
             issuer_subject._parse_identity("Certificate identity: missing issuer")
