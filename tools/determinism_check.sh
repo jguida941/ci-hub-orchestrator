@@ -67,19 +67,25 @@ KERNEL=$(uname -s)
 ARCH=$(uname -m)
 GIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
 
-cat > "$METADATA_PATH" <<JSON
-{
-  "image_ref": "$IMAGE_REF",
-  "manifest_sha256": "$MANIFEST_SHA",
-  "recorded_at": "$RECORDED_AT",
-  "builder": {
-    "host": "$HOSTNAME",
-    "kernel": "$KERNEL",
-    "arch": "$ARCH"
-  },
-  "pipeline_commit": "$GIT_SHA"
-}
-JSON
+jq -n \
+  --arg image_ref "$IMAGE_REF" \
+  --arg manifest_sha256 "$MANIFEST_SHA" \
+  --arg recorded_at "$RECORDED_AT" \
+  --arg host "$HOSTNAME" \
+  --arg kernel "$KERNEL" \
+  --arg arch "$ARCH" \
+  --arg pipeline_commit "$GIT_SHA" \
+  '{
+    image_ref: $image_ref,
+    manifest_sha256: $manifest_sha256,
+    recorded_at: $recorded_at,
+    builder: {
+      host: $host,
+      kernel: $kernel,
+      arch: $arch
+    },
+    pipeline_commit: $pipeline_commit
+  }' > "$METADATA_PATH"
 
 cat > "$SUMMARY_PATH" <<SUMMARY
 Determinism evidence
