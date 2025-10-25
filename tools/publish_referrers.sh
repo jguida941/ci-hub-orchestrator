@@ -227,23 +227,43 @@ attest_provenance() {
 
 sign_with_token() {
   local predicate_path="$1"
-  local predicate_type="$2"
+  local predicate_types_csv="$2"
   local subject="$3"
-  local args=(attest --predicate "$predicate_path" --type "$predicate_type" --yes)
-  local oidc_token=""
-  if oidc_token=$(fetch_oidc_token); then
-    echo "[publish_referrers] Using GitHub OIDC token for cosign (length ${#oidc_token})"
-    log_token_expiry "$oidc_token"
-    export SIGSTORE_ID_TOKEN="$oidc_token"
-    local display_args=("${args[@]}")
-    display_args+=("--identity-token" "<redacted>")
-    echo "[publish_referrers] cosign command: cosign ${display_args[*]} $subject"
-    args+=("--identity-token" "$oidc_token")
-  else
-    >&2 echo "[publish_referrers] Proceeding without explicit identity token for type '${predicate_type}'"
-    echo "[publish_referrers] cosign command: cosign ${args[*]} $subject"
+
+  local IFS=','
+  read -r -a predicate_types <<< "$predicate_types_csv"
+  if [[ ${#predicate_types[@]} -eq 0 ]]; then
+    predicate_types=("$predicate_types_csv")
   fi
-  run_cosign_attest "${args[@]}" "$subject"
+
+  local attempted=()
+  for predicate_type in "${predicate_types[@]}"; do
+    predicate_type="${predicate_type//[[:space:]]/}"
+    if [[ -z "$predicate_type" ]]; then
+      continue
+    fi
+    attempted+=("$predicate_type")
+    local args=(attest --predicate "$predicate_path" --type "$predicate_type" --yes)
+    local oidc_token=""
+    if oidc_token=$(fetch_oidc_token); then
+      echo "[publish_referrers] Using GitHub OIDC token for cosign (length ${#oidc_token})"
+      log_token_expiry "$oidc_token"
+      export SIGSTORE_ID_TOKEN="$oidc_token"
+      local display_args=("${args[@]}")
+      display_args+=("--identity-token" "<redacted>")
+      echo "[publish_referrers] cosign command: cosign ${display_args[*]} $subject"
+      args+=("--identity-token" "$oidc_token")
+    else
+      >&2 echo "[publish_referrers] Proceeding without explicit identity token for type '${predicate_type}'"
+      echo "[publish_referrers] cosign command: cosign ${args[*]} $subject"
+    fi
+    if run_cosign_attest "${args[@]}" "$subject"; then
+      return 0
+    fi
+    >&2 echo "[publish_referrers] cosign attest failed for type '${predicate_type}'"
+  done
+  >&2 echo "[publish_referrers] Unable to sign ${predicate_path}; tried types: ${attempted[*]}"
+  return 1
 }
 
 push_referrer() {
@@ -322,13 +342,21 @@ push_referrer "$CYCLO_SBOM" "application/vnd.cyclonedx+json" "sbom-cyclonedx" "$
 
 PROVENANCE_CANONICAL="$PROVENANCE"
 PROVENANCE_TO_UPLOAD="$PROVENANCE"
+PROVENANCE_PREDICATE="$PROVENANCE"
 if [[ -f "$PROVENANCE" ]]; then
-  PROVENANCE_TO_UPLOAD="artifacts/slsa-provenance.filtered.jsonl"
+  PROVENANCE_TO_UPLOAD="artifacts/slsa-provenance.filtered.json"
   python3 -m tools.export_provenance_envelope \
     --source "$PROVENANCE" \
     --destination "$PROVENANCE_TO_UPLOAD" \
     --digest "$IMAGE_DIGEST" \
     --mode envelope
+
+  PROVENANCE_PREDICATE="artifacts/slsa-provenance.predicate.json"
+  python3 -m tools.export_provenance_envelope \
+    --source "$PROVENANCE" \
+    --destination "$PROVENANCE_PREDICATE" \
+    --digest "$IMAGE_DIGEST" \
+    --mode predicate
 fi
 
 echo "[publish_referrers] Uploading SLSA provenance referrer"
@@ -341,12 +369,12 @@ if [[ -n "$VEX_JSON" ]]; then
 fi
 
 echo "[publish_referrers] Signing referrers with cosign (OIDC)"
-attest_provenance "${IMAGE_REF}@${IMAGE_DIGEST}" "$PROVENANCE_TO_UPLOAD"
+attest_provenance "${IMAGE_REF}@${IMAGE_DIGEST}" "$PROVENANCE_PREDICATE"
 sign_with_token "$SPDX_SBOM" "spdx" "${IMAGE_REF}@${IMAGE_DIGEST}"
 sign_with_token "$CYCLO_SBOM" "cyclonedx" "${IMAGE_REF}@${IMAGE_DIGEST}"
 
 if [[ -n "$VEX_JSON" ]]; then
-  sign_with_token "$VEX_JSON" "vex" "${IMAGE_REF}@${IMAGE_DIGEST}"
+  sign_with_token "$VEX_JSON" "vex,cyclonedx" "${IMAGE_REF}@${IMAGE_DIGEST}"
 fi
 
 echo "[publish_referrers] Referrer publication completed"

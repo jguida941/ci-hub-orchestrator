@@ -42,9 +42,12 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--mode",
-        choices=("envelope", "statement"),
+        choices=("envelope", "statement", "predicate"),
         default="envelope",
-        help="Write the raw envelope or the decoded statement (default: envelope).",
+        help=(
+            "Write the raw envelope, decoded statement, or just the predicate payload "
+            "(default: envelope)."
+        ),
     )
     return parser.parse_args()
 
@@ -61,11 +64,21 @@ def main() -> None:
     except provenance_io.ProvenanceParseError as exc:
         raise SystemExit(str(exc)) from exc
     output_payload = envelope
-    if args.mode == "statement":
-        statement = envelope if "payload" not in envelope else provenance_io.decode_statement(envelope)
+    if args.mode in {"statement", "predicate"}:
+        statement = (
+            envelope
+            if "payload" not in envelope
+            else provenance_io.decode_statement(envelope)
+        )
         if not isinstance(statement, dict):
             raise SystemExit("decoded statement is not a JSON object")
-        output_payload = statement
+        if args.mode == "statement":
+            output_payload = statement
+        else:
+            predicate = statement.get("predicate")
+            if not isinstance(predicate, dict):
+                raise SystemExit("provenance predicate missing or not an object")
+            output_payload = predicate
 
     args.destination.parent.mkdir(parents=True, exist_ok=True)
     args.destination.write_text(
