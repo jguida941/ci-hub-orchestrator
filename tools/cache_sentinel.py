@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""Cache Sentinel: record and verify cache manifests using BLAKE3 digests."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+from typing import Iterable
+
+try:
+    from blake3 import blake3 as _blake3
+    HASH_ALGO = "blake3"
+
+    def new_hasher():
+        return _blake3()
+
+except ModuleNotFoundError:  # pragma: no cover - fallback path
+    import hashlib
+
+    HASH_ALGO = "sha256"
+    _CACHE_SENTINEL_WARNED = False
+
+    def new_hasher():
+        global _CACHE_SENTINEL_WARNED
+        if not _CACHE_SENTINEL_WARNED:
+            print("[cache_sentinel] blake3 module not installed; falling back to sha256", file=sys.stderr)
+            _CACHE_SENTINEL_WARNED = True
+        return hashlib.sha256()
+
+CHUNK_SIZE = 512 * 1024
+
+
+def iter_files(cache_dir: Path, max_files: int | None = None) -> Iterable[Path]:
+    count = 0
+    for root, _, files in os.walk(cache_dir):
+        for file_name in files:
+            yield Path(root) / file_name
+            count += 1
+            if max_files is not None and count >= max_files:
+                return
+
+
+def compute_digest(path: Path) -> str:
+    hasher = new_hasher()
+    with path.open("rb") as handle:
+        while True:
+            chunk = handle.read(CHUNK_SIZE)
+            if not chunk:
+                break
+            hasher.update(chunk)
+    return hasher.hexdigest()
+
+
+def command_record(args: argparse.Namespace) -> int:
+    cache_dir = Path(args.cache_dir).resolve()
+    if not cache_dir.is_dir():
+        print(f"[cache_sentinel] cache directory '{cache_dir}' does not exist", file=sys.stderr)
+        return 1
+
+    entries = []
+    for file_path in iter_files(cache_dir, args.max_files):
+        rel_path = file_path.relative_to(cache_dir).as_posix()
+        entries.append(
+            {
+                "path": rel_path,
+                "size": file_path.stat().st_size,
+                HASH_ALGO: compute_digest(file_path),
+            }
+        )
+
+    manifest = {
+        "version": 1,
+        "cache_dir": str(cache_dir),
+        "entry_count": len(entries),
+        "algorithm": HASH_ALGO,
+        "entries": entries,
+    }
+
+    output = Path(args.output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(manifest, indent=2) + "\n")
+    print(f"[cache_sentinel] Recorded {len(entries)} cache entries to {output}")
+    return 0
+
+
+def command_verify(args: argparse.Namespace) -> int:
+    cache_dir = Path(args.cache_dir).resolve()
+    manifest_path = Path(args.manifest)
+    quarantine_dir = Path(args.quarantine_dir).resolve()
+    if not cache_dir.is_dir():
+        print(f"[cache_sentinel] cache directory '{cache_dir}' does not exist", file=sys.stderr)
+        return 1
+    if not manifest_path.is_file():
+        print(f"[cache_sentinel] manifest '{manifest_path}' not found", file=sys.stderr)
+        return 1
+
+    manifest = json.loads(manifest_path.read_text())
+    entries = manifest.get("entries", [])
+    mismatches = []
+    missing = []
+    moved = []
+
+    for entry in entries:
+        rel_path = entry["path"]
+        expected = entry.get(HASH_ALGO) or entry.get("blake3")
+        target = cache_dir / rel_path
+        if not target.exists():
+            missing.append(rel_path)
+            continue
+        actual = compute_digest(target)
+        if actual != expected:
+            print(
+                f"[cache_sentinel] mismatch for {target} (expected {expected}, got {actual}); quarantining",
+                file=sys.stderr,
+            )
+            destination = quarantine_dir / rel_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(target), str(destination))
+            mismatches.append(rel_path)
+            moved.append(str(destination))
+
+    status = 0
+    if missing or mismatches:
+        status = 1
+    if moved:
+        print(f"[cache_sentinel] quarantined files written to {quarantine_dir}", file=sys.stderr)
+
+    details = {
+        "manifest": str(manifest_path),
+        "checked": len(entries),
+        "missing": missing,
+        "mismatches": mismatches,
+        "quarantined": moved,
+    }
+    if args.report:
+        report_path = Path(args.report)
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        report_path.write_text(json.dumps(details, indent=2) + "\n")
+    print(json.dumps(details, indent=2))
+    return status
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Cache sentinel manifest recorder/verifier")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    record = subparsers.add_parser("record", help="Record cache manifest entries")
+    record.add_argument("--cache-dir", required=True, help="Cache directory to scan")
+    record.add_argument("--output", required=True, help="Manifest JSON output path")
+    record.add_argument(
+        "--max-files",
+        type=int,
+        default=1000,
+        help="Maximum number of files to record (default: 1000)",
+    )
+    record.set_defaults(func=command_record)
+
+    verify = subparsers.add_parser("verify", help="Verify cache manifest and quarantine mismatches")
+    verify.add_argument("--cache-dir", required=True, help="Cache directory to check")
+    verify.add_argument("--manifest", required=True, help="Manifest JSON path to validate against")
+    verify.add_argument(
+        "--quarantine-dir",
+        required=True,
+        help="Directory to move mismatched files into",
+    )
+    verify.add_argument(
+        "--report",
+        help="Optional JSON report output path",
+    )
+    verify.set_defaults(func=command_verify)
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+    return args.func(args)
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

@@ -18,8 +18,10 @@ ensure_rekor_cli() {
     return 0
   fi
   local version="${REKOR_CLI_VERSION:-v1.3.1}"
-  local os="$(uname -s | tr '[:upper:]' '[:lower:]')"
-  local arch="$(uname -m)"
+  local os
+  os="$(uname -s | tr '[:upper:]' '[:lower:]')"
+  local arch
+  arch="$(uname -m)"
   case "$arch" in
     x86_64 | amd64) arch="amd64" ;;
     arm64 | aarch64) arch="arm64" ;;
@@ -27,19 +29,26 @@ ensure_rekor_cli() {
   esac
   local filename="rekor-cli-${os}-${arch}"
   local url="https://github.com/sigstore/rekor/releases/download/${version}/${filename}"
-  local dest="$OUTPUT_DIR/rekor-cli"
-  >&2 echo "[rekor_monitor] rekor-cli not found; downloading ${url}"
-  if ! curl -fsSL "$url" -o "$dest"; then
-    >&2 echo "[rekor_monitor] Failed to download rekor-cli from ${url}"
-    return 1
+  local cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/rekor-monitor"
+  local dest="${cache_dir}/rekor-cli-${version}-${os}-${arch}"
+  mkdir -p "$cache_dir"
+  if [[ ! -x "$dest" ]]; then
+    >&2 echo "[rekor_monitor] rekor-cli not found; downloading ${url}"
+    if ! curl -fsSL "$url" -o "$dest"; then
+      >&2 echo "[rekor_monitor] Failed to download rekor-cli from ${url}"
+      rm -f "$dest"
+      return 1
+    fi
+    chmod +x "$dest"
   fi
-  chmod +x "$dest"
-  PATH="$(dirname "$dest"):$PATH"
+  ln -sf "$dest" "${cache_dir}/rekor-cli"
+  PATH="${cache_dir}:$PATH"
   export PATH
-  if ! command -v rekor-cli >/dev/null 2>&1; then
-    >&2 echo "[rekor_monitor] Unable to initialize downloaded rekor-cli binary"
-    return 1
+  if command -v rekor-cli >/dev/null 2>&1; then
+    return 0
   fi
+  >&2 echo "[rekor_monitor] Unable to initialize rekor-cli binary"
+  return 1
 }
 
 if ! ensure_rekor_cli; then
@@ -137,6 +146,73 @@ def entry_items:
 JQ
 )
 
+REKOR_SEARCH_SUMMARY_JQ=$(cat <<'JQ'
+def pick_uuid($entry):
+  [
+    $entry.uuid,
+    $entry.UUID,
+    $entry.uuids?[0],
+    $entry.UUIDs?[0],
+    ($entry.logEntry | select(type=="object") | .uuid),
+    ($entry.attestation | select(type=="object") | .uuid)
+  ]
+  | map(select(type=="string" and length > 0))
+  | .[0];
+
+def pick_log_index($entry):
+  [
+    $entry.logIndex,
+    $entry.LogIndex,
+    $entry.logEntry?.logIndex,
+    $entry.verification?.inclusionProof?.logIndex
+  ]
+  | map(select(. != null))
+  | .[0];
+
+def pick_log_id($entry):
+  [
+    $entry.logID,
+    $entry.logId,
+    $entry.logEntry?.logID
+  ]
+  | map(select(type=="string" and length > 0))
+  | .[0];
+
+def pick_integrated_time($entry):
+  [
+    $entry.integratedTime,
+    $entry.logEntry?.integratedTime,
+    $entry.verification?.inclusionProof?.integratedTime
+  ]
+  | map(select(. != null))
+  | .[0];
+
+def pick_inclusion_state($entry):
+  if $entry.verification?.inclusionProof or $entry.inclusionProof then "proof" else "none" end;
+
+def summarize($item):
+  ($item.value // {}) as $entry
+  | {
+      uuid: (pick_uuid($entry) // ($item.key // "unknown")),
+      log_index: (pick_log_index($entry) // "unknown"),
+      log_id: (pick_log_id($entry) // "unknown"),
+      integrated_time: (pick_integrated_time($entry) // "unknown"),
+      inclusion: pick_inclusion_state($entry)
+    }
+  | "[rekor_monitor] entry uuid=\(.uuid) logIndex=\(.log_index) logID=\(.log_id) integrated=\(.integrated_time) inclusion=\(.inclusion)";
+
+(entry_items) as $items
+| if ($items | length) == 0 then
+    "[rekor_monitor] Search returned 0 entries"
+  else
+    (
+      "[rekor_monitor] Search returned " + (($items | length) | tostring) + " entries",
+      ($items[] | summarize(.))
+    )
+  end
+JQ
+)
+
 EXPECTED_DIGEST="$(normalize_digest "$DIGEST")"
 
 # Copy indices from workspace if present
@@ -181,7 +257,7 @@ if [[ -s "$INDEX_FILE" ]]; then
       continue
     fi
     echo "Stored Rekor log entry $index at $ENTRY_PATH"
-    candidate_uuid=$(jq -r "${REKOR_JQ_HELPERS}
+    candidate_uuid=$(jq -r "${REKOR_JQ_HELPERS}"'
       def pick_uuid($entry):
         if ($entry | type) != "object" then empty
         else
@@ -209,7 +285,7 @@ if [[ -s "$INDEX_FILE" ]]; then
         )
         end
       // empty
-    " "$ENTRY_PATH")
+    ' "$ENTRY_PATH")
     if [[ -n "$candidate_uuid" ]] && ! is_valid_uuid "$candidate_uuid"; then
       candidate_uuid=""
     fi
@@ -221,7 +297,7 @@ if [[ -s "$INDEX_FILE" ]]; then
       fi
     fi
     if [[ "$MATCHED" == false ]]; then
-      FOUND_UUID_DIGEST=$(jq -r "${REKOR_JQ_HELPERS}
+      FOUND_UUID_DIGEST=$(jq -r "${REKOR_JQ_HELPERS}"'
         def decode_payload($v):
           $v | select(type=="string") | @base64d | (try fromjson catch empty);
 
@@ -267,7 +343,7 @@ if [[ -s "$INDEX_FILE" ]]; then
                 end
             end
         end
-      " "$ENTRY_PATH")
+      ' "$ENTRY_PATH")
       found_norm="$(normalize_digest "$FOUND_UUID_DIGEST")"
       if [[ -n "$found_norm" && "$found_norm" == "$EXPECTED_DIGEST" ]]; then
         MATCHED=true
@@ -306,8 +382,16 @@ if [[ -z "$UUID" ]]; then
     else
       rekor-cli --rekor_server "$REKOR_LOG" search --sha "$EXPECTED_DIGEST" --format json > "$SEARCH_PATH" || true
     fi
-    >&2 echo "[rekor_monitor] Search command finished, content of ${SEARCH_PATH}:"
-    >&2 cat "${SEARCH_PATH}" 
+    if [[ "${REKOR_MONITOR_DEBUG:-0}" == "1" ]]; then
+      >&2 echo "[rekor_monitor] Search command finished; raw response saved to ${SEARCH_PATH}"
+      >&2 cat "${SEARCH_PATH}"
+    else
+      if ! jq -r "${REKOR_JQ_HELPERS}
+${REKOR_SEARCH_SUMMARY_JQ}
+" "$SEARCH_PATH" >&2; then
+        >&2 echo "[rekor_monitor] Search complete; unable to summarize response (see ${SEARCH_PATH})"
+      fi
+    fi
 
     UUID=$(jq -r '
       def is_uuid:
@@ -400,9 +484,9 @@ if [[ -n "$INDEX_FILE" ]]; then
     fetch_ok=1
   fi
   if [[ $fetch_ok -eq 1 ]]; then
-    log_index=$(jq -r "${REKOR_JQ_HELPERS}
+    log_index=$(jq -r "${REKOR_JQ_HELPERS}"'
       (entry_items | .[0]?.value | .logIndex) // empty
-    " "$tmp_entry")
+    ' "$tmp_entry")
     if [[ -n "$log_index" ]]; then
       mkdir -p "$(dirname "$INDEX_FILE")"
       if ! { [[ -f "$INDEX_FILE" ]] && grep -q "^${log_index} " "$INDEX_FILE"; }; then

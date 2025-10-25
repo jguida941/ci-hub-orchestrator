@@ -115,14 +115,14 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--stryker", type=Path, help="Path to write stryker-style JSON")
     parser.add_argument("--mutmut", type=Path, help="Path to write mutmut-style JSON")
     parser.add_argument(
-        "--pytest-args",
-        nargs=argparse.REMAINDER,
-        help="Extra arguments to pass to pytest (captured as-is after --pytest-args)",
-    )
-    parser.add_argument(
         "--allow-fail",
         action="store_true",
         help="Return zero even if pytest exits non-zero (default: exit with pytest code)",
+    )
+    parser.add_argument(
+        "--pytest-args",
+        nargs=argparse.REMAINDER,
+        help="Extra arguments to pass to pytest (captured as-is after --pytest-args)",
     )
     args = parser.parse_args(argv)
     if not args.stryker and not args.mutmut:
@@ -134,6 +134,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parse_args(argv)
     extra_pytest_args = args.pytest_args or []
     passed, skipped, returncode = run_pytest(extra_pytest_args)
+
+    if passed <= 0:
+        print(
+            "[generate_mutation_reports] Error: pytest reported zero passed tests; refusing to emit mutation reports",
+            file=sys.stderr,
+        )
+        return returncode or 1
 
     if args.stryker:
         write_report(args.stryker, compute_stryker_metrics(passed, skipped))

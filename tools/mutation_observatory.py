@@ -441,7 +441,7 @@ def _extract_mutants_from_generic(payload: dict[str, Any]) -> list[dict[str, Any
         if not cleaned:
             continue
         status = str(cleaned.get("status") or "").lower()
-        if status in {"killed", "timeout"}:
+        if status == "killed":
             continue
         normalized.append(cleaned)
     return normalized
@@ -462,9 +462,9 @@ def _extract_stryker_mutants(payload: dict[str, Any]) -> list[dict[str, Any]]:
             normalized = _normalize_mutant(mutant, default_file=rel_path)
             if not normalized:
                 continue
-            status = normalized.get("status", "")
-            if status in {"killed", "timeout"}:
-                continue  # focus on actionable survivors / non-passing mutants
+            status = str(normalized.get("status") or "").lower()
+            if status == "killed":
+                continue  # focus on actionable non-killed mutants
             mutants.append(normalized)
     return mutants
 
@@ -563,7 +563,7 @@ def build_target_result(
         "mutant_samples": [
             sample
             for sample in (mutant_samples or [])
-            if sample.get("status") == "survived"
+            if str(sample.get("status") or "").lower() != "killed"
         ][:5],
     }
 

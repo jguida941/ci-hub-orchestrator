@@ -82,6 +82,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Python deps (cache sentinel)
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install blake3
+
       - name: Extract tag
         id: vars
         run: echo "tag=${GITHUB_REF##*/}" >> "$GITHUB_OUTPUT"
@@ -341,6 +346,31 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/evidence/determinism
           ./tools/determinism_check.sh "${IMAGE_DIGEST_REF}" artifacts/evidence/determinism
+
+      - name: Record cache manifest
+        run: |
+          set -euo pipefail
+          CACHE_DIR="$HOME/.cache/pip"
+          mkdir -p artifacts/evidence/cache
+          python3 tools/cache_sentinel.py record \
+            --cache-dir "$CACHE_DIR" \
+            --output artifacts/evidence/cache/cache-manifest.json \
+            --max-files 500
+
+      - name: Verify cache manifest and sign
+        env:
+          COSIGN_EXPERIMENTAL: "1"
+        run: |
+          set -euo pipefail
+          CACHE_DIR="$HOME/.cache/pip"
+          python3 tools/cache_sentinel.py verify \
+            --cache-dir "$CACHE_DIR" \
+            --manifest artifacts/evidence/cache/cache-manifest.json \
+            --quarantine-dir artifacts/evidence/cache/quarantine \
+            --report artifacts/evidence/cache/cache-report.json
+          cosign sign-blob --yes \
+            --output-signature artifacts/evidence/cache/cache-manifest.sig \
+            artifacts/evidence/cache/cache-manifest.json
 
       - name: Run Rekor monitor
         run: |

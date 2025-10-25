@@ -47,19 +47,40 @@ if ! command -v docker >/dev/null 2>&1; then
 fi
 
 MANIFEST_RAW="$OUTPUT_DIR/manifest.raw.json"
+MANIFEST_RAW_SECOND="$OUTPUT_DIR/manifest.second.raw.json"
 MANIFEST_PRETTY="$OUTPUT_DIR/manifest.pretty.txt"
 METADATA_PATH="$OUTPUT_DIR/metadata.json"
 SUMMARY_PATH="$OUTPUT_DIR/summary.txt"
+RAW_SHA_FILE="$OUTPUT_DIR/manifest.raw.sha256"
+RAW_SECOND_SHA_FILE="$OUTPUT_DIR/manifest.second.sha256"
+MANIFEST_DIFF="$OUTPUT_DIR/manifest.diff.txt"
 
 if ! docker buildx imagetools inspect --raw "$IMAGE_REF" > "$MANIFEST_RAW"; then
   >&2 echo "[determinism_check] Failed to inspect $IMAGE_REF (raw)"
   exit 1
 fi
 
+if ! docker buildx imagetools inspect --raw "$IMAGE_REF" > "$MANIFEST_RAW_SECOND"; then
+  >&2 echo "[determinism_check] Failed to perform second inspect for $IMAGE_REF"
+  exit 1
+fi
+
 docker buildx imagetools inspect "$IMAGE_REF" > "$MANIFEST_PRETTY"
 
 MANIFEST_SHA=$(sha256sum "$MANIFEST_RAW" | awk '{print $1}')
-printf '%s  %s\n' "$MANIFEST_SHA" "$(basename "$MANIFEST_RAW")" > "$OUTPUT_DIR/manifest.raw.sha256"
+MANIFEST_SHA_SECOND=$(sha256sum "$MANIFEST_RAW_SECOND" | awk '{print $1}')
+printf '%s  %s\n' "$MANIFEST_SHA" "$(basename "$MANIFEST_RAW")" > "$RAW_SHA_FILE"
+printf '%s  %s\n' "$MANIFEST_SHA_SECOND" "$(basename "$MANIFEST_RAW_SECOND")" > "$RAW_SECOND_SHA_FILE"
+
+if [[ "$MANIFEST_SHA" != "$MANIFEST_SHA_SECOND" ]]; then
+  if command -v diff >/dev/null 2>&1; then
+    diff -u "$MANIFEST_RAW" "$MANIFEST_RAW_SECOND" > "$MANIFEST_DIFF" || true
+  else
+    printf 'Mismatch between manifest runs\nfirst: %s\nsecond: %s\n' "$MANIFEST_SHA" "$MANIFEST_SHA_SECOND" > "$MANIFEST_DIFF"
+  fi
+  >&2 echo "[determinism_check] Mismatch detected between dual manifest inspections (hashes ${MANIFEST_SHA} vs ${MANIFEST_SHA_SECOND})"
+  exit 2
+fi
 
 RECORDED_AT=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
 HOSTNAME=$(uname -n)
@@ -133,5 +154,6 @@ Determinism evidence
 ====================
 Image ref: $IMAGE_REF
 Manifest SHA256: $MANIFEST_SHA
+Second run SHA256: $MANIFEST_SHA_SECOND
 Recorded at: $RECORDED_AT
 SUMMARY

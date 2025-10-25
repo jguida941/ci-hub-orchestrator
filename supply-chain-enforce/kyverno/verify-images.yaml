@@ -1,77 +1,74 @@
 apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
-  name: verify-supply-chain
+  name: verify-ci-intel-supply-chain
+  annotations:
+    policies.kyverno.io/title: "CI Intelligence Hub Supply Chain Guardrails"
+    policies.kyverno.io/category: Supply Chain
+    policies.kyverno.io/minversion: 1.10.0
+    policies.kyverno.io/description: >
+      Ensures workloads only deploy the signed ghcr.io/jguida941/ci-intel-app image,
+      validates its Sigstore keyless signature, and requires SLSA provenance plus SPDX
+      and CycloneDX SBOM attestations that are published as OCI referrers during release.
 spec:
-  validationFailureAction: Enforce
   background: true
+  validationFailureAction: Enforce
+  failurePolicy: Fail
+  webhookTimeoutSeconds: 10
   rules:
-    - name: verify-image-digest
+    - name: require-digest-pins
       match:
         any:
           - resources:
-              kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]
-              namespaces: ["dev", "staging", "prod"]
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+              namespaces:
+                - dev
+                - staging
+                - prod
       validate:
-        message: "Container image must match approved digests"
+        message: "All containers must reference immutable image digests (@sha256)."
         pattern:
           spec:
             template:
               spec:
                 containers:
-                  - name: "*"
-                    image: "{{ request.object.spec.template.spec.containers[?].image }}"
-      verifyImages:
-        - imageReferences:
-            - "registry.example.com/prod/*"
-          attestors:
-            - count: 1
-              entries:
-                - keys:
-                    publicKeys: []
-                  repositories:
-                    - "oci://registry.example.com/policies/prod-digests"
-    - name: verify-provenance
+                  - image: "*@sha256:*"
+                =(initContainers):
+                  - image: "*@sha256:*"
+    - name: verify-ci-intel-signature-and-attestations
       match:
         any:
           - resources:
-              kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
       verifyImages:
         - imageReferences:
-            - "registry.example.com/*"
+            - "ghcr.io/jguida941/ci-intel-app:*"
+            - "ghcr.io/jguida941/ci-intel-app@sha256:*"
           attestors:
             - count: 1
               entries:
                 - keyless:
                     url: https://fulcio.sigstore.dev
                     issuer: "https://token.actions.githubusercontent.com"
-                    subject: "repo:org/ci-intelligence-hub:ref:refs/tags/*"
+                    subject: "https://github.com/jguida941/ci-cd-hub/.github/workflows/release.yml@refs/tags/*"
+                  rekor:
+                    url: https://rekor.sigstore.dev
+                  annotations:
+                    cosign.sigstore.dev/certificate-oidc-issuer: "https://token.actions.githubusercontent.com"
+                    cosign.sigstore.dev/certificate-identity: "https://github.com/jguida941/ci-cd-hub/.github/workflows/release.yml@refs/tags/*"
                   attestation:
-                    type: in-toto
-                    conditions:
-                      - all:
-                          - key: "$.predicateType"
-                            operator: Equals
-                            value: "https://slsa.dev/provenance/v1"
-    - name: require-sbom-referrers
-      match:
-        any:
-          - resources:
-              kinds: [Deployment, StatefulSet, DaemonSet, Job, CronJob]
-      verifyImages:
-        - imageReferences:
-            - "registry.example.com/*"
-          attestors:
-            - count: 1
-              entries:
-                - keyless:
-                    url: https://fulcio.sigstore.dev
-                    issuer: "https://token.actions.githubusercontent.com"
-                    subject: "repo:org/ci-intelligence-hub:environment:prod"
-                  attestation:
-                    type: custom
-                    conditions:
-                      - all:
-                          - key: "$.predicateType"
-                            operator: Equals
-                            value: "https://example.com/policy/oci-referrers"
+                    type: https://slsa.dev/provenance/v1
+          attestations:
+            - predicateType: https://slsa.dev/provenance/v1
+            - predicateType: spdx
+            - predicateType: cyclonedx
