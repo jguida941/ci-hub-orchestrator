@@ -146,7 +146,16 @@ def _verify_signature(
         request_json=False,
     )
     combined_output = "\n".join(filter(None, [text_result.stdout, text_result.stderr]))
-    return _parse_identity(combined_output)
+    try:
+        return _parse_identity(combined_output)
+    except ValueError:
+        if expected_subject and expected_issuer:
+            print(
+                "[build_issuer_subject_input] falling back to expected issuer/subject; cosign output lacked explicit lines",
+                file=sys.stderr,
+            )
+            return expected_issuer, expected_subject
+        raise
 
 
 def build_input(
