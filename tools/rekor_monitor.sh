@@ -208,7 +208,12 @@ if [[ -s "$INDEX_FILE" ]]; then
 fi
 
 if [[ -n "$FOUND_UUID" ]]; then
-  UUID="$FOUND_UUID"
+  if is_valid_uuid "$FOUND_UUID"; then
+    UUID="$FOUND_UUID"
+  else
+    >&2 echo "[rekor_monitor] Cached entry for index ${MATCHED_INDEX:-?} returned invalid UUID '$FOUND_UUID'; falling back to search"
+    UUID=""
+  fi
 fi
 
 if [[ -z "$UUID" ]]; then
@@ -276,6 +281,13 @@ if [[ -z "$UUID" ]]; then
   if [[ -z "$UUID" ]]; then
     >&2 echo "[rekor_monitor] No Rekor entries found for digest $DIGEST after ${MAX_ATTEMPTS} attempts"
     exit 1
+  fi
+fi
+
+if [[ -n "$UUID" ]]; then
+  if ! is_valid_uuid "$UUID"; then
+    >&2 echo "[rekor_monitor] Ignoring invalid UUID value '$UUID'; using log index fallback"
+    UUID=""
   fi
 fi
 

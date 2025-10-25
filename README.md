@@ -20,12 +20,16 @@ python -m pip install -r requirements-dev.txt
 
 ### Mutation Observatory workflow
 
-- Config: `fixtures/mutation/observatory-ci.yaml`
+- Config: `mutation-observatory.ci.yaml`
 - Run locally:
 
 ```bash
+python tools/scripts/generate_mutation_reports.py \
+  --stryker artifacts/mutation/stryker-report.json \
+  --mutmut artifacts/mutation/mutmut-report.json
+
 python tools/mutation_observatory.py \
-  --config fixtures/mutation/observatory-ci.yaml \
+  --config mutation-observatory.ci.yaml \
   --output artifacts/mutation/run.json \
   --ndjson artifacts/mutation/run.ndjson \
   --markdown artifacts/mutation/summary.md

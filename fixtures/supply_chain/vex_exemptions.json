@@ -24,7 +24,7 @@
   {
     "id": "CVE-2017-18018",
     "status": "not_affected",
-    "justification": "inapplicable_configuration",
+    "justification": "vulnerable_code_not_in_execute_path",
     "impact": "Issue requires the legacy GNU tar incremental backup option, which is not installed or invoked in the final image.",
     "timestamp": "2024-11-07T00:00:00Z",
     "source": {
@@ -46,7 +46,7 @@
   {
     "id": "CVE-2019-1010022",
     "status": "not_affected",
-    "justification": "inline_mitigations_already_exist",
+    "justification": "inline_mitigations_already_in_place",
     "impact": "Applies to legacy bess utilities; Debian marked the shipped version as fixed and the binaries are not executable in the minimal runtime.",
     "timestamp": "2024-11-07T00:00:00Z",
     "source": {
@@ -57,7 +57,7 @@
   {
     "id": "CVE-2019-1010023",
     "status": "not_affected",
-    "justification": "inline_mitigations_already_exist",
+    "justification": "inline_mitigations_already_in_place",
     "impact": "Same code path as CVE-2019-1010022; mitigated upstream and not reachable in the runtime build.",
     "timestamp": "2024-11-07T00:00:00Z",
     "source": {

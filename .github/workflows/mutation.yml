@@ -12,7 +12,7 @@ jobs:
   observatory:
     runs-on: ubuntu-latest
     env:
-      MUTATION_CONFIG: fixtures/mutation/observatory-ci.yaml
+      MUTATION_CONFIG: mutation-observatory.ci.yaml
       RUN_DIR: artifacts/mutation
     steps:
       - name: Checkout
@@ -28,6 +28,13 @@ jobs:
           set -euo pipefail
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
+
+      - name: Generate mutation reports
+        run: |
+          set -euo pipefail
+          python tools/scripts/generate_mutation_reports.py \
+            --stryker "$RUN_DIR/stryker-report.json" \
+            --mutmut "$RUN_DIR/mutmut-report.json"
 
       - name: Run Mutation Observatory
         run: |

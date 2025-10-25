@@ -4,16 +4,10 @@ targets:
   - name: frontend-fixture
     tool: stryker
     parser: stryker
-    report_path: stryker-report.json
+    report_path: artifacts/mutation/stryker-report.json
     threshold: 0.55
-    labels:
-      language: typescript
-      test_suite: web-unit
   - name: backend-fixture
     tool: mutmut
     parser: mutmut_json
-    report_path: mutmut-report.json
+    report_path: artifacts/mutation/mutmut-report.json
     threshold: 0.60
-    labels:
-      language: python
-      test_suite: api-unit

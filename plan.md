@@ -13,6 +13,8 @@ Pillars (modules)
 1. Mutation Observatory
    - Run unit + mutation tests on PRs. Compute resilience score and delta vs main.
    - Post PR labels weak-tests, high-confidence. Plot resilience vs coverage.
+   - Emit Markdown/HTML reports with per-target tables and top surviving mutants; publish as artifacts and link via PR comments.
+   - Auto-generate NDJSON + SARIF-style annotations listing surviving mutants/tests to add; enforce thresholds defined in `.ci-intel/config.yml`.
    - Language mutators: StrykerJS, mutmut, PIT, go-mutesting.
    - Outputs: mutation_runs, mutation_trends, file-level hotspots, EWMA control limits.
 
@@ -827,5 +829,57 @@ Purpose: evolve this repo from “scripts + instructions” into a consumable to
 5. Migration guidance.
    - Document “drop-in” steps: install the published package/image, invoke the reusable workflow, plug in configs, and set env/secrets.
    - Track adoption status per repo (table in README or ops board) to coordinate upgrades/rollbacks.
+6. Local-first workflows + caching strategy.
+   - Ship a `docker-compose`/`devcontainer` setup so engineers can run the same analyzers locally (mutation observatory, Rekor monitor, supply-chain gates) before pushing. Provide `make` targets that mirror the CI jobs.
+   - Standardize cache usage in GitHub Actions: leverage `actions/cache` for dependency trees (pip, npm, cargo) and `docker/build-push-action` cache exports/imports to GHCR so parallel jobs share layers. Mirror the patterns from the Phoenix container example (image pull-through + cache priming) and document how to opt in per workflow.
+   - Ensure local runs honor the same cache dirs (mounted volumes) so debugging uses the cached artifacts and matches CI behavior.
+7. Structured parallelism playbook.
+   - Define a default job matrix that splits “lint”, “unit test”, “integration test”, “mutation test”, and deployment stages into separate jobs so Actions runners execute them concurrently (matching the Jenkins-to-GH Actions speedup story).
+   - Provide guidance for self-hosted runners vs GitHub-hosted (labels, concurrency caps, dependency ordering) and encode the pattern in the reusable workflows to keep PR-to-dev time low across microservices.
+8. Secure lint/SAST suite.
+   - Provide a reusable “security lint” job (Bandit for Python, gosec for Go, npm audit/dependency-check for JS, etc.) wired into the same workflow templates, with severity gating and caching of vulnerability DBs.
+   - Document how teams extend the suite per language and how findings feed into SARIF + policy gates.
+
+Hub product specification (install once, apply everywhere):
+1. Install modes
+   - Reusable workflows exported via `workflow_call`, versioned (`@vX.Y`), pin sub-actions by SHA.
+   - Composite actions that wrap the shared agent container for bespoke steps.
+   - OCI image (`ghcr.io/org/ci-intel@sha256:...`) plus PyPI/`pipx` CLI (`ci-intel`) with signatures and attestations.
+2. Single config contract
+   - `.ci-intel/config.yml` validated by JSON Schema with layered overrides (hub defaults → org policy overlay → repo-specific stricter settings).
+   - Keys cover project metadata, budgets (Bandit/Semgrep/Trivy/cost/CO₂e), test thresholds, performance SLOs, chaos cadence, supply-chain requirements, policy packs, runner preferences.
+3. Published workflows (entrypoints)
+   - `ci.yml` (lint/unit/diff mutation/SCA/SAST/IaC + NDJSON emit), `release.yml` (build/SBOM/provenance/sign/referrers/Evidence Bundle), `policy-gates.yml`, `deploy.yml`, `dr-drill.yml`, `rekor-monitor.yml`.
+   - Each accepts inputs (`config_path`, `lang`, toggles) and is invoked from downstream repos with one `uses:` block and required permissions.
+4. Security and supply chain
+   - Keyless Cosign, SLSA v1.0 provenance, OCI 1.1 referrers for SBOM/VEX; Kyverno `verifyImages` policies; org Rulesets enforcing signed commits/tags, CODEOWNERS, no force-push; OIDC-only secrets; egress default deny.
+5. SAST/SCA/IaC packs with budgets
+   - Bundled tools per language (Bandit, Semgrep, pip-audit, npm audit, govulncheck, OWASP DC, Checkov/KICS, Trivy/Grype) with enforcement via `policy-gates.yml` comparing results to `.ci-intel` budgets; override flow requires justification.
+6. Determinism and cache
+   - Reusable determinism step ensuring SOURCE_DATE_EPOCH/TZ/LC and dual-run checksum; cache sentinel with BLAKE3 keys, signed manifests, quarantine on mismatch.
+7. Analytics wiring
+   - Every workflow emits `pipeline_run.v1.2` NDJSON, validated before upload; provided ingest to GCS→BigQuery/dbt marts with row-level security; dashboards auto-published.
+8. Bootstrap and update automation
+   - `pipx run ci-intel bootstrap --repo org/name` seeds `.ci-intel/config.yml`, caller workflow, OIDC trust, and docs.
+   - Sync bot watches hub releases, opens update PRs, supports stable/canary channels, reports risk via “plan” job.
+9. Compatibility and tests
+   - Strict SemVer, backward-compatible minors; golden repos per language; CI matrix (lang, monorepo flag, runner OS/arch) plus schema compatibility gates.
+10. Runner strategy
+    - Default to GitHub-hosted for light work, self-hosted ephemeral pools for heavy jobs; enforce quotas/fairness, maintain ARM/x86 parity runs.
+11. Org policy spine
+    - Central `org-policy/` repo with Rego/CEL packs, Kyverno bundles, Ruleset JSON, allowlists/licensing/egress domains; signed releases consumed by `policy-gates.yml`.
+12. DR and retention
+    - WORM + cross-region artifact/NDJSON storage with tiered retention (30/180/400 days); weekly `dr-drill.yml` gated by ruleset, blocks promotion if stale.
+13. Day-0 deliverables
+    - Reusable workflows, composite wrappers, agent images (rekor-cli, jq, trivy, grype, semgrep, checkov, k6), schemas for `.ci-intel` + NDJSON, templates per service type, adoption/upgrade/policy docs.
+    - Native test-report UX: integrate reporters (e.g., Playwright GitHub Actions Reporter) and add a workflow step that posts annotated PR comments linking to hosted rich reports for UI/E2E suites.
+14. Minimal caller configs
+    - Example `.ci-intel/config.yml` snippets for Python API and Node service demonstrating budgets/tests/supply-chain/chaos knobs.
+15. Enforcement snippets
+    - Canonical Bandit budget check, referrer presence probe, and similar bash fragments documented for extension.
+16. Developer experience & communications
+    - Ship a docs portal (e.g., GitHub Pages + MkDocs) sourced from `/docs` with quick starts, troubleshooting, FAQs, and sample dashboards.
+    - Provide ChatOps commands (`/ci-intel rerun`, `/ci-intel status`) plus Slack/Teams notifications that link to the rich reports and Evidence Bundle.
+    - Bundle a `ci-intel doctor` command that inspects local environments, validates `.ci-intel/config.yml`, and reproduces CI jobs locally with the same containers.
 
 Outcome: one centrally maintained toolchain that every repo can consume by downloading a release artifact or referencing a reusable workflow, enabling consistent CI/CD enforcement without re-implementing pipelines per project.

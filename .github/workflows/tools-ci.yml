@@ -6,12 +6,16 @@ on:
       - 'tools/**'
       - 'schema/**'
       - 'fixtures/supply_chain/**'
+      - 'fixtures/mutation/**'
+      - 'mutation-observatory.ci.yaml'
       - '.github/workflows/tools-ci.yml'
   pull_request:
     paths:
       - 'tools/**'
       - 'schema/**'
       - 'fixtures/supply_chain/**'
+      - 'fixtures/mutation/**'
+      - 'mutation-observatory.ci.yaml'
       - '.github/workflows/tools-ci.yml'
 
 jobs:
