@@ -1,7 +1,7 @@
 package supplychain.issuer_subject_test
 
-import future.keywords.if
 import data.supplychain.issuer_subject
+import future.keywords.if
 
 allow_input := {
 	"issuer": "https://issuer.example/sign",

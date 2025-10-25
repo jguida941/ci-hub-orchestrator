@@ -1,7 +1,7 @@
 package supplychain.sbom_vex_test
 
-import future.keywords.if
 import data.supplychain.sbom_vex
+import future.keywords.if
 
 default policy := {
 	"cvss_threshold": 7.0,
@@ -24,5 +24,5 @@ test_denies_when_high_cvss_without_vex if {
 		"vex": [],
 	}
 	not sbom_vex.allow with input as test_input
-	sbom_vex.violations["CVE-2"] with input as test_input
+	sbom_vex.violations[_] == "CVE-2" with input as test_input
 }

@@ -5,8 +5,10 @@ import future.keywords.if
 default allow := false
 
 allow if {
-	regex.match(input.policy.allowed_issuer_regex, input.issuer)
-	regex.match(input.policy.allowed_subject_regex, input.subject)
+	issuer_regex := sprintf("^(?:%s)$", [input.policy.allowed_issuer_regex])
+	subject_regex := sprintf("^(?:%s)$", [input.policy.allowed_subject_regex])
+	regex.match(issuer_regex, input.issuer)
+	regex.match(subject_regex, input.subject)
 }
 
 reason := msg if {
