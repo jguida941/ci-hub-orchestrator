@@ -13,7 +13,6 @@
   | Language | Python 3.12, Bash |
   | License | SPDX-ID (MIT or actual) |
 
-
 - Add CI badges (placeholder now, real links later) under the table, e.g. `![CI](#) ![Docs](#) ![License](#)`.
 
 - Add a **Scope** sentence clarifying covered areas (e.g., “Docs cover /tools scripts; workflow YAMLs are documented under /docs/workflows”).

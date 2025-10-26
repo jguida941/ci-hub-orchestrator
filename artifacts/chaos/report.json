@@ -7,8 +7,8 @@
       "target": "pytest",
       "seed": 101,
       "rate": 0.01,
-      "started_at": "2025-10-26T00:13:56Z",
-      "ended_at": "2025-10-26T00:13:56Z",
+      "started_at": "2025-10-26T21:23:26Z",
+      "ended_at": "2025-10-26T21:23:26Z",
       "outcome": "degraded",
       "retries": 0
     },
@@ -17,8 +17,8 @@
       "target": "api",
       "seed": 202,
       "rate": 0.02,
-      "started_at": "2025-10-26T00:13:56Z",
-      "ended_at": "2025-10-26T00:13:56Z",
+      "started_at": "2025-10-26T21:23:26Z",
+      "ended_at": "2025-10-26T21:23:26Z",
       "outcome": "degraded",
       "retries": 2
     }
