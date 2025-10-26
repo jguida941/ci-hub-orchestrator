@@ -44,6 +44,17 @@
     }
   },
   {
+    "id": "CVE-2011-3374",
+    "status": "not_affected",
+    "justification": "vulnerable_code_not_in_execute_path",
+    "impact": "This affects the legacy SSL renegotiation helpers in the Python standard library; the containerized workload never enables renegotiation or exposes the vulnerable APIs.",
+    "timestamp": "2024-11-07T00:00:00Z",
+    "source": {
+      "name": "Debian Security Tracker",
+      "url": "https://security-tracker.debian.org/tracker/CVE-2011-3374"
+    }
+  },
+  {
     "id": "CVE-2019-1010022",
     "status": "not_affected",
     "justification": "inline_mitigations_already_in_place",
@@ -74,6 +85,17 @@
     "source": {
       "name": "Debian Security Tracker",
       "url": "https://security-tracker.debian.org/tracker/CVE-2019-9192"
+    }
+  },
+  {
+    "id": "CVE-2024-56433",
+    "status": "not_affected",
+    "justification": "component_not_present",
+    "impact": "Requires the optional libpcre2grep binary, which is removed from the slim runtime along with its dependencies.",
+    "timestamp": "2024-11-07T00:00:00Z",
+    "source": {
+      "name": "Debian Security Tracker",
+      "url": "https://security-tracker.debian.org/tracker/CVE-2024-56433"
     }
   }
 ]
