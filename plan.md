@@ -65,13 +65,13 @@ Pillars (modules)
    - Track provider versions and tie to commit graph.
 
 10. Metrics Intelligence Dashboard (umbrella product)
-   - Centralize pipeline logs, test telemetry, cost, carbon, chaos results into the data lake/warehouse.
-   - Dashboards: resilience trends, mutation effectiveness, DORA, cache, chaos, determinism, SLOs.
-   - Self-service SQL + notebooks. ChatOps reporting. Executive scorecards. Exportable compliance snapshots.
+    - Centralize pipeline logs, test telemetry, cost, carbon, chaos results into the data lake/warehouse.
+    - Dashboards: resilience trends, mutation effectiveness, DORA, cache, chaos, determinism, SLOs.
+    - Self-service SQL + notebooks. ChatOps reporting. Executive scorecards. Exportable compliance snapshots.
 
 11. CI/CD Gamification Hub (optional, Phase 4)
-   - Scoreboard for builds passed, time reduced, coverage raised.
-   - Leaderboard via GitHub Pages. Achievement badges.
+    - Scoreboard for builds passed, time reduced, coverage raised.
+    - Leaderboard via GitHub Pages. Achievement badges.
 
 High-level architecture
 
