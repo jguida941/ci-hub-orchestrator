@@ -1,0 +1,7 @@
+{
+  "run_id": "chaos-fixture",
+  "experiments": [
+    { "fault": "kill_job", "target": "pytest", "rate": 0.01, "seed": 101 },
+    { "fault": "delay_network", "target": "api", "rate": 0.02, "seed": 202 }
+  ]
+}

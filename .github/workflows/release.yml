@@ -107,7 +107,7 @@ jobs:
           {
             printf 'tag=%s\n' "$primary_tag"
             printf 'extra_tag=%s\n' "$extra_tag"
-            printf "tags<<'EOF'\n"
+            printf 'tags<<EOF\n'
             printf '%s/%s:%s\n' "${REGISTRY}" "${IMAGE_NAME}" "$primary_tag"
             if [[ -n "$extra_tag" ]]; then
               printf '%s/%s:%s\n' "${REGISTRY}" "${IMAGE_NAME}" "$extra_tag"
