@@ -20,7 +20,7 @@ env:
 
 jobs:
   chaos:
-    if: env.CHAOS_KILL_SWITCH != 'true' && (github.event_name != 'pull_request_target' || contains(github.event.pull_request.labels.*.name, 'chaos-opt-in'))
+    if: ${{ env.CHAOS_KILL_SWITCH != 'true' && (github.event_name != 'pull_request_target' || contains(github.event.pull_request.labels.*.name, env.CHAOS_LABEL)) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -44,7 +44,7 @@ jobs:
             --output artifacts/chaos/report.json \
             --ndjson artifacts/chaos/events.ndjson
       - name: Ingest chaos telemetry
-        if: env.INGEST_PROJECT != '' && env.INGEST_DATASET != ''
+        if: ${{ env.INGEST_PROJECT != '' && env.INGEST_DATASET != '' }}
         run: |
           set -euo pipefail
           python -m pip install --upgrade pip

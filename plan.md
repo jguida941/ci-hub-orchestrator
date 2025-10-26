@@ -48,30 +48,36 @@ Pillars (modules)
    - Storage: chaos_trials. Produce resilience report.
 
 6. Ephemeral Data Lab
-  - Spin up temporary databases via Docker Compose or Testcontainers in CI.
-  - Seed fuzz data (property-based tests). Snapshot DB state as artifact.
+
+   - Spin up temporary databases via Docker Compose or Testcontainers in CI.
+   - Seed fuzz data (property-based tests). Snapshot DB state as artifact.
 
 7. Compliance-as-Code Validator
-  - YAML/rego policies: pinned action SHAs, SPDX license allowlist, least privilege.
-  - Enforce per commit. Generate HTML report. Output policy_violations.
+
+   - YAML/rego policies: pinned action SHAs, SPDX license allowlist, least privilege.
+   - Enforce per commit. Generate HTML report. Output policy_violations.
 
 8. Self-Healing Build Cache (Cache Sentinel)
-  - Distributed cache (S3/MinIO/Redis). BLAKE3 content-addressed keys.
-  - Verify checksums on get; quarantine mismatches; scrub and rebuild.
-  - Dashboard: hit ratio, health, rebuild cost. Emits cache_events.
+
+   - Distributed cache (S3/MinIO/Redis). BLAKE3 content-addressed keys.
+   - Verify checksums on get; quarantine mismatches; scrub and rebuild.
+   - Dashboard: hit ratio, health, rebuild cost. Emits cache_events.
 
 9. Infrastructure Replay
-  - Record Terraform/Ansible plan/apply/drift. Enable one-command local replay.
-  - Track provider versions and tie to commit graph.
+
+   - Record Terraform/Ansible plan/apply/drift. Enable one-command local replay.
+   - Track provider versions and tie to commit graph.
 
 10. Metrics Intelligence Dashboard (umbrella product)
-  - Centralize pipeline logs, test telemetry, cost, carbon, chaos results into the data lake/warehouse.
-  - Dashboards: resilience trends, mutation effectiveness, DORA, cache, chaos, determinism, SLOs.
-  - Self-service SQL + notebooks. ChatOps reporting. Executive scorecards. Exportable compliance snapshots.
+
+   - Centralize pipeline logs, test telemetry, cost, carbon, chaos results into the data lake/warehouse.
+   - Dashboards: resilience trends, mutation effectiveness, DORA, cache, chaos, determinism, SLOs.
+   - Self-service SQL + notebooks. ChatOps reporting. Executive scorecards. Exportable compliance snapshots.
 
 11. CI/CD Gamification Hub (optional, Phase 4)
-  - Scoreboard for builds passed, time reduced, coverage raised.
-  - Leaderboard via GitHub Pages. Achievement badges.
+
+   - Scoreboard for builds passed, time reduced, coverage raised.
+   - Leaderboard via GitHub Pages. Achievement badges.
 
 High-level architecture
 

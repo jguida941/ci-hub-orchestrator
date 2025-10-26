@@ -34,6 +34,7 @@
    kubectl get clusterpolicy verify-ci-intel-supply-chain -o yaml
    kyverno apply supply-chain-enforce/kyverno/verify-images.yaml --resource test/manifests/ci-intel-app.yaml
    ```
+
    The Kyverno CLI test ensures signed images plus SLSA/SPDX/CycloneDX referrers from the release workflow satisfy the policy.
 
 ### Observability & Evidence
@@ -54,12 +55,14 @@
    kubectl patch clusterpolicy verify-ci-intel-supply-chain \
      --type merge \
      -p '{"spec":{"rules":[{"name":"verify-ci-intel-signature-and-attestations","match":{"any":[{"resources":{"namespaces":["dev","staging","prod","hotfix"]}}]}}]}}'
-   ```
+```
+
    or delete the policy entirely as a last resort:
 
    ```bash
    kubectl delete clusterpolicy verify-ci-intel-supply-chain
    ```
+
 
 3. Capture the change in the ops log/runbook with timestamps, git SHAs, and planned re‑enable time. CI must remain blocked on supply-chain policies before resuming normal deploys.
 

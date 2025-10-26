@@ -5,12 +5,14 @@
 - Execute this doc overhaul after CI is consistently green but before the GA tag so commands/paths match reality.
 
 - Reserve a block at the top of `OVERVIEW.md` with a metadata table:
+
   | Key | Value |
   | --- | --- |
   | Project | CI Intelligence Hub |
   | Purpose | CI/CD observability + supply-chain assurance |
   | Language | Python 3.12, Bash |
   | License | SPDX-ID (MIT or actual) |
+
 
 - Add CI badges (placeholder now, real links later) under the table, e.g. `![CI](#) ![Docs](#) ![License](#)`.
 
