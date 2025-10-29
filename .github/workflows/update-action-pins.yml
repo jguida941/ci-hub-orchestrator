@@ -1,0 +1,97 @@
+name: update-action-pins
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Update action pins
+        id: update
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          python tools/update_action_pins.py
+
+      - name: Detect changes
+        id: diff
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run workflow integrity checks
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          python scripts/check_workflow_integrity.py
+
+      - name: Prepare branch
+        if: steps.diff.outputs.changed == 'true'
+        id: branch
+        run: |
+          set -euo pipefail
+          BRANCH="automation/update-action-pins-$(date +%Y%m%d)"
+          git checkout -B "${BRANCH}"
+          echo "name=${BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit updates
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GITHUB_AUTHOR_NAME: ci-cd-hub-bot
+          GITHUB_AUTHOR_EMAIL: ci-cd-hub-bot@users.noreply.github.com
+        run: |
+          set -euo pipefail
+          git config user.name "${GITHUB_AUTHOR_NAME}"
+          git config user.email "${GITHUB_AUTHOR_EMAIL}"
+          git add .
+          git commit -m "chore: update action pins"
+
+      - name: Push branch
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git push --force-with-lease origin "${{ steps.branch.outputs.name }}"
+
+      - name: Open pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          BRANCH="${{ steps.branch.outputs.name }}"
+          PR_NUMBER="$(gh pr list --head "${BRANCH}" --state open --json number --jq '.[0].number' || true)"
+          if [[ -n "${PR_NUMBER}" ]]; then
+            echo "PR already open for ${BRANCH} (PR #${PR_NUMBER}), skipping create."
+          else
+            gh pr create \
+              --head "${BRANCH}" \
+              --base master \
+              --title "chore: update action pins" \
+              --body "Automated update to keep pinned GitHub Actions aligned with the latest floating tag commits."
+          fi

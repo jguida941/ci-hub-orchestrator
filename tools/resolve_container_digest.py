@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import re
@@ -27,8 +28,14 @@ def _ensure_https(url: str) -> None:
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme.lower() != "https":
         raise ResolutionError(f"Insecure URL scheme for GitHub API request: '{url}'.")
-    if not parsed.netloc.endswith("github.com"):
+    if parsed.netloc.lower() != "api.github.com":
         raise ResolutionError(f"Unexpected host for GitHub API request: '{url}'.")
+
+
+def _open_request(request: urllib.request.Request, *, timeout: int = 20):
+    _ensure_https(request.full_url)
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler())
+    return opener.open(request, timeout=timeout)
 
 
 @dataclass
@@ -62,7 +69,7 @@ def _build_request(path: str, token: Optional[str], *, params: Optional[dict] = 
     if params:
         url = f"{url}?{urllib.parse.urlencode(params)}"
     _ensure_https(url)
-    request = urllib.request.Request(url)
+    request = urllib.request.Request(url)  # noqa: S310 - URL validated by _ensure_https
     request.add_header("Accept", "application/vnd.github+json")
     request.add_header("User-Agent", USER_AGENT)
     if token:
@@ -73,7 +80,7 @@ def _build_request(path: str, token: Optional[str], *, params: Optional[dict] = 
 def _load_json(path: str, token: Optional[str], *, params: Optional[dict] = None, allow_404: bool = False):
     request = _build_request(path, token, params=params)
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:
+        with contextlib.closing(_open_request(request, timeout=20)) as response:
             payload = response.read()
     except urllib.error.HTTPError as exc:  # pragma: no cover - network error branch
         if allow_404 and exc.code == 404:
