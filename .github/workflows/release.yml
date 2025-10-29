@@ -479,6 +479,7 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/ci-intel-app
       digest: ${{ needs.build-sign-publish.outputs.digest }}
+      compile-generator: true
       private-repository: ${{ github.event.repository.private }}
     secrets:
       registry-username: ${{ github.actor }}
