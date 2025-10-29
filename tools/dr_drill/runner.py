@@ -101,6 +101,7 @@ def _enforce_policies(manifest: Manifest, rpo_minutes: float, rto_seconds: float
 
 
 def run_drill(manifest_path: Path, evidence_dir: Path, *, now: Optional[datetime] = None) -> DrillResult:
+    repo_root = Path(__file__).resolve().parents[2]
     manifest = load_manifest(manifest_path)
     run_started = _utc_now()
     evidence_dir.mkdir(parents=True, exist_ok=True)
@@ -195,13 +196,18 @@ def run_drill(manifest_path: Path, evidence_dir: Path, *, now: Optional[datetime
         lambda: _enforce_policies(manifest, rpo_minutes, rto_seconds),
     )
 
+    try:
+        manifest_reference = manifest.source.resolve().relative_to(repo_root)
+    except ValueError:
+        manifest_reference = manifest.source
+
     report = DrillReport(
         schema="dr_drill.v2",
         run_id=_run_id(run_started),
         started_at=_isoformat(run_started),
         ended_at=_isoformat(completed_at),
         backup_captured_at=_isoformat(manifest.backup.captured_at),
-        manifest=str(manifest.source),
+        manifest=str(manifest_reference),
         metrics={
             "rto_seconds": round(rto_seconds, 3),
             "rpo_minutes": round(rpo_minutes, 3),

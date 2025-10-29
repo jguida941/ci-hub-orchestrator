@@ -31,6 +31,8 @@ except ModuleNotFoundError:  # pragma: no cover - jsonschema already required fo
 ROOT = Path(__file__).resolve().parents[1]
 PIPELINE_SCHEMA_PATH = ROOT / "schema/pipeline_run.v1.2.json"
 PIPELINE_SCHEMA = json.loads(PIPELINE_SCHEMA_PATH.read_text())
+DR_EVENT_SCHEMA_PATH = ROOT / "schema/dr_drill.event.v1.json"
+DR_EVENT_SCHEMA = json.loads(DR_EVENT_SCHEMA_PATH.read_text())
 
 CHAOS_SCHEMA = [
     {"name": "run_id", "field_type": "STRING", "mode": "REQUIRED"},
@@ -119,6 +121,21 @@ def _load_pipeline_records(path: Path) -> list[dict[str, Any]]:
     return records
 
 
+def _validate_rows(
+    rows: list[dict[str, Any]],
+    *,
+    schema: dict[str, Any],
+    source: Path,
+) -> None:
+    if jsonschema is None:
+        raise SystemExit("jsonschema is required to validate ingestion NDJSON")
+    for lineno, row in enumerate(rows, start=1):
+        try:
+            jsonschema.validate(row, schema)
+        except jsonschema.ValidationError as exc:
+            raise SystemExit(f"[ingest] {source}:{lineno} fails schema validation: {exc.message}") from exc
+
+
 def _augment_rows(
     rows: list[dict[str, Any]],
     *,
@@ -190,8 +207,9 @@ def main() -> int:
     if args.chaos_ndjson:
         if not args.chaos_ndjson.exists():
             raise SystemExit(f"[ingest] chaos NDJSON missing: {args.chaos_ndjson}")
+        chaos_raw = _read_ndjson(args.chaos_ndjson)
         chaos_rows = _augment_rows(
-            _read_ndjson(args.chaos_ndjson),
+            chaos_raw,
             default_run_id=args.chaos_run_id,
             load_tag=args.load_tag,
         )
@@ -199,8 +217,10 @@ def main() -> int:
     if args.dr_ndjson:
         if not args.dr_ndjson.exists():
             raise SystemExit(f"[ingest] DR NDJSON missing: {args.dr_ndjson}")
+        dr_raw = _read_ndjson(args.dr_ndjson)
+        _validate_rows(dr_raw, schema=DR_EVENT_SCHEMA, source=args.dr_ndjson)
         dr_rows = _augment_rows(
-            _read_ndjson(args.dr_ndjson),
+            dr_raw,
             default_run_id=args.dr_run_id,
             load_tag=args.load_tag,
         )

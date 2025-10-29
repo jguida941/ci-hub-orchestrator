@@ -1,12 +1,12 @@
 {
   "schema": "dr_drill.v2",
-  "run_id": "dr-1761706383",
-  "started_at": "2025-10-29T02:53:03.077544Z",
-  "ended_at": "2025-10-29T02:53:03.086640Z",
+  "run_id": "dr-1761710326",
+  "started_at": "2025-10-29T03:58:46.640301Z",
+  "ended_at": "2025-10-29T03:58:46.648697Z",
   "backup_captured_at": "2025-01-15T12:00:00Z",
-  "manifest": "/Users/jguida941/Dev/GitHubProject/ci-cd-hub/data/dr/manifest.json",
+  "manifest": "data/dr/manifest.json",
   "metrics": {
-    "rto_seconds": 0.009,
+    "rto_seconds": 0.008,
     "rpo_minutes": 720.0
   },
   "notes": {
