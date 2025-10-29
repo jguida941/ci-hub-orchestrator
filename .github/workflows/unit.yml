@@ -1,0 +1,150 @@
+name: unit
+
+on:
+  pull_request:
+    branches:
+      - main
+      - master
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  tests:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+
+      - name: Run unit tests with coverage
+        id: run_tests
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/unit
+          START=$(date +%s)
+          TARGETS=(tools/tests)
+          if [ -d tests ]; then
+            TARGETS+=(tests)
+          fi
+          pytest \
+            --junitxml=artifacts/unit/junit.xml \
+            --cov=tools \
+            --cov=ingest \
+            --cov-report=xml:artifacts/unit/coverage.xml \
+            --cov-report=term-missing \
+            "${TARGETS[@]}"
+          END=$(date +%s)
+          DURATION_MS=$(( (END - START) * 1000 ))
+          echo "duration_ms=${DURATION_MS}" >> "$GITHUB_OUTPUT"
+
+      - name: Summarize test results
+        if: ${{ always() }}
+        id: summarize
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+import json
+import xml.etree.ElementTree as ET
+from pathlib import Path
+
+junit_path = Path("artifacts/unit/junit.xml")
+if not junit_path.exists():
+    raise SystemExit("JUnit report missing at artifacts/unit/junit.xml")
+tree = ET.parse(junit_path)
+root = tree.getroot()
+suites = []
+if root.tag == "testsuites":
+    suites = root.findall("testsuite")
+elif root.tag == "testsuite":
+    suites = [root]
+else:
+    suites = list(root.findall(".//testsuite"))
+
+total = failures = skipped = errors = 0
+duration = 0.0
+for suite in suites:
+    total += int(float(suite.attrib.get("tests", "0")))
+    failures += int(float(suite.attrib.get("failures", "0")))
+    skipped += int(float(suite.attrib.get("skipped", "0")))
+    errors += int(float(suite.attrib.get("errors", "0")))
+    duration += float(suite.attrib.get("time", "0") or 0)
+
+duration_ms = int(duration * 1000)
+failed = failures + errors
+
+with open("$GITHUB_OUTPUT", "a", encoding="utf-8") as handle:
+    handle.write(f"tests_total={total}\n")
+    handle.write(f"tests_failed={failed}\n")
+    handle.write(f"tests_skipped={skipped}\n")
+    handle.write(f"tests_duration_ms={duration_ms}\n")
+PY
+
+      - name: Emit pipeline run record
+        if: ${{ always() }}
+        env:
+          TEST_STATUS: ${{ steps.run_tests.outcome }}
+          TEST_DURATION_MS: ${{ steps.run_tests.outputs.duration_ms || 0 }}
+          TESTS_TOTAL: ${{ steps.summarize.outputs.tests_total || 0 }}
+          TESTS_FAILED: ${{ steps.summarize.outputs.tests_failed || 0 }}
+          TESTS_SKIPPED: ${{ steps.summarize.outputs.tests_skipped || 0 }}
+          TESTS_DURATION_MS: ${{ steps.summarize.outputs.tests_duration_ms || 0 }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          STATUS="${TEST_STATUS}"
+          case "$STATUS" in
+            success) STATUS="success" ;;
+            failure) STATUS="failed" ;;
+            cancelled) STATUS="canceled" ;;
+            skipped) STATUS="skipped" ;;
+            *) STATUS="failed" ;;
+          esac
+          python scripts/emit_pipeline_run.py \
+            --output artifacts/pipeline_run.ndjson \
+            --status "$STATUS" \
+            --environment ci \
+            --tests-total "${TESTS_TOTAL}" \
+            --tests-failed "${TESTS_FAILED}" \
+            --tests-skipped "${TESTS_SKIPPED}" \
+            --tests-duration-ms "${TESTS_DURATION_MS}" \
+            --primary-job-duration-ms "${TEST_DURATION_MS}" \
+            --queue-ms 0 \
+            --artifact-bytes 0 \
+            --runner-os linux \
+            --runner-type hosted \
+            --region global
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: unit-${{ github.run_id }}
+          path: |
+            artifacts/unit/junit.xml
+            artifacts/unit/coverage.xml
+            artifacts/pipeline_run.ndjson
+          if-no-files-found: error

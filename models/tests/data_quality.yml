@@ -1,20 +1,40 @@
 version: 2
 models:
-  - name: pipeline_runs
+  - name: stg_pipeline_runs
+    description: "Source view for pipeline_run.v1.2 telemetry."
     tests:
-      - dbt_utils.freshness:
-          warn_after: {count: 10, period: minute}
-          error_after: {count: 15, period: minute}
       - dbt_utils.expression_is_true:
-          expression: "COUNT(*) > 0"
-      - dbt_utils.accepted_range:
-          column_name: null_rate
-          max_value: 0.01
-  - name: test_resilience
+          expression: "count(*) > 0"
+    columns:
+      - name: run_id
+        tests:
+          - not_null
+          - unique
+      - name: status
+        tests:
+          - accepted_values:
+              values: ["success", "failed", "canceled", "skipped"]
+      - name: resilience_score
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: cost_usd
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+  - name: run_health
+    description: "Aggregated run metrics by repo/environment."
     tests:
-      - dbt_utils.recency:
-          field: updated_at
-          interval: 10
-      - dbt_utils.not_null_proportion:
-          column_name: resilience_score
-          at_least: 0.99
+      - dbt_utils.expression_is_true:
+          expression: "count(*) > 0"
+    columns:
+      - name: avg_resilience
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0
+              max_value: 1
+      - name: avg_cost_usd
+        tests:
+          - dbt_utils.accepted_range:
+              min_value: 0

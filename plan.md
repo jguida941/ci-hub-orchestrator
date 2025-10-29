@@ -13,6 +13,159 @@ Primary outcomes
 
 - Efficiency: predictive scheduling, cache integrity, cost/carbon tracking.
 
+Needs Update – Gap Tracker
+--------------------------
+Use this section as the running ledger of high-priority gaps and the precise controls we still need to land so work-in-progress items do not disappear in the longer narrative below.
+
+Highest-risk gaps
+
+- ✅ Phase 1 — Admission control enforced: Kyverno `verifyImages`, SBOM/provenance referrer, and secretless policies ship with fixtures + failing-path coverage (`scripts/test_kyverno_policies.py`, `tools/tests/test_kyverno_policy_checker.py`).
+- ✅ Phase 1 — GitHub Actions supply chain: every workflow pins action SHAs and Rulesets block drifting references (`scripts/check_workflow_integrity.py`, `.github/workflows/security-lint.yml`).
+- ✅ Phase 1 — Secretless pipelines: OIDC-only credentials with CI sweeps for env secrets and over-scoped `GITHUB_TOKEN` usage (`security-lint`, `policies/kyverno/secretless.yaml`).
+- ⏳ Phase 1 — Determinism proof: automate cross-arch/time dual-run diffs and fail on BUILD_ID/JAR drift before Phase 1 exit.
+- ⏳ Phase 2 — Schema discipline: enforce NDJSON ingestion gate on `pipeline_run.v1.2` and sustain v1.1 → v1.2 compatibility checks (blocks Phase 2 storage milestones).
+- ⏳ Phase 1 — Rekor anchoring: Evidence Bundle must capture UUID + inclusion proof and fail CI on missing proofs; see acceptance in [Phase 1 — Hermetic build path + CD essentials](#phase-1-%E2%80%94-hermetic-build-path-cd-essentials).
+- ⏳ Phase 4 — Runner isolation: finalize ephemeral runner playbook, egress allowlists, and disk lockdown per [Phase 4 — Reliability hardening and chaos](#phase-4-%E2%80%94-reliability-hardening-and-chaos).
+- ⏳ Phase 3 — Canary decision auditability: persist promote/rollback queries + windows, hash into Evidence Bundle to unblock analytics gating.
+
+Performance and ops risks
+
+- [ ] Cache poisoning: sign cache manifests, verify signature + BLAKE3 before restore, quarantine any mismatch by default.
+- [ ] Backpressure and fairness: encode per-repo concurrency budgets and deny bursts once caps are exceeded to avoid starving shared runners.
+
+Concrete gates to wire immediately
+
+Referrer presence before deploy:
+
+```bash
+oras discover "$IMAGE" --artifact-type application/spdx+json | grep -q digest
+oras discover "$IMAGE" --artifact-type application/vnd.in-toto+json | grep -q digest
+```
+
+Provenance verification:
+
+```bash
+cosign verify-attestation \
+  --type slsaprovenance \
+  --certificate-oidc-issuer-regex 'https://token.actions.githubusercontent.com' \
+  "$IMAGE"
+```
+
+SBOM + VEX gate:
+
+```bash
+grype sbom:sbom.json -q -o json \
+  | ./tools/build_vuln_input.py --vex vex.json \
+  | jq -e '.policy.allow==true' >/dev/null
+```
+
+Schema CI:
+
+```bash
+jq -e 'select(.schema != "pipeline_run.v1.2") | halt_error(1)' artifacts/pipeline_run.ndjson
+ajv validate -s schema/pipeline_run.v1.2.json -d artifacts/pipeline_run.ndjson
+```
+
+Secretless CI sweep:
+
+```bash
+! grep -R -E 'AWS_SECRET|_KEY=|TOKEN=' -n .github/workflows || (echo "Secret found"; exit 1)
+```
+
+Pinning, permissions, and concurrency guardrails
+
+- Pin every GitHub Action by SHA; add org Rulesets that refuse PRs referencing tags/branches.
+- Standard job permissions:
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+```
+
+- Workflow-level cancellation to avoid stampedes:
+
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+```
+
+Determinism harness (bake into release + nightly)
+
+- Required env: `TZ=UTC`, `LC_ALL=C`, `PYTHONHASHSEED=0`, `SOURCE_DATE_EPOCH=$GIT_COMMIT_TIME`.
+- Dual-run checksum check:
+
+```bash
+./scripts/build.sh && sha256sum dist/* > A.txt
+./scripts/build.sh && sha256sum dist/* > B.txt
+diff -u A.txt B.txt || { echo "Non-deterministic"; exit 1; }
+```
+
+Evidence Bundle required artifacts
+
+- `sbom_uri`, `provenance_uri`, `signature_uri`, Rekor UUID + inclusion proof, canary query text and window, determinism diff hash, and policy decisions with their inputs.
+
+Analytics integrity
+
+- dbt must assert freshness SLAs, rowcount deltas, and null-rate caps; ingestion jobs fail fast on breach to prevent stale dashboards.
+
+Packaging and distribution
+
+- Publish PyPI + OCI artifacts with provenance/signatures, supply `pipx` entrypoints, and wrap the OCI image in composite actions so downstream repos only reference a single `workflow_call`.
+
+DR proof
+
+- [x] Weekly restore drill pipeline pulls artifacts by digest, verifies provenance/SBOM, replays deploy, records deltas, and blocks prod if the drill is older than seven days.
+
+Org-level controls
+
+- GitHub Rulesets enforcing signed commits/tags, required checks, no force pushes, CODEOWNERS, and locked release branches stay on the mandatory list.
+
+Minimal workflow/test suite to ship now
+
+- `unit.yml` ✅ runs unit tests, emits `pipeline_run.v1.2`, captures coverage.
+- `mutation.yml`: PR diff-only mutant run, full nightly run, publishes resilience deltas.
+- `release.yml`: build, SBOM, provenance, sign, referrer gate, Kyverno `verifyImages` dry-run.
+- `rekor-monitor.yml` ✅ poll Rekor, upload inclusion proofs, alarm on gaps.
+- `security-lint.yml` ✅ (ruff/Bandit/pip-audit/dependency review + workflow guard rails).
+- `codeql.yml` ✅ (nightly CodeQL scan with SARIF upload).
+
+Summary of additional guardrails: lean on CodeQL for AI-assisted security analysis, expand linting with ESLint and YAML linters, bring in Dependabot/Snyk plus Trivy for dependency/container coverage, and evaluate free DeepSource/Codacy reviews to keep PR feedback tight.
+
+### Security Tooling Matrix
+
+| Language/Surface | Tool | Enforce as Gate | Budget/Threshold | Phase Introduced |
+| --- | --- | --- | --- | --- |
+| Python | Black | Yes | `black --check .` must pass | Phase 1 |
+| Python | `ruff check --select S` | Yes | Zero new S-class violations relative to baseline | Phase 2 |
+| Python | Bandit | Yes | High severity budget 0; medium ≤ existing baseline with 14-day SLA | Phase 2 |
+| Python | pip-audit | Yes | Block CVEs with CVSS ≥ 7 unless covered by approved VEX | Phase 2 |
+| Python | mypy | Yes | Zero new type errors; strict mode for new packages | Phase 2 |
+| Python | coverage.py | Report | Fail lane if total coverage < agreed floor; publish HTML/XML artifact | Phase 2 |
+| JavaScript/TypeScript | npm audit | Yes | No critical/high vulnerabilities without exemption | Phase 2 |
+| JavaScript/TypeScript | OWASP Dependency-Check | No (report) | Surface license/CVE deltas for policy review | Phase 2 |
+| JavaScript/TypeScript | ESLint | Yes | Block new lint violations in modified files | Phase 2 |
+| Configuration | yamllint | Yes | Enforce lint-clean YAML across workflows and charts | Phase 2 |
+| Go | gosec | Yes | Block new medium/high GDF findings | Phase 2 |
+| Go | govulncheck | Yes | Fail builds on vulnerable modules lacking patched versions or documented VEX | Phase 2 |
+| C/C++ | clang-tidy / cppcheck | Yes | Zero new high-severity diagnostics; document suppressions | Phase 3 |
+| C/C++ | Sanitizers (ASan/TSan/UBSan) | Report | Run in nightly matrix; fail on detected issues | Phase 3 |
+| Polyglot | Semgrep security pack | No (report) | Flag high-confidence CWE findings for triage | Phase 2 |
+| IaC | Checkov / KICS / tfsec | Yes | Critical = 0; High ≤ 3 with owner and remediation ticket | Phase 2 |
+| Containers | Trivy / Grype / Snyk | Yes | Disallow critical/high image vulns without VEX linkage | Phase 2 |
+| Dependencies | Dependabot / Snyk | Yes | Auto-open PRs for CVSS ≥ 7; require approval or documented VEX | Phase 1 |
+| Dynamic app security | OWASP ZAP / Nessus | Report | Run against staging weekly; fail on untriaged Highs | Phase 3 |
+| Runtime fuzzing | libFuzzer / OSS-Fuzz | Report | Capture crashes; require bug filed before promote | Phase 3 |
+| Supply chain | GitHub dependency-review action | Yes | Block new dependencies violating SPDX allowlist or raising high CVEs | Phase 1 |
+| Cross-language | GitHub CodeQL (nightly) | No (report) | Triage SLA 2 days; gate promotion once backlog cleared | Phase 3 |
+| PR assistance | DeepSource / Codacy (free tier) | No (assist) | Surface suggested fixes; human review required | Phase 3 |
+
+Deferred (post-SLSA tranche)
+
+- Traffic shadowing, gamification hub, and the work-stealing scheduler remain out-of-scope until SLSA/SBOM/admission/determinism/schema items above are green.
+
 Pillars (modules)
 
 1. Mutation Observatory
@@ -52,7 +205,7 @@ Pillars (modules)
    - Seed fuzz data (property-based tests). Snapshot DB state as artifact.
 
 7. Compliance-as-Code Validator
-   - YAML/rego policies: pinned action SHAs, SPDX license allowlist, least privilege.
+   - YAML/rego policies: pinned action SHAs, SPDX license allowlist, least privilege; see the [Security Tooling Matrix](#security-tooling-matrix) for language-specific enforcement gates.
    - Enforce per commit. Generate HTML report. Output policy_violations.
 
 8. Self-Healing Build Cache (Cache Sentinel)
@@ -391,7 +544,7 @@ Security, supply chain, and governance
 
 - SLSA L3 path: SBOM, provenance, cosign signatures, Rekor verify; block deploy on missing or invalid attestation.
 
-- Policies enforced at merge and deploy: pinned action SHAs, SPDX license allowlist, least-privilege permissions, IaC and secret scanning.
+- Policies enforced at merge and deploy: pinned action SHAs, SPDX license allowlist, least-privilege permissions, IaC and secret scanning (see the [Security Tooling Matrix](#security-tooling-matrix) for scanner coverage and gate posture).
 
 - Threat model (STRIDE) documented in docs/THREAT_MODEL.md, updated quarterly.
 
@@ -445,7 +598,7 @@ Success criteria (ship gates)
 
 Phased delivery plan
 
-Phase 0 -- Alignment
+Phase 0 — Alignment
 
 - Define personas (executive, engineering, SRE, compliance) and KPI targets: resilience, mutation delta, DORA, cache hit %, cost, carbon.
 
@@ -453,7 +606,7 @@ Phase 0 -- Alignment
 
 - Freeze scope until the umbrella dashboard ships.
 
-Phase 1 -- Hermetic build path + CD essentials
+Phase 1 — Hermetic build path + CD essentials
 
 - Rootless/distroless builder pinned by digest; produce SBOM + provenance; register attestations in Rekor.
 
@@ -467,7 +620,11 @@ Phase 1 -- Hermetic build path + CD essentials
 
 - Emit NDJSON v1.2 from unit.yml, mutation.yml, chaos.yml.
 
-Phase 2 -- Ingestion and storage
+- Pin every GitHub Action by commit SHA, set least-privilege permissions/id-token scopes, enable workflow `concurrency` cancellation, and add the secret-scan CI job so unpinned steps or static secrets fail PRs immediately.
+
+- Add Black formatting enforcement (`black --check .`) to the lint lane so Python code style stays consistent before merges.
+
+Phase 2 — Ingestion and storage
 
 - Instrument workflows to emit structured events (JSON artifacts, test telemetry, chaos outcomes, cache stats).
 
@@ -475,9 +632,13 @@ Phase 2 -- Ingestion and storage
 
 - Load to BigQuery raw partitioned by repo/pipeline/date; curate marts with dbt/SQLMesh: pipeline_runs, test_resilience, cost_usage, chaos_events, ownership dimensions.
 
-Phase 3 -- Policy, gates, and analytics
+- Expand quality automation: run `mypy` for static type coverage, execute `pytest` with `coverage.py` reports, and fail the lane if type errors surface or coverage drifts below negotiated guardrails; publish the coverage artifact through GitHub Actions for reporting.
+
+Phase 3 — Policy, gates, and analytics
 
 - PR gates: OpenAPI/GraphQL diff, performance budgets (k6/Locust), diff coverage + test-impact selection, fuzz/property smoke tests.
+
+- Enforce referrer presence, cosign provenance verification, SBOM+VEX policy gates, and Kyverno `verifyImages` deny-by-default policies with an accompanying failing-path test + alert.
 
 - Publish dashboards: Run Health, Efficiency, Quality, Chaos/Determinism, Sustainability.
 
@@ -485,7 +646,9 @@ Phase 3 -- Policy, gates, and analytics
 
 - Schema-CI, compat view, and migration tests fully operational.
 
-Phase 4 -- Reliability hardening and chaos
+- Layer in dynamic security coverage: schedule fuzzers against critical binaries, run OWASP ZAP active scans (and Nessus where licensed) in staging, wire Dependabot/Snyk advisory PRs with required review, and scan Terraform/Kubernetes via Checkov/tfsec before promotion. Surface results as GitHub Action reports and evaluate free AI-assisted PR feedback (CodeQL code scanning, DeepSource/Codacy) alongside ESLint/YAML lint gates for ancillary stacks.
+
+Phase 4 — Reliability hardening and chaos
 
 - Nightly heavy chaos; 1% PR chaos with kill-switch and fault allowlist.
 
@@ -495,7 +658,9 @@ Phase 4 -- Reliability hardening and chaos
 
 - Infrastructure Replay service active.
 
-Phase 5 -- Advanced analytics and optional gamification
+- Runner isolation playbook finalized (ephemeral hosts, egress allowlists, zero local persistence) plus cache-manifest signing/BLAKE3 verification and backpressure budgets to prevent poisoning or queue starvation.
+
+Phase 5 — Advanced analytics and optional gamification
 
 - Notebook workspace (Jupyter/Hex) for anomaly detection (Prophet/ARIMA) and goal tracking.
 
@@ -526,6 +691,8 @@ Critical delivery adds
 - DR + idempotency: backfill re-ingest pipeline, immutable artifact storage, disaster recovery runbook.
 
 - Developer experience: local pipeline emulator, Makefile targets, ChatOps /promote and /rollback commands.
+
+- Canary governance: persist the raw promote/rollback queries with their evaluation windows, hash + attach them to the Evidence Bundle, and require sign-off before altering thresholds.
 
 Tightened specs
 
@@ -1106,8 +1273,8 @@ Purpose: evolve this repo from “scripts + instructions” into a consumable to
    - Provide guidance for self-hosted runners vs GitHub-hosted (labels, concurrency caps, dependency ordering) and encode the pattern in the reusable workflows to keep PR-to-dev time low across microservices.
 
 8. Secure lint/SAST suite.
-   - Provide a reusable “security lint” job (Bandit for Python, gosec for Go, npm audit/dependency-check for JS, etc.) wired into the same workflow templates, with severity gating and caching of vulnerability DBs.
-   - Document how teams extend the suite per language and how findings feed into SARIF + policy gates.
+   - Provide a reusable “security lint” job with severity gating and vulnerability DB caching; coverage, thresholds, and enforcement live in the [Security Tooling Matrix](#security-tooling-matrix).
+   - Teams extend the matrix by adding rows for new stacks, and every finding is normalized to SARIF before flowing into policy gates and SBOM/VEX diffing.
 
 Hub product specification (install once, apply everywhere):
 
@@ -1128,7 +1295,7 @@ Hub product specification (install once, apply everywhere):
    - Keyless Cosign, SLSA v1.0 provenance, OCI 1.1 referrers for SBOM/VEX; Kyverno `verifyImages` policies; org Rulesets enforcing signed commits/tags, CODEOWNERS, no force-push; OIDC-only secrets; egress default deny.
 
 5. SAST/SCA/IaC packs with budgets
-   - Bundled tools per language (Bandit, Semgrep, pip-audit, npm audit, govulncheck, OWASP DC, Checkov/KICS, Trivy/Grype) with enforcement via `policy-gates.yml` comparing results to `.ci-intel` budgets; override flow requires justification.
+   - Bundled tools per language (Bandit, Ruff security rules, Semgrep, pip-audit, npm audit, govulncheck, OWASP DC, CodeQL queries, GitHub dependency-review, Checkov/KICS, Trivy/Grype) with enforcement via `policy-gates.yml` comparing results to `.ci-intel` budgets; override flow requires justification and SBOM evidence. Coverage and gate posture are tracked in the [Security Tooling Matrix](#security-tooling-matrix).
 
 6. Determinism and cache
    - Reusable determinism step ensuring SOURCE_DATE_EPOCH/TZ/LC and dual-run checksum; cache sentinel with BLAKE3 keys, signed manifests, quarantine on mismatch.

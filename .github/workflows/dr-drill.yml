@@ -22,14 +22,27 @@ jobs:
       INGEST_LOCATION: ${{ vars.CI_INTEL_BQ_LOCATION || '' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-      - name: Simulate DR drill
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Execute DR drill
         run: |
           set -euo pipefail
           mkdir -p "${DR_OUTPUT}"
           python tools/run_dr_drill.py \
+            --manifest data/dr/manifest.json \
             --output "${DR_OUTPUT}/dr-report.json" \
-            --ndjson "${DR_OUTPUT}/dr-events.ndjson"
+            --ndjson "${DR_OUTPUT}/dr-events.ndjson" \
+            --evidence-dir "${DR_OUTPUT}"
+      - name: Summarize DR metrics
+        run: |
+          set -euo pipefail
+          if [[ ! -f "${DR_OUTPUT}/drill-metrics.json" ]]; then
+            echo "Error: ${DR_OUTPUT}/drill-metrics.json not found" >&2
+            exit 1
+          fi
+          jq -e 'has("metrics") and has("run_id") and has("backup_captured_at") and (.metrics | type == "object")' \
+            "${DR_OUTPUT}/drill-metrics.json" > /dev/null
+          jq '.metrics + {run_id: .run_id, backup_captured_at: .backup_captured_at}' \
+            "${DR_OUTPUT}/drill-metrics.json" > "${DR_OUTPUT}/drill-metrics-summary.json"
       - name: Ingest DR telemetry
         if: env.INGEST_PROJECT != '' && env.INGEST_DATASET != ''
         run: |
@@ -48,7 +61,7 @@ jobs:
           fi
           "${cmd[@]}"
       - name: Upload DR evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: dr-evidence
           path: ${{ env.DR_OUTPUT }}

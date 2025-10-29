@@ -1,0 +1,20 @@
+name: ci_cd_hub
+version: "1.0"
+config-version: 2
+
+profile: ci_cd_hub
+
+model-paths: ["models/staging", "models/marts"]
+test-paths: ["models/tests"]
+seed-paths: ["models/seeds"]
+macro-paths: ["models/macros"]
+
+models:
+  ci_cd_hub:
+    staging:
+      +schema: staging
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: view
+

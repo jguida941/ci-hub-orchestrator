@@ -1,0 +1,22 @@
+{
+  "cluster": "staging-dr",
+  "captured_at": "2025-01-15T12:00:00Z",
+  "services": [
+    {
+      "name": "ci-intel-api",
+      "version": "1.2.3",
+      "status": "ready"
+    },
+    {
+      "name": "ci-intel-worker",
+      "version": "1.2.3",
+      "status": "ready"
+    }
+  ],
+  "databases": {
+    "ci_intel": {
+      "size_gb": 12.4,
+      "wal": "000000010000000A000000FE"
+    }
+  }
+}

@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ci-intel-missing-referrers
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ci-intel-missing-referrers
+  template:
+    metadata:
+      labels:
+        app: ci-intel-missing-referrers
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/jguida941/ci-cd-hub/api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb

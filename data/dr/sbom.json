@@ -1,0 +1,26 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2025-01-15T12:05:00Z",
+    "component": {
+      "type": "application",
+      "name": "ci-intel-platform",
+      "version": "1.2.3"
+    }
+  },
+  "components": [
+    {
+      "type": "library",
+      "name": "postgresql",
+      "version": "16.2",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "d0c1de42dbdb9b8f9fb7cab40dfdc5cf9ca7caceb007e047d4306f4320ced3b0"
+        }
+      ]
+    }
+  ]
+}

@@ -2,4 +2,10 @@
 jsonschema==4.21.1
 pyyaml==6.0.1
 pytest==7.4.4
+pytest-cov==4.1.0
 blake3==0.4.1
+ruff==0.4.7
+bandit==1.7.10
+pip-audit==2.7.3
+dbt-core==1.10.13
+dbt-duckdb==1.9.6

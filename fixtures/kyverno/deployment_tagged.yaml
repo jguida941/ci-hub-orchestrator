@@ -1,0 +1,20 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ci-intel-tagged
+  annotations:
+    ci-intel.dev/sbom-referrer: oci://ghcr.io/ci-intel/platform/sbom@sha256:1111111111111111111111111111111111111111111111111111111111111111
+    ci-intel.dev/provenance-referrer: oci://ghcr.io/ci-intel/platform/provenance@sha256:2222222222222222222222222222222222222222222222222222222222222222
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ci-intel-tagged
+  template:
+    metadata:
+      labels:
+        app: ci-intel-tagged
+    spec:
+      containers:
+        - name: api
+          image: ghcr.io/jguida941/ci-cd-hub/api:latest

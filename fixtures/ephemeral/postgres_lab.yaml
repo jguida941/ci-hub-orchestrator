@@ -1,0 +1,12 @@
+name: postgres-lab
+ttl_hours: 4
+seed_file: fixtures/ephemeral/postgres_seed.sql
+services:
+  - name: postgres
+    image: postgres:15
+    ports: [5432]
+    env:
+      POSTGRES_DB: demo
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo-password
+

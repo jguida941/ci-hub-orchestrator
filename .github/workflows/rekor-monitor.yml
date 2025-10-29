@@ -1,0 +1,89 @@
+name: rekor-monitor
+
+on:
+  schedule:
+    - cron: "0 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      digest:
+        description: OCI digest (sha256:...)
+        required: false
+      subject:
+        description: Image subject (e.g., ghcr.io/org/app)
+        required: false
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  REKOR_DIGEST: ${{ inputs.digest || vars.REKOR_DIGEST || secrets.REKOR_DIGEST || '' }}
+  REKOR_SUBJECT: ${{ inputs.subject || vars.REKOR_SUBJECT || secrets.REKOR_SUBJECT || '' }}
+
+jobs:
+  monitor:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Ensure digest provided
+        run: |
+          set -euo pipefail
+          if [ -z "${REKOR_DIGEST}" ]; then
+            echo "::error::REKOR_DIGEST not provided (set repo variable/secret or workflow input)."
+            exit 1
+          fi
+          if ! [[ "${REKOR_DIGEST}" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "::error::REKOR_DIGEST must be in format sha256:<64-hex>."
+            exit 1
+          fi
+          if [ -z "${REKOR_SUBJECT}" ]; then
+            echo "::error::REKOR_SUBJECT not provided (set repo variable/secret or workflow input)."
+            exit 1
+          fi
+          if [ "${REKOR_SUBJECT}" = "ghcr.io/example/app" ]; then
+            echo "::error::REKOR_SUBJECT is still the placeholder ghcr.io/example/app; configure a real subject."
+            exit 1
+          fi
+          echo "Monitoring Rekor entry for ${REKOR_SUBJECT}@${REKOR_DIGEST}"
+
+      - name: Validate Rekor monitor script
+        run: |
+          set -euo pipefail
+          if [ ! -f "./tools/rekor_monitor.sh" ]; then
+            echo "::error::rekor_monitor.sh missing from tools directory."
+            exit 1
+          fi
+          if [ ! -x "./tools/rekor_monitor.sh" ]; then
+            echo "Making ./tools/rekor_monitor.sh executable"
+            chmod +x ./tools/rekor_monitor.sh
+          fi
+
+      - name: Run Rekor monitor
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/evidence/rekor
+          ./tools/rekor_monitor.sh "${REKOR_DIGEST}" "${REKOR_SUBJECT}" artifacts/evidence/rekor
+          if [ ! -d artifacts/evidence/rekor ]; then
+            echo "::error::Rekor monitor did not create artifacts/evidence/rekor."
+            exit 1
+          fi
+          shopt -s nullglob
+          files=(artifacts/evidence/rekor/*)
+          shopt -u nullglob
+          if [ ${#files[@]} -eq 0 ]; then
+            echo "::error::Rekor monitor produced no output files to upload."
+            exit 1
+          fi
+          echo "Rekor monitor generated:"
+          ls -l artifacts/evidence/rekor
+
+      - name: Upload Rekor evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: rekor-evidence-${{ github.run_id }}
+          path: artifacts/evidence/rekor

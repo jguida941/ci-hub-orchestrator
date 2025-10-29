@@ -1,0 +1,82 @@
+name: security-lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - master
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python-security:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install tooling
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Ruff security rules
+        run: ruff check --select S .
+
+      - name: Bandit
+        run: bandit -q -r tools scripts
+
+      - name: pip-audit (requirements-dev)
+        env:
+          PIP_AUDIT_PROGRESS_BAR: off
+        run: |
+          set -euo pipefail
+          pip-audit -r requirements-dev.txt
+          pip-audit -r requirements-dev.lock
+
+  workflow-guard:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Verify workflow pins + secretless envs
+        run: python scripts/check_workflow_integrity.py
+
+      - name: Secret keyword sweep
+        run: |
+          set -euo pipefail
+          if grep -R -n -E 'AWS_SECRET|_KEY=|TOKEN=' \
+            --exclude='security-lint.yml' \
+            --exclude='security-lint.yaml' \
+            .github/workflows; then
+            echo "::error::Potential static secret detected in workflow definition"
+            exit 1
+          else
+            echo "No static secrets detected in workflow definitions"
+          fi
+
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Dependency review
+        uses: actions/dependency-review-action@5194ced0a6f398b5acd35d8917d81e4f5d5f04cf # v4

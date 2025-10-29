@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -113,6 +114,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--jobs-file", type=Path, help="Path to JSON array describing jobs")
     parser.add_argument("--job", action="append", help="Inline JSON job definition")
     parser.add_argument("--output-dir", type=Path, help=argparse.SUPPRESS)  # legacy compatibility
+    parser.add_argument("--autopsy-report", type=Path, help="Path to autopsy JSON report")
+    parser.add_argument("--scheduler-report", type=Path, help="Path to predictive scheduler JSON report")
     return parser.parse_args()
 
 
@@ -187,7 +190,85 @@ def build_record(args: argparse.Namespace) -> dict[str, Any]:
         record["energy"] = {"kwh": args.energy_kwh}
     if args.cache_key:
         record["cache_keys"] = args.cache_key
+    if args.autopsy_report:
+        autopsy_findings = _load_autopsy_findings(args.autopsy_report)
+        if autopsy_findings:
+            record["autopsy"] = {"root_causes": autopsy_findings}
+    if args.scheduler_report:
+        scheduler_blob = _load_scheduler_report(args.scheduler_report)
+        if scheduler_blob:
+            record["scheduler"] = scheduler_blob
     return record
+
+
+AUTOPSY_ALLOWED_FIELDS = {"tool", "pattern", "file", "line", "message", "suggestion", "severity", "docs_uri"}
+
+
+def _load_autopsy_findings(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        raise SystemExit(f"[emit_pipeline_run] autopsy report not found: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"[emit_pipeline_run] failed to parse autopsy report {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit(f"[emit_pipeline_run] autopsy report must be an object: {path}")
+    if "findings" not in payload:
+        findings: list[Any] = []
+    else:
+        findings = payload["findings"]
+    if not isinstance(findings, list):
+        raise SystemExit("[emit_pipeline_run] autopsy report 'findings' must be a list")
+    normalized: list[dict[str, Any]] = []
+    for idx, finding in enumerate(findings):
+        if not isinstance(finding, dict):
+            raise SystemExit(f"[emit_pipeline_run] autopsy finding #{idx} must be an object")
+        filtered = {k: finding[k] for k in AUTOPSY_ALLOWED_FIELDS if k in finding}
+        required = {"tool", "pattern", "file", "line", "message", "severity"}
+        missing = required - filtered.keys()
+        if missing:
+            raise SystemExit(
+                f"[emit_pipeline_run] autopsy finding #{idx} missing required fields: {', '.join(sorted(missing))}"
+            )
+        line_value = filtered.get("line")
+        if not isinstance(line_value, int):
+            raise SystemExit(f"[emit_pipeline_run] autopsy finding #{idx} field 'line' must be an integer")
+        for field in ("tool", "pattern", "file", "message", "severity"):
+            value = filtered.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise SystemExit(f"[emit_pipeline_run] autopsy finding #{idx} field '{field}' must be a non-empty string")
+        for field in ("suggestion", "docs_uri"):
+            if field in filtered:
+                value = filtered[field]
+                if not isinstance(value, str) or not value.strip():
+                    raise SystemExit(
+                        f"[emit_pipeline_run] autopsy finding #{idx} field '{field}' must be a non-empty string when present"
+                    )
+        normalized.append(filtered)
+    return normalized
+
+
+def _load_scheduler_report(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"[emit_pipeline_run] ignoring invalid scheduler report {path}: {exc}", file=sys.stderr)
+        return {}
+    if not isinstance(payload, dict):
+        print(f"[emit_pipeline_run] ignoring invalid scheduler report {path}: must be an object", file=sys.stderr)
+        return {}
+    allowed = {
+        "schema",
+        "job",
+        "jobs",
+        "sample_size",
+        "stats",
+        "recommendation",
+        "generated_at",
+    }
+    return {k: payload[k] for k in allowed if k in payload}
 
 
 def main() -> int:

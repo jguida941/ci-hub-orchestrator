@@ -1,0 +1,4 @@
+{"job":"project-tests","duration_ms":240000,"queue_ms":2000,"tests_total":1200,"cache_hit":true,"changed_files":12,"runner_type":"hosted","runner_size":"medium"}
+{"job":"project-tests","duration_ms":360000,"queue_ms":1500,"tests_total":1500,"cache_hit":false,"changed_files":18,"runner_type":"hosted","runner_size":"medium"}
+{"job":"mutation-observatory","duration_ms":480000,"queue_ms":3000,"tests_total":900,"cache_hit":true,"changed_files":5,"runner_type":"hosted","runner_size":"large"}
+

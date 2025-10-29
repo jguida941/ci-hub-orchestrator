@@ -6,3 +6,13 @@ __pycache__/
 # Runner artifacts
 artifacts/**/*.html
 Screenshot\ *.png
+
+# dbt build artifacts and caches
+dbt_packages/
+dbt_modules/
+logs/
+manifest.json
+models/target/
+partial_parse.msgpack
+run_results.json
+target/

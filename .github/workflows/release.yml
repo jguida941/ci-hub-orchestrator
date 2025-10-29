@@ -20,7 +20,39 @@ env:
   INGEST_LOCATION: ${{ vars.CI_INTEL_BQ_LOCATION || '' }}
 
 jobs:
+  dr-gate:
+    name: disaster-recovery-gate
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Run DR drill gate
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/dr
+          python tools/run_dr_drill.py \
+            --manifest data/dr/manifest.json \
+            --output artifacts/dr/dr-report.json \
+            --ndjson artifacts/dr/dr-events.ndjson \
+            --evidence-dir artifacts/dr
+      - name: Summarize DR metrics
+        run: |
+          set -euo pipefail
+          jq '.metrics + {run_id: .run_id, backup_captured_at: .backup_captured_at}' artifacts/dr/drill-metrics.json
+      - name: Upload DR gate evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dr-gate-evidence
+          path: artifacts/dr
+
   project-tests:
+    needs: dr-gate
     permissions:
       contents: read
     runs-on: ubuntu-22.04
@@ -33,16 +65,16 @@ jobs:
             path: caesar_cli
     steps:
       - name: Checkout automation repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
       - name: Checkout ${{ matrix.name }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
         with:
           repository: ${{ matrix.repository }}
           path: project
 
       - name: Cache pip
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('project/**/requirements*.txt', 'project/**/pyproject.toml') }}
@@ -50,28 +82,297 @@ jobs:
             ${{ runner.os }}-pip-
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
 
       - name: Install project
         run: |
+          set -euo pipefail
           cd project/${{ matrix.path }}
           pip install --upgrade pip
           pip install '.[dev]' || pip install .
 
       - name: Run project tests
         run: |
+          set -euo pipefail
           cd project/${{ matrix.path }}
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/logs"
+          LOG_PATH="$GITHUB_WORKSPACE/artifacts/logs/${{ matrix.name }}.log"
+          START_TIME=$(date +%s)
           if [ -f pytest.ini ] || [ -d tests ]; then
-            pytest
+            CMD=(pytest)
           else
             echo "No pytest configuration found; running unit tests"
-            python -m unittest discover
+            CMD=(python -m unittest discover)
           fi
+          if ! "${CMD[@]}" 2>&1 | tee "$LOG_PATH"; then
+            TEST_STATUS=${PIPESTATUS[0]}
+            TEE_STATUS=${PIPESTATUS[1]:-0}
+            if [ "$TEST_STATUS" -eq 0 ] && [ "$TEE_STATUS" -ne 0 ]; then
+              echo "Log capture via tee failed with status $TEE_STATUS" >&2
+              TEST_STATUS=$TEE_STATUS
+            fi
+          else
+            TEST_STATUS=${PIPESTATUS[0]}
+          fi
+          END_TIME=$(date +%s)
+          DURATION_MS=$(( (END_TIME - START_TIME) * 1000 ))
+          echo "${DURATION_MS}" > "$GITHUB_WORKSPACE/artifacts/logs/${{ matrix.name }}.duration"
+          if git rev-parse HEAD~1 >/dev/null 2>&1; then
+            CHANGED_FILES=$(git diff --name-only HEAD~1 | wc -l | tr -d ' ')
+          else
+            CHANGED_FILES=$(git ls-files | wc -l | tr -d ' ')
+          fi
+          echo "${CHANGED_FILES}" > "$GITHUB_WORKSPACE/artifacts/logs/${{ matrix.name }}.changed"
+          exit $TEST_STATUS
+
+      - name: Record job telemetry
+        if: always()
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/telemetry
+          MATRIX_NAME="${{ matrix.name }}"
+          OUTPUT_PATH="$(python - <<'PY'
+import hashlib
+import os
+
+name = os.environ["MATRIX_NAME"]
+safe = "".join(
+    (c.lower() if c.isalnum() or c in \"._-\" else \"_\")
+    for c in name
+).strip(\"_\")
+if not safe:
+    safe = \"job\"
+digest = hashlib.sha256(name.encode(\"utf-8\")).hexdigest()[:8]
+print(f\"artifacts/telemetry/jobs-{safe}-{digest}.ndjson\")
+PY
+)"
+          DURATION=$(cat artifacts/logs/${{ matrix.name }}.duration 2>/dev/null || echo 0)
+          CHANGED=$(cat artifacts/logs/${{ matrix.name }}.changed 2>/dev/null || echo 0)
+          python scripts/record_job_telemetry.py \
+            --output "$OUTPUT_PATH" \
+            --job-name "${{ matrix.name }}" \
+            --duration-ms "$DURATION" \
+            --queue-ms 0 \
+            --tests-total 0 \
+            --changed-files "$CHANGED" \
+            --runner-type hosted \
+            --runner-size medium
+
+      - name: Upload project test logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: project-test-logs-${{ matrix.name }}
+          path: artifacts/logs
+          if-no-files-found: warn
+
+      - name: Upload job telemetry
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: job-telemetry
+          path: artifacts/telemetry
+          if-no-files-found: warn
+
+  pipeline-autopsy:
+    needs: project-tests
+    if: ${{ always() }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+      - name: Prepare directories
+        run: |
+          mkdir -p artifacts/logs artifacts/autopsy
+      - name: Download project logs
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          pattern: project-test-logs-*
+          path: artifacts/logs
+          merge-multiple: true
+        continue-on-error: true
+      - name: Run Pipeline Autopsy
+        run: |
+          set -euo pipefail
+          python -m autopsy.analyzer \
+            --log artifacts/logs \
+            --output artifacts/autopsy/report.json \
+            --ndjson artifacts/autopsy/findings.ndjson \
+            --summary artifacts/autopsy/summary.md \
+            --repo "${{ github.repository }}" \
+            --branch "${{ github.ref_name }}" \
+            --commit-sha "${{ github.sha }}" \
+            --run-id "${{ github.run_id }}-${{ github.run_attempt }}"
+      - name: Upload autopsy report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: autopsy-report
+          path: artifacts/autopsy
+          if-no-files-found: warn
+
+  predictive-scheduler:
+    needs: project-tests
+    if: ${{ always() }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Download telemetry artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: job-telemetry
+          path: artifacts/telemetry
+        continue-on-error: true
+      - name: Consolidate job telemetry
+        run: |
+          set -euo pipefail
+          python scripts/consolidate_telemetry.py artifacts/telemetry jobs.ndjson
+      - name: Run predictive scheduler
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/telemetry artifacts/scheduler
+          TELEMETRY_FILE="artifacts/telemetry/jobs.ndjson"
+          if [ ! -f "$TELEMETRY_FILE" ] || [ ! -s "$TELEMETRY_FILE" ]; then
+            if [ ! -f "fixtures/telemetry/baseline_jobs.ndjson" ] || [ ! -s "fixtures/telemetry/baseline_jobs.ndjson" ]; then
+              echo "::error::[scheduler] baseline telemetry fixture missing or empty at fixtures/telemetry/baseline_jobs.ndjson"
+              exit 1
+            fi
+            cp fixtures/telemetry/baseline_jobs.ndjson "$TELEMETRY_FILE"
+          fi
+          python - <<'PY'
+from __future__ import annotations
+
+import json
+import subprocess
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+telemetry = Path("artifacts/telemetry/jobs.ndjson")
+scheduler_dir = Path("artifacts/scheduler")
+scheduler_dir.mkdir(parents=True, exist_ok=True)
+
+if not telemetry.exists() or telemetry.stat().st_size == 0:
+    print("[scheduler] no telemetry rows available; skipping recommendations")
+    sys.exit(0)
+
+jobs: list[str] = []
+with telemetry.open(encoding="utf-8") as handle:
+    for raw in handle:
+        raw = raw.strip()
+        if not raw:
+            continue
+        payload = json.loads(raw)
+        job = str(payload.get("job", "")).strip()
+        if job:
+            jobs.append(job)
+
+jobs = sorted(set(jobs))
+if not jobs:
+    print("[scheduler] telemetry file contains no job identifiers", file=sys.stderr)
+    sys.exit(1)
+
+reports: list[dict[str, object]] = []
+for job in jobs:
+    safe_job = "".join(c if c.isalnum() or c in ("-", "_", ".") else "_" for c in job)
+    out_json = scheduler_dir / f"{safe_job}.json"
+    out_md = scheduler_dir / f"{safe_job}.md"
+    cmd = [
+        sys.executable,
+        "tools/predictive_scheduler.py",
+        "--telemetry",
+        str(telemetry),
+        "--job",
+        job,
+        "--output",
+        str(out_json),
+        "--markdown",
+        str(out_md),
+    ]
+    print(f"[scheduler] generating recommendation for {job}")
+    subprocess.run(cmd, check=True)
+    reports.append(json.loads(out_json.read_text(encoding="utf-8")))
+
+batch = {
+    "schema": "predictive_scheduler.batch.v1",
+    "generated_at": datetime.now(timezone.utc).isoformat(),
+    "jobs": reports,
+}
+(scheduler_dir / "recommendations.json").write_text(json.dumps(batch, indent=2) + "\n", encoding="utf-8")
+summary_lines = ["# Predictive Scheduler Summary", ""]
+for report in reports:
+    rec = report["recommendation"]["runner_size"]
+    summary_lines.append(f"- {report['job']}: {rec}")
+summary_lines.append("")
+(scheduler_dir / "recommendations.md").write_text("\n".join(summary_lines), encoding="utf-8")
+PY
+      - name: Upload scheduler recommendation
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: predictive-scheduler
+          path: artifacts/scheduler
+          if-no-files-found: warn
+
+  ephemeral-data-lab:
+    needs: project-tests
+    if: ${{ always() }}
+    permissions:
+      contents: read
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+      - name: Generate lab plan
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/ephemeral
+          python tools/ephemeral_data_lab.py \
+            --config fixtures/ephemeral/postgres_lab.yaml \
+            plan \
+            --output artifacts/ephemeral/lab-plan.json
+      - name: Snapshot seed data
+        run: |
+          set -euo pipefail
+          python tools/ephemeral_data_lab.py \
+            --config fixtures/ephemeral/postgres_lab.yaml \
+            snapshot \
+            --output-dir artifacts/ephemeral/snapshots
+      - name: Upload lab artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ephemeral-data-lab
+          path: artifacts/ephemeral
+          if-no-files-found: warn
 
   build-sign-publish:
-    needs: project-tests
+    needs:
+      - project-tests
     permissions:
       contents: read
       packages: write
@@ -90,7 +391,7 @@ jobs:
       subject_b64: ${{ steps.subjects.outputs.base64_subject }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
       - name: Install Python deps (cache sentinel)
         run: |
@@ -125,18 +426,18 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Log in to registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3
 
       - name: Build and push multi-arch image
         id: build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         env:
           DOCKER_BUILDKIT: 1
           BUILDKIT_RETRY_SOCKET_ERRORS: 1
@@ -187,7 +488,7 @@ jobs:
             --product "${IMAGE_NAME}"
 
       - name: Upload SBOMs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sbom
           path: ${{ env.SBOM_DIR }}
@@ -204,7 +505,7 @@ jobs:
 
       - name: Upload signing evidence
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: signing-metadata
           path: ${{ env.EVIDENCE_DIR }}
@@ -235,7 +536,7 @@ jobs:
       id-token: write
       contents: read
       packages: write
-    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@v2.1.0
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@f7dd8c54c2067bafc12ca7a55595d5ee9b75204a # v2.1.0
     with:
       image: ghcr.io/${{ github.repository_owner }}/ci-intel-app
       digest: ${{ needs.build-sign-publish.outputs.digest }}
@@ -260,11 +561,11 @@ jobs:
       COSIGN_EXPERIMENTAL: "1"
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
       - name: Check provenance artifacts
         id: provenance_artifacts
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
@@ -281,28 +582,28 @@ jobs:
         run: ./scripts/install_tools.sh
 
       - name: Login to registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download SBOMs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: sbom
           path: artifacts/sbom
 
       - name: Download provenance artifact
         if: ${{ steps.provenance_artifacts.outputs.has_predicate == 'true' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: predicate
           path: artifacts
 
       - name: Download provenance artifact (attestation)
         if: ${{ steps.provenance_artifacts.outputs.has_attestation == 'true' }}
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: attestation
           path: artifacts
@@ -419,7 +720,7 @@ jobs:
           ./tools/rekor_monitor.sh "${{ needs.build-sign-publish.outputs.digest }}" "${REGISTRY}/${IMAGE_NAME}" artifacts/evidence
 
       - name: Upload Evidence bundle
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-evidence
           path: |
@@ -443,7 +744,7 @@ jobs:
       IMAGE_NAME: ${{ github.repository_owner }}/ci-intel-app
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
       - name: Install Python test dependencies
         run: |
           set -euo pipefail
@@ -507,7 +808,7 @@ jobs:
           tar -xzf "${TMP_DIR}/${ARCHIVE}" -C "$TMP_DIR" grype
           sudo install -m 0755 "${TMP_DIR}/grype" /usr/local/bin/grype
       - name: Login to registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -570,7 +871,7 @@ jobs:
           curl -L -o /usr/local/bin/opa https://github.com/open-policy-agent/opa/releases/download/v0.63.0/opa_linux_amd64_static
           chmod +x /usr/local/bin/opa
       - name: Download SBOM artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: sbom
           path: policy-inputs/sbom
@@ -700,7 +1001,7 @@ jobs:
 
       - name: Upload policy evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: policy-evidence
           path: |
@@ -720,10 +1021,53 @@ jobs:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+      - name: Prepare artifacts directories
+        run: mkdir -p artifacts/autopsy
+      - name: Download autopsy report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: autopsy-report
+          path: artifacts/autopsy
+        continue-on-error: true
+      - name: Download scheduler report
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: predictive-scheduler
+          path: artifacts/scheduler
+        continue-on-error: true
+      - name: Download telemetry snapshot
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: job-telemetry
+          path: artifacts/telemetry
+        continue-on-error: true
+      - name: Report artifact availability
+        run: |
+          set -euo pipefail
+          echo "::notice::Checking artifact availability..."
+          if compgen -G "artifacts/autopsy/*" > /dev/null; then
+            echo "✓ autopsy artifacts present"
+          else
+            echo "✗ autopsy artifacts missing"
+          fi
+          if compgen -G "artifacts/scheduler/*" > /dev/null; then
+            echo "✓ scheduler artifacts present"
+          else
+            echo "✗ scheduler artifacts missing"
+          fi
+          if compgen -G "artifacts/telemetry/*.ndjson" > /dev/null; then
+            echo "✓ telemetry fragments present"
+          else
+            echo "✗ telemetry fragments missing (no *.ndjson found)"
+          fi
+      - name: Consolidate job telemetry
+        run: |
+          set -euo pipefail
+          python scripts/consolidate_telemetry.py artifacts/telemetry jobs.ndjson
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: '3.12'
 
@@ -742,7 +1086,9 @@ jobs:
             {"id":"build-sign-publish","name":"build-sign-publish","status":"${{ needs.build-sign-publish.result }}","attempt":1,"duration_ms":0,"queue_ms":0},
             {"id":"generate-provenance","name":"generate-provenance","status":"${{ needs.generate-provenance.result }}","attempt":1,"duration_ms":0,"queue_ms":0},
             {"id":"collect-evidence","name":"collect-evidence","status":"${{ needs.collect-evidence.result }}","attempt":1,"duration_ms":0,"queue_ms":0},
-            {"id":"policy-gates","name":"policy-gates","status":"${{ needs.policy-gates.result }}","attempt":1,"duration_ms":0,"queue_ms":0}
+            {"id":"policy-gates","name":"policy-gates","status":"${{ needs.policy-gates.result }}","attempt":1,"duration_ms":0,"queue_ms":0},
+            {"id":"pipeline-autopsy","name":"pipeline-autopsy","status":"not_tracked","attempt":0,"duration_ms":0,"queue_ms":0},
+            {"id":"predictive-scheduler","name":"predictive-scheduler","status":"not_tracked","attempt":0,"duration_ms":0,"queue_ms":0}
           ]
           JSON
 
@@ -751,6 +1097,14 @@ jobs:
           RUN_ARTIFACTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts
         run: |
           set -euo pipefail
+          AUTOPSY_FLAGS=()
+          if [ -f artifacts/autopsy/report.json ]; then
+            AUTOPSY_FLAGS+=(--autopsy-report artifacts/autopsy/report.json)
+          fi
+          SCHEDULER_FLAGS=()
+          if [ -f artifacts/scheduler/recommendations.json ]; then
+            SCHEDULER_FLAGS+=(--scheduler-report artifacts/scheduler/recommendations.json)
+          fi
           python scripts/emit_pipeline_run.py \
             --output artifacts/pipeline_run.ndjson \
             --status success \
@@ -776,14 +1130,16 @@ jobs:
             --cpu-seconds 0 \
             --gpu-seconds 0 \
             --primary-job-duration-ms 0 \
-            --jobs-file artifacts/pipeline_jobs.json
+            --jobs-file artifacts/pipeline_jobs.json \
+            "${AUTOPSY_FLAGS[@]}" \
+            "${SCHEDULER_FLAGS[@]}"
 
       - name: Validate pipeline_run schema
         run: |
           python scripts/validate_schema.py artifacts/pipeline_run.ndjson
 
       - name: Upload pipeline_run artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: pipeline-run
           path: artifacts/pipeline_run.ndjson
@@ -801,3 +1157,32 @@ jobs:
             cmd+=(--location "$INGEST_LOCATION")
           fi
           "${cmd[@]}"
+
+      - name: Produce warehouse snapshot
+        run: |
+          set -euo pipefail
+          AUTOPSY_FLAGS=()
+          if [[ -f artifacts/autopsy/findings.ndjson ]]; then
+            AUTOPSY_FLAGS+=(--autopsy artifacts/autopsy/findings.ndjson)
+          fi
+          SCHEDULER_FLAGS=()
+          if [[ -f artifacts/scheduler/recommendations.json ]]; then
+            SCHEDULER_FLAGS+=(--scheduler artifacts/scheduler/recommendations.json)
+          fi
+          TELEMETRY_FLAGS=()
+          if [[ -f artifacts/telemetry/jobs.ndjson ]]; then
+            TELEMETRY_FLAGS+=(--telemetry artifacts/telemetry/jobs.ndjson)
+          fi
+          python ingest/event_loader.py \
+            --warehouse-dir data/warehouse \
+            --pipeline-run artifacts/pipeline_run.ndjson \
+            "${AUTOPSY_FLAGS[@]}" \
+            "${SCHEDULER_FLAGS[@]}" \
+            "${TELEMETRY_FLAGS[@]}"
+
+      - name: Upload warehouse snapshot
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: warehouse-snapshot
+          path: data/warehouse
