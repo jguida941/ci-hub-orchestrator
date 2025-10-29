@@ -237,10 +237,10 @@ graph TD
   Repo[Source Repos] -->|workflow_call| Actions[Reusable GitHub Actions]
   Actions --> Runners[Hub Runner Fleet]
   Runners --> Build[Artifact Build & Sign]
-  Build --> Evidence[Evidence Bundle\n(SBOM · VEX · Provenance · Signatures)]
-  Evidence --> PolicyGates[Policy Gates\n(Rego · Kyverno · Rulesets)]
+  Build --> Evidence["Evidence Bundle (SBOM, VEX, Provenance, Signatures)"]
+  Evidence --> PolicyGates["Policy Gates (Rego, Kyverno, Rulesets)"]
   PolicyGates --> Deploy[GitOps Deploy & DR Drill]
-  Deploy --> Telemetry[Telemetry Emitters\n(NDJSON, Metrics)]
+  Deploy --> Telemetry["Telemetry Emitters (NDJSON, Metrics)"]
   Telemetry --> Warehouse[Warehouse & dbt Marts]
   Warehouse --> Dashboards[Dashboards & Scorecards]
   Warehouse --> Autopsy[Autopsy & Postmortems]
@@ -250,11 +250,11 @@ graph TD
 
 ```mermaid
 flowchart LR
-  Commit[Commit pushed] --> Admission[Admission control\nSHA-pinned actions · OIDC]
+  Commit[Commit pushed] --> Admission["Admission control (SHA-pinned actions, OIDC)"]
   Admission --> Lint[Lint + Security]
   Lint --> Test[Test & Mutation]
   Test --> Build{Deterministic Build}
-  Build -->|cosign + rekor| Signatures
+  Build -->|cosign + rekor| Signatures[Signatures]
   Build --> SBOM
   Build --> Provenance
   Signatures --> Policy
