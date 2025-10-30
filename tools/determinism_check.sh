@@ -126,12 +126,6 @@ overall_status=0
 inspect_platform() {
   local platform_key="$1"
   local display_name="$2"
-  local -a platform_args=()
-
-  if [[ "$platform_key" != "__DEFAULT__" ]]; then
-    platform_args=(--platform "$display_name")
-  fi
-
   local safe_label
   safe_label=$(sanitize_label "$display_name")
   local base_sha=""
@@ -142,14 +136,87 @@ inspect_platform() {
   while [[ "$run_index" -le "$RUN_COUNT" ]]; do
     local manifest_file="$OUTPUT_DIR/manifest.${safe_label}.run${run_index}.json"
 
-    local -a cmd=(docker buildx imagetools inspect --raw)
-    if [[ "${#platform_args[@]}" -gt 0 ]]; then
-      cmd+=("${platform_args[@]}")
-    fi
-    cmd+=("$IMAGE_REF")
-    if ! "${cmd[@]}" > "$manifest_file"; then
-      >&2 echo "[determinism_check] Failed to inspect $IMAGE_REF for platform '$display_name' (run $run_index)"
-      exit 1
+    if [[ "$platform_key" == "__DEFAULT__" ]]; then
+      if ! docker buildx imagetools inspect --raw "$IMAGE_REF" > "$manifest_file"; then
+        >&2 echo "[determinism_check] Failed to inspect $IMAGE_REF (run $run_index)"
+        exit 1
+      fi
+    else
+      if ! python - "$IMAGE_REF" "$display_name" <<'PY' > "$manifest_file"; then
+import json
+import subprocess
+import sys
+
+
+def _fetch(ref: str) -> dict:
+    result = subprocess.run(
+        ["docker", "buildx", "imagetools", "inspect", "--raw", ref],
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+    if result.returncode != 0:
+        sys.stderr.write(result.stderr or "")
+        raise SystemExit(result.returncode)
+    try:
+        return json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+        sys.stderr.write(f"failed to decode manifest for {ref}: {exc}\n")
+        raise SystemExit(1) from exc
+
+
+def _select_manifest(root: dict, os_name: str, arch: str, variant: str | None) -> str | None:
+    manifests = root.get("manifests") or []
+    for entry in manifests:
+        platform = entry.get("platform") or {}
+        if platform.get("os") != os_name or platform.get("architecture") != arch:
+            continue
+        if variant and platform.get("variant") != variant:
+            continue
+        digest = entry.get("digest")
+        if isinstance(digest, str) and digest:
+            return digest
+    return None
+
+
+def main() -> int:
+    if len(sys.argv) != 3:  # pragma: no cover - guarded by shell script
+        sys.stderr.write("expected image reference and platform identifier\n")
+        return 1
+    image_ref = sys.argv[1]
+    platform_spec = sys.argv[2]
+    parts = platform_spec.split("/")
+    if len(parts) < 2:
+        sys.stderr.write(f"invalid platform identifier '{platform_spec}'\n")
+        return 1
+    os_name, arch = parts[0], parts[1]
+    variant = parts[2] if len(parts) > 2 else None
+
+    root_manifest = _fetch(image_ref)
+    manifests = root_manifest.get("manifests")
+    if not manifests:
+        json.dump(root_manifest, sys.stdout, indent=2)
+        sys.stdout.write("\n")
+        return 0
+
+    digest = _select_manifest(root_manifest, os_name, arch, variant)
+    if digest is None:
+        sys.stderr.write(f"platform '{platform_spec}' not found in manifest list for {image_ref}\n")
+        return 1
+
+    manifest_ref = f"{image_ref}@{digest}"
+    manifest = _fetch(manifest_ref)
+    json.dump(manifest, sys.stdout, indent=2)
+    sys.stdout.write("\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
+PY
+        >&2 echo "[determinism_check] Failed to extract manifest for platform '$display_name' (run $run_index)"
+        exit 1
+      fi
     fi
 
     local manifest_sha

@@ -26,19 +26,44 @@ fi
 shift
 
 RAW=false
-PLATFORM="all"
 
 if [[ "${1:-}" == "--raw" ]]; then
   RAW=true
   shift
 fi
 
-if [[ "${1:-}" == "--platform" ]]; then
-  PLATFORM="$2"
-  shift 2
+IMAGE="${1:-}"
+if [[ "$RAW" != "true" ]]; then
+  exit 0
 fi
 
-IMAGE="${1:-}"
+digest="${IMAGE##*@}"
+if [[ "$digest" == "$IMAGE" ]]; then
+  digest=""
+fi
+
+if [[ "$digest" == "sha256:deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef" ]]; then
+  cat <<'JSON'
+{"manifests":[
+  {"digest":"sha256:determinism-linux-amd64","platform":{"os":"linux","architecture":"amd64"}},
+  {"digest":"sha256:determinism-linux-arm64","platform":{"os":"linux","architecture":"arm64"}}
+]}
+JSON
+  exit 0
+fi
+
+case "$digest" in
+  sha256:determinism-linux-amd64)
+    PLATFORM="linux/amd64"
+    ;;
+  sha256:determinism-linux-arm64)
+    PLATFORM="linux/arm64"
+    ;;
+  *)
+    PLATFORM="unknown"
+    ;;
+esac
+
 STATE_DIR="${DOCKER_STUB_STATE_DIR:-}"
 if [[ -n "$STATE_DIR" ]]; then
   mkdir -p "$STATE_DIR"
@@ -60,21 +85,17 @@ if [[ -n "$state_file" ]]; then
   printf '%s' "$count" > "$state_file"
 fi
 
-if [[ "$RAW" == "true" ]]; then
-  content="baseline-${PLATFORM}"
-  if [[ -n "${DETERMINISM_STUB_DIFF:-}" ]]; then
-    IFS=',' read -r -a entries <<< "${DETERMINISM_STUB_DIFF}"
-    for entry in "${entries[@]}"; do
-      IFS=':' read -r target_platform target_run <<< "$entry"
-      if [[ "$target_platform" == "$PLATFORM" && "$target_run" == "$count" ]]; then
-        content="drift-${PLATFORM}-${count}"
-      fi
-    done
-  fi
-  printf '{"platform":"%s","content":"%s"}\\n' "$PLATFORM" "$content"
-else
-  printf 'pretty manifest for %s\\n' "$IMAGE"
+content="baseline-${PLATFORM}"
+if [[ -n "${DETERMINISM_STUB_DIFF:-}" ]]; then
+  IFS=',' read -r -a entries <<< "${DETERMINISM_STUB_DIFF}"
+  for entry in "${entries[@]}"; do
+    IFS=':' read -r target_platform target_run <<< "$entry"
+    if [[ "$target_platform" == "$PLATFORM" && "$target_run" == "$count" ]]; then
+      content="drift-${PLATFORM}-${count}"
+    fi
+  done
 fi
+printf '{"platform":"%s","content":"%s"}\\n' "$PLATFORM" "$content"
 """
 
 
