@@ -26,7 +26,7 @@ def _write_config(tmp_path: Path, workflows: dict[str, Any]) -> Path:
 
 @pytest.fixture(autouse=True)
 def _env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("GITHUB_REPOSITORY", "jguida941/ci-cd-hub")
+    monkeypatch.setenv("GITHUB_REPOSITORY", "jguida941/ci-cd-bst-demo-github-actions")
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.setenv("GITHUB_RUN_ID", "100")
 

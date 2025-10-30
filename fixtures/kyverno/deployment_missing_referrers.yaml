@@ -14,4 +14,4 @@ spec:
     spec:
       containers:
         - name: api
-          image: ghcr.io/jguida941/ci-cd-hub/api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+          image: ghcr.io/jguida941/ci-cd-bst-demo-github-actions/api@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb

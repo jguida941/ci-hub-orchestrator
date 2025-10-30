@@ -139,7 +139,11 @@ jobs:
           LOG_PATH="$GITHUB_WORKSPACE/artifacts/logs/${{ matrix.name }}.log"
           START_TIME=$(date +%s)
           if [ -f pytest.ini ] || [ -d tests ]; then
-            CMD=(pytest)
+            if ! python -c "import importlib.util, sys; sys.exit(0 if importlib.util.find_spec('pytest') else 1)" >/dev/null 2>&1; then
+              echo "pytest not available; installing fallback dependency"
+              pip install pytest
+            fi
+            CMD=(python -m pytest)
           else
             echo "No pytest configuration found; running unit tests"
             CMD=(python -m unittest discover)

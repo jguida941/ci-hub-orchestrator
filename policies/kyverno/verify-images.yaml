@@ -25,12 +25,12 @@ spec:
                 - CronJob
       verifyImages:
         - imageReferences:
-            - ghcr.io/jguida941/ci-cd-hub*
+            - ghcr.io/jguida941/ci-cd-bst-demo-github-actions*
           attestors:
             - entries:
                 - keyless:
                     issuer: https://token.actions.githubusercontent.com
-                    subject: https://github.com/jguida941/ci-cd-hub/.github/workflows/*
+                    subject: https://github.com/jguida941/ci-cd-bst-demo-github-actions/.github/workflows/*
                     rekor:
                       url: https://rekor.sigstore.dev
           mutateDigest: true

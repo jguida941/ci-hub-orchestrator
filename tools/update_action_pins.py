@@ -57,7 +57,7 @@ def github_api(path: str) -> dict[str, object]:
     if token:
         req.add_header("Authorization", f"Bearer {token}")
     req.add_header("Accept", "application/vnd.github+json")
-    req.add_header("User-Agent", "ci-cd-hub/action-pin-updater")
+    req.add_header("User-Agent", "ci-cd-bst-demo-github-actions/action-pin-updater")
     try:
         with _open_https(req, timeout=30) as resp:
             payload = resp.read()

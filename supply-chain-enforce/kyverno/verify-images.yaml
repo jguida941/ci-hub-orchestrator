@@ -60,7 +60,7 @@ spec:
                 - keyless:
                     url: https://fulcio.sigstore.dev
                     issuer: "https://token.actions.githubusercontent.com"
-                    subject: &github_workflow_identity "https://github.com/jguida941/ci-cd-hub/.github/workflows/release.yml@refs/*"
+                    subject: &github_workflow_identity "https://github.com/jguida941/ci-cd-bst-demo-github-actions/.github/workflows/release.yml@refs/*"
                   rekor:
                     url: https://rekor.sigstore.dev
                   annotations:

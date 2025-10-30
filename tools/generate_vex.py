@@ -78,7 +78,7 @@ def generate_vex(
             "timestamp": metadata_timestamp,
             "tools": [
                 {
-                    "vendor": "ci-cd-hub",
+                    "vendor": "ci-cd-bst-demo-github-actions",
                     "name": "generate_vex.py",
                     "version": "1.0.0",
                 }

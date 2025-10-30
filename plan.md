@@ -1736,7 +1736,7 @@ Purpose: evolve this repo from “scripts + instructions” into a consumable to
 
 2. Publish reusable GitHub Actions/workflows.
    - Convert the current `.github/workflows/*.yml` files into `workflow_call` templates and/or composite actions.
-   - Downstream repos reference them via `uses: org/ci-cd-hub/.github/workflows/mutation.yml@v1` and pass repo-specific inputs/secrets.
+   - Downstream repos reference them via `uses: org/ci-cd-bst-demo-github-actions/.github/workflows/mutation.yml@v1` and pass repo-specific inputs/secrets.
 
 3. Template repo-specific configs.
    - Maintain canonical configs (mutation observatory YAML, Rekor monitor settings, VEX fixtures) in `templates/`.
