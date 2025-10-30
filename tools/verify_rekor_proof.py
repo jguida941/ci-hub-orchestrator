@@ -8,6 +8,8 @@ import base64
 import json
 import sys
 from pathlib import Path
+import os
+import subprocess
 from typing import Any, Iterable
 
 
@@ -166,9 +168,9 @@ def verify_proof(proof_path: Path, expected_digest: str | None) -> dict[str, Any
         ),
     )
     if not isinstance(verification, dict):
-        raise SystemExit("[verify-rekor-proof] verification block missing from proof output")
-    _ensure_inclusion(verification)
-    _ensure_signed_timestamp(proof, verification)
+        # Fallback: try to fetch the entry directly via rekor-cli when verification is missing
+        verification = {}
+
 
     log_entry = _extract_section(
         proof,
@@ -181,10 +183,17 @@ def verify_proof(proof_path: Path, expected_digest: str | None) -> dict[str, Any
     )
     if not isinstance(log_entry, dict):
         raise SystemExit("[verify-rekor-proof] logEntry missing from proof output")
-    if "uuid" not in log_entry and "UUID" not in log_entry:
+
+    uuid = log_entry.get("uuid") or log_entry.get("UUID")
+    if uuid is None:
         raise SystemExit("[verify-rekor-proof] logEntry missing uuid field")
     if "logIndex" not in log_entry and "LogIndex" not in log_entry:
         raise SystemExit("[verify-rekor-proof] logEntry missing logIndex field")
+
+    if not verification:
+        verification = _fetch_verification(uuid, log_entry)
+    _ensure_inclusion(verification)
+    _ensure_signed_timestamp(proof, verification)
 
     if expected_digest:
         normalized_expected = _normalize_digest(expected_digest)
@@ -194,14 +203,57 @@ def verify_proof(proof_path: Path, expected_digest: str | None) -> dict[str, Any
                 "[verify-rekor-proof] expected digest not present in logEntry body; "
                 f"wanted {normalized_expected}, got {sorted(digests)}"
             )
+    proof.setdefault("verification", verification)
     return proof
+
+
+def _fetch_verification(uuid: str, existing_log_entry: dict[str, Any]) -> dict[str, Any]:
+    rekor_log = os.environ.get("REKOR_LOG", "https://rekor.sigstore.dev")
+    cmd = [
+        "rekor-cli",
+        "get",
+        "--uuid",
+        uuid,
+        "--log-url",
+        rekor_log,
+        "--format",
+        "json",
+    ]
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+    except FileNotFoundError as exc:  # pragma: no cover - runtime dependency
+        raise SystemExit("[verify-rekor-proof] rekor-cli not found; install to verify proofs") from exc
+    except subprocess.CalledProcessError as exc:
+        raise SystemExit(
+            f"[verify-rekor-proof] failed to fetch Rekor entry {uuid}: {exc.stderr or exc.stdout}"
+        ) from exc
+
+    try:
+        entry = json.loads(result.stdout or "{}")
+    except json.JSONDecodeError as exc:  # pragma: no cover
+        raise SystemExit(f"[verify-rekor-proof] rekor-cli get returned invalid JSON: {exc}") from exc
+
+    verification = entry.get("verification") or entry.get("Verification")
+    if not isinstance(verification, dict):
+        raise SystemExit("[verify-rekor-proof] verification block missing from Rekor entry fetch")
+
+    log_entry = (
+        entry.get("logEntry")
+        or entry.get("LogEntry")
+        or entry.get("entry")
+        or entry.get("Entry")
+    )
+    if isinstance(log_entry, dict):
+        existing_log_entry.update(log_entry)
+
+    return verification
 
 
 def load_index(index_path: Path) -> dict[str, Any]:
     index = _load_json(index_path)
     if not isinstance(index, dict):
         raise SystemExit("[verify-rekor-proof] index file must be a JSON object")
-    for field in ("digest", "proof_path"):
+    for field in ("digest", "proof_path", "uuid"):
         if field not in index or not isinstance(index[field], str) or not index[field]:
             raise SystemExit(f"[verify-rekor-proof] index missing '{field}' value")
     return index
