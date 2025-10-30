@@ -32,17 +32,17 @@ ajv validate -s schema/pipeline_run.v1.2.json -d artifacts/pipeline_run.ndjson
 
 | Requirement | Version (tested) | Purpose |
 | --- | --- | --- |
-| Python | 3.12.1 (min 3.11) | Tooling CLI entrypoints and tests |
+| Python | 3.12.1 (min 3.10) | Tooling CLI entrypoints and tests |
 | pip | ≥ 24.0 | Dependency installation |
 | Docker / OCI runtime | 24.x | Build and verify release images |
 | GitHub Actions | Org with reusable workflows enabled | Hosted execution environment |
 | jq | ≥ 1.6 | JSON processing inside scripts |
 | yq | ≥ 4.40 | YAML normalization for policy prep |
 | oras | ≥ 1.0.0 | Discover OCI referrers for SBOM/VEX |
-| cosign | ≥ 2.4.0 | Signature and provenance verification |
+| cosign | ≥ 2.2.4 | Signature and provenance verification |
 | syft | ≥ 1.15.0 | SBOM generation |
 | grype | ≥ 0.75.0 | Vulnerability scanning |
-| dbt-core | 1.7.x | Build analytics marts (`models/`) |
+| dbt-core | 1.10.x | Build analytics marts (`models/`) |
 
 **Optional tooling**: Kyverno CLI (1.10+), OPA (0.60+), AJV CLI (8.11+), GNU Make (4.3+), GNU tar (1.34+), rekor-cli (v1.3.1 auto-installed by `tools/rekor_monitor.sh` if absent).
 
@@ -146,21 +146,32 @@ jobs:
 ## Evidence bundle layout
 
 ```text
-artifacts/evidence/
-├── sbom.json
-├── vex.json
+artifacts/
+├── sbom/
+│   ├── app.spdx.json
+│   ├── app.cdx.json
+│   └── app.vex.json
 ├── slsa-provenance.json
-├── rekor/
-│   └── entry.json
-├── determinism/
-│   ├── build-A/
-│   ├── build-B/
-│   └── diff.txt
-├── cache/
-│   ├── manifest.json
-│   └── signature.sig
-└── audit/
-    └── commands.log
+└── evidence/
+    ├── determinism/
+    │   ├── summary.txt
+    │   ├── sha256-*.txt
+    │   └── diff-report.txt
+    ├── cache/
+    │   ├── cache-manifest.json
+    │   ├── cache-manifest.sig
+    │   └── cache-report.json
+    ├── canary/
+    │   ├── decision.json
+    │   └── decision.ndjson
+    ├── dr/
+    │   ├── report.json
+    │   └── events.ndjson
+    ├── rekor-proof-<timestamp>.json
+    ├── rekor-search-<timestamp>.json
+    ├── rekor-proof-index-<timestamp>.json
+    └── audit/
+        └── commands.log
 ```
 
 **Pass criteria**: SBOM + VEX present, Cosign attestation verifies with OIDC issuer match, determinism diff empty, Rekor inclusion proof recorded, cache manifest signed, policy gates return `allow`. Capture command transcripts in `artifacts/evidence/audit/commands.log`.
@@ -346,8 +357,14 @@ flowchart LR
   Command:
 
   ```bash
-  python tools/cache_sentinel.py record --path ~/.cache/pip
-  python tools/cache_sentinel.py verify --path ~/.cache/pip
+  python tools/cache_sentinel.py record \
+    --cache-dir ~/.cache/pip \
+    --output artifacts/evidence/cache/cache-manifest.json
+  python tools/cache_sentinel.py verify \
+    --cache-dir ~/.cache/pip \
+    --manifest artifacts/evidence/cache/cache-manifest.json \
+    --quarantine-dir artifacts/evidence/cache/quarantine \
+    --report artifacts/evidence/cache/cache-report.json
   ```
 
   Expected evidence: Signed manifest in `artifacts/evidence/cache/`.
@@ -397,9 +414,17 @@ Log command transcripts to `artifacts/evidence/audit/commands.log` to maintain e
 5. **Generate VEX / policy inputs**
 
    ```bash
-   python tools/generate_vex.py --sbom artifacts/evidence/sbom.json --output vex.json
-   python scripts/prepare_policy_inputs.py --referrers fixtures/supply_chain/referrers.json \
-      --issuer fixtures/supply_chain/issuer_subject.json --output policy-inputs/
+   python tools/generate_vex.py \
+     --config fixtures/supply_chain/vex_exemptions.json \
+     --subject ghcr.io/<owner>/<image>@sha256:... \
+     --output artifacts/sbom/app.vex.json
+
+   python scripts/prepare_policy_inputs.py \
+     --image-ref ghcr.io/<owner>/<image> \
+     --image-digest sha256:... \
+     --allowed-issuer-regex '^https://token.actions.githubusercontent.com$' \
+     --allowed-subject-regex '^https://github.com/<org>/<repo>/.github/workflows/release\.yml@refs/tags/.*$' \
+     --output policy-inputs/
    ```
 
 ## Key `make` targets
