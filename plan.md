@@ -26,7 +26,7 @@ Highest-risk gaps
 - ✅ Phase 1 — Determinism proof: release workflow runs cross-arch/time manifest comparisons and fails on hash drift (`tools/determinism_check.sh`, `.github/workflows/release.yml`).
 - ✅ Phase 2 — Schema discipline: registry metadata, fixture validation, and dbt QA run in `schema-ci.yml` (`scripts/check_schema_registry.py`, `scripts/validate_schema.py`, `scripts/run_dbt.py`).
 - ⏳ Phase 1 — Rekor anchoring: Evidence Bundle must capture UUID + inclusion proof and fail CI on missing proofs; see acceptance in Phase 1 — Hermetic build path + CD essentials.
-- ⏳ Phase 4 — Runner isolation: deploy Firecracker/gVisor-backed self-hosted runners with Vault-issued credentials, cache provenance signatures, and enforced egress allowlists using the guardrails in `config/runner-isolation.yaml`.
+- ⏳ Phase 4 — Runner isolation: optional. Current posture runs entirely on GitHub-hosted `ubuntu-22.04` runners. Self-hosted Firecracker/Vault deployment remains a stretch goal for regulated environments.
 - ✅ Phase 3 — Canary decision auditability: release workflow captures promote/rollback query evidence and embeds the decision in `pipeline_run.v1.2` (`scripts/capture_canary_decision.py`, `.github/workflows/release.yml`).
 
 Performance and ops risks
@@ -689,7 +689,7 @@ Phase 4 — Reliability hardening and chaos
 
 - Infrastructure Replay service active.
 
-- Runner isolation playbook finalized (ephemeral hosts, egress allowlists, zero local persistence) plus cache-manifest signing/BLAKE3 verification and backpressure budgets to prevent poisoning or queue starvation.
+- Runner isolation enhancements (optional stretch goal): Firecracker/gVisor hosts, egress allowlists, zero local persistence, cache manifest signing, and backpressure budgets to prevent poisoning or queue starvation.
 
 Phase 5 — Advanced analytics and optional gamification
 
@@ -1154,7 +1154,7 @@ Runtime enforcement upgrades
 
 - Autopsy governance: record LLM model ID/digest/prompts/temperature; prohibit LLM-only gate decisions.
 
-- Runner isolation: hosted runners and self-hosted profiles governed by `config/runner-isolation.yaml` + `scripts/check_runner_isolation.py`; production rollout adds Firecracker/gVisor sandboxes, Vault-issued tokens, egress allowlists, and cache provenance signatures captured via `scripts/cache_provenance.sh`.
+- Runner isolation (optional): GitHub-hosted runners cover the baseline. `config/runner-isolation.yaml` and `scripts/check_runner_isolation.py` exist for future self-hosted rollout (Firecracker/gVisor, Vault-issued tokens, cache provenance) if compliance demands it.
 
 - Cost/carbon enforcement: turn telemetry into budgets that gate PRs exceeding limits.
 

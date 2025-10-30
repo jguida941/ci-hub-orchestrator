@@ -38,7 +38,7 @@ Then update `scripts/capture_canary_decision.py` invocation to execute the PromQ
 Create a Grafana dashboard that overlays baseline vs canary metrics. Use dashboard
 variables to select the release tag and region. Example URL:
 
-```
+```text
 https://grafana.example.com/d/payments/canary?var-release=${GITHUB_REF_NAME}&var-region=us-east-1
 ```
 

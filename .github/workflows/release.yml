@@ -318,10 +318,7 @@ jobs:
       packages: write
       id-token: write
       actions: write
-    runs-on:
-      - self-hosted
-      - build-fips
-      - linux
+    runs-on: ubuntu-22.04
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/ci-intel-app

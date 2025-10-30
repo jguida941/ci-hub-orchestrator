@@ -433,6 +433,13 @@ Log command transcripts to `artifacts/evidence/audit/commands.log` to maintain e
 - [`docs/CANARY_SETUP.md`](docs/CANARY_SETUP.md) — customize the production canary query and dashboard links.
 - See the notes below for linking additional GitHub repositories into the release hub.
 
+## CI environment configuration
+
+- `CI_INTEL_BQ_PROJECT` / `CI_INTEL_BQ_DATASET` (Actions variables or secrets) drive BigQuery ingestion for release, chaos, and DR workflows. Create a Google Cloud project, enable BigQuery, create a dataset (for example `ci_intel`), and grant a service account `roles/bigquery.dataEditor` plus `roles/bigquery.jobUser`. Store the service-account JSON in a GitHub secret such as `GCP_SA_KEY` (or configure Workload Identity) and expose it to runners by writing the key to disk (for example `echo "$GCP_SA_KEY" > "$RUNNER_TEMP/gcp.json"`) and setting `GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/gcp.json` before these jobs run. When both variables are empty the workflows skip ingestion by design.
+- `CI_INTEL_BQ_LOCATION` (optional variable) pins the BigQuery location when your dataset is outside the US multi-region.
+- `CHAOS_KILL_SWITCH` (variable) overrides the chaos workflow. Set it to `true` to disable chaos runs globally; leave empty/`false` to allow opt-in jobs via PR label `chaos-opt-in` (configurable with `CHAOS_LABEL`).
+- `REKOR_DIGEST`, `REKOR_SUBJECT`, and `REKOR_TAG` (variables or secrets) configure the Rekor monitor workflow. Without them the monitor uses defaults and may skip polling if no digest is supplied.
+
 ## Linking Additional Services
 
 This repo already drives CI/CD for `jguida941/learn-caesar-cipher` via the matrix in
@@ -457,7 +464,9 @@ inside the hub’s release workflow. All evidence (pipeline telemetry, canary de
 cache provenance, determinism) is captured automatically for every matrix entry. Keep the
 matrix in source control or move it into a config file (for example,
 `config/projects.yaml`) if you prefer to manage the list outside the workflow.
+
 - [`scripts/cache_provenance.sh`](scripts/cache_provenance.sh) — records aggregated SHA256/BLAKE3 digests for build caches and appends them to the Evidence Bundle.
+
 - [`docs/TESTING.md`](docs/TESTING.md) — local testing expectations, coverage, schema CI.
 - [`docs/SUPPLY_CHAIN.md`](docs/SUPPLY_CHAIN.md) — SBOM/provenance gate details.
 - [`docs/TODO.md`](docs/TODO.md) — documentation follow-ups.
