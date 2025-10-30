@@ -81,6 +81,11 @@ jobs:
           - name: learn-caesar-cipher
             repository: jguida941/learn-caesar-cipher
             path: caesar_cli
+            package: true
+          - name: vector-space
+            repository: jguida941/vector_space
+            path: .
+            package: false
     steps:
       - name: Checkout automation repo
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
@@ -105,11 +110,26 @@ jobs:
           python-version: '3.12'
 
       - name: Install project
+        if: ${{ matrix.package != false }}
         run: |
           set -euo pipefail
           cd project/${{ matrix.path }}
           pip install --upgrade pip
           pip install '.[dev]' || pip install .
+      - name: Install requirements
+        if: ${{ matrix.package == false }}
+        run: |
+          set -euo pipefail
+          cd project/${{ matrix.path }}
+          pip install --upgrade pip
+          if ls requirements*.txt >/dev/null 2>&1; then
+            for file in requirements*.txt; do
+              echo "Installing $file"
+              pip install -r "$file"
+            done
+          else
+            echo "No requirements*.txt files detected; skipping dependency install"
+          fi
 
       - name: Run project tests
         run: |

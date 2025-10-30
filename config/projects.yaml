@@ -3,3 +3,7 @@ projects:
     repository: jguida941/learn-caesar-cipher
     path: caesar_cli
     package: true
+  - name: vector-space
+    repository: jguida941/vector_space
+    path: .
+    package: false

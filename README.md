@@ -44,7 +44,7 @@ ajv validate -s schema/pipeline_run.v1.2.json -d artifacts/pipeline_run.ndjson
 | grype | ≥ 0.75.0 | Vulnerability scanning |
 | dbt-core | 1.10.x | Build analytics marts (`models/`) |
 
-**Optional tooling**: Kyverno CLI (1.10+), OPA (0.60+), AJV CLI (8.11+), GNU Make (4.3+), GNU tar (1.34+), rekor-cli (v1.3.1 auto-installed by `tools/rekor_monitor.sh` if absent).
+**Optional tooling**: Kyverno CLI (1.10+), OPA (0.60+), AJV CLI (8.11+), GNU Make (4.3+), GNU tar (1.34+), rekor-cli (v1.3.1 auto-installed by `tools/rekor_monitor.sh` if absent), act (latest; local GitHub Actions emulation).
 
 ## Strategic pillars
 

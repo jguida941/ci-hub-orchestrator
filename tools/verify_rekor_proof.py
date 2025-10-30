@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 import base64
 import json
-import sys
 from pathlib import Path
 import os
 import subprocess
@@ -220,7 +219,7 @@ def _fetch_verification(uuid: str, existing_log_entry: dict[str, Any]) -> dict[s
         "json",
     ]
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)  # noqa: S603
     except FileNotFoundError as exc:  # pragma: no cover - runtime dependency
         raise SystemExit("[verify-rekor-proof] rekor-cli not found; install to verify proofs") from exc
     except subprocess.CalledProcessError as exc:
