@@ -1,5 +1,45 @@
 {
-  "topics": {},
-  "version": "0.1.0",
-  "owners": []
+  "version": "1.0.0",
+  "topics": {
+    "pipeline_run": {
+      "description": "Telemetry emitted by the CI Intelligence Hub for every pipeline execution.",
+      "default_version": "v1.2",
+      "owners": [
+        {
+          "team": "CI Data Platform",
+          "slack": "#ci-intel-data",
+          "email": "analytics@example.com"
+        },
+        {
+          "team": "Build Reliability",
+          "slack": "#ci-intel-ops",
+          "email": "build-reliability@example.com"
+        }
+      ],
+      "schema_versions": [
+        {
+          "version": "v1.2",
+          "schema_id": "pipeline_run.v1.2",
+          "status": "active",
+          "introduced": "2025-10-01",
+          "path": "schema/pipeline_run.v1.2.json",
+          "compatibility": {
+            "mode": "backward",
+            "previous_versions": [],
+            "notes": "Adds resilience metrics, canary decision payload, and energy stats; earlier revisions predate the registry."
+          },
+          "fixtures": [
+            "fixtures/pipeline_run_v1_2/sample.ndjson"
+          ]
+        }
+      ],
+      "ingestion": {
+        "warehouse_model": "models/staging/stg_pipeline_runs.sql",
+        "dbt_models": [
+          "models/marts/run_health.sql",
+          "models/marts/mutation_effectiveness.sql"
+        ]
+      }
+    }
+  }
 }

@@ -22,10 +22,18 @@ This project now has real scripts and policies, but several items still need env
   - Add additional policy rules (digest allowlists, SBOM completeness) as needed.
 
 - `schema/registry.json`
-  - Populate topic owners, version history, compatibility mode, and deprecation windows.
+  - Keep ownership + compatibility metadata current when new schema versions ship.
+
+- `config/runner-isolation.yaml`
+  - Connect to the real Firecracker/gVisor orchestration layer, populate Vault role IDs,
+    and pipe runner queue metrics into Prometheus alerts.
+
+- Canary evidence (`scripts/capture_canary_decision.py`)
+  - Replace the sample SQL with your production Prometheus/SQL query and point
+    `--metrics-uri` at the live Grafana/Looker dashboard once it’s available.
 
 - Determinism + DR scripts (`tools/determinism_check.sh`, `data-quality-and-dr/dr_recall.sh`)
-  - Replace placeholders with actual cross-arch/time rebuild logic and recall procedures.
+  - Extend new cross-arch/time manifest checks into full rebuild parity runs and finish DR recall automation.
 
 - dbt tests (`models/tests/data_quality.yml`)
   - Adjust model names, freshness thresholds, and null-rate limits to match your warehouse.

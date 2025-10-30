@@ -428,6 +428,36 @@ Log command transcripts to `artifacts/evidence/audit/commands.log` to maintain e
 - [`docs/AGENTS.md`](docs/AGENTS.md) — agent catalog (purpose, triggers, outputs).
 - [`docs/SECURITY.md`](docs/SECURITY.md) — supply-chain posture and reviewer checklist.
 - [`docs/OPS_RUNBOOK.md`](docs/OPS_RUNBOOK.md) & [`docs/DR_RUNBOOK.md`](docs/DR_RUNBOOK.md) — on-call and DR playbooks.
+- [`docs/RUNNER_ISOLATION.md`](docs/RUNNER_ISOLATION.md) — runner isolation budgets, fairness enforcement, and evidence capture.
+- [`docs/SELF_HOSTED_RUNNER_SETUP.md`](docs/SELF_HOSTED_RUNNER_SETUP.md) — step-by-step Firecracker/Vault runner deployment.
+- [`docs/CANARY_SETUP.md`](docs/CANARY_SETUP.md) — customize the production canary query and dashboard links.
+- See the notes below for linking additional GitHub repositories into the release hub.
+
+## Linking Additional Services
+
+This repo already drives CI/CD for `jguida941/learn-caesar-cipher` via the matrix in
+`.github/workflows/release.yml`. To add another service, extend the matrix under the
+`project-tests` job (no changes required in the target repo):
+
+```yaml
+strategy:
+  fail-fast: false
+  matrix:
+    include:
+      - name: learn-caesar-cipher
+        repository: jguida941/learn-caesar-cipher
+        path: caesar_cli
+      - name: another-service
+        repository: your-org/another-service
+        path: .
+```
+
+Each entry clones the downstream repository, installs dependencies, and runs its tests
+inside the hub’s release workflow. All evidence (pipeline telemetry, canary decision,
+cache provenance, determinism) is captured automatically for every matrix entry. Keep the
+matrix in source control or move it into a config file (for example,
+`config/projects.yaml`) if you prefer to manage the list outside the workflow.
+- [`scripts/cache_provenance.sh`](scripts/cache_provenance.sh) — records aggregated SHA256/BLAKE3 digests for build caches and appends them to the Evidence Bundle.
 - [`docs/TESTING.md`](docs/TESTING.md) — local testing expectations, coverage, schema CI.
 - [`docs/SUPPLY_CHAIN.md`](docs/SUPPLY_CHAIN.md) — SBOM/provenance gate details.
 - [`docs/TODO.md`](docs/TODO.md) — documentation follow-ups.

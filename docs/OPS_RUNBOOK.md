@@ -2,6 +2,21 @@
 
 ## Apply Kyverno Supply-Chain Policy
 
+## Runner Isolation & Concurrency Fairness
+
+- All GitHub workflows run on ephemeral hosted runners. Budgets are defined in
+  `config/runner-isolation.yaml` and enforced by
+  `python scripts/check_runner_isolation.py` (invoked in `security-lint.yml`).
+- To adjust a budget, update the config file, set the corresponding
+  `strategy.max-parallel` in the workflow (for matrix jobs), and run the guard locally
+  before merging. See [`docs/RUNNER_ISOLATION.md`](RUNNER_ISOLATION.md) for detailed
+  procedures and evidence expectations.
+- When responding to capacity incidents, document any temporary overrides and ensure the
+  guard is restored after the incident window.
+- Self-hosted jobs must run `scripts/cache_provenance.sh` before/after build steps and
+  attach the resulting JSON/NDJSON to the Evidence Bundle. Egress additions require
+  updating `policies/egress-allowlist.md` and capturing approval in change-management.
+
 ### Prerequisites
 
 - Kubernetes cluster (v1.26+) with Kyverno (v1.10+) installed and webhooks healthy: `kubectl get pods -n kyverno`.

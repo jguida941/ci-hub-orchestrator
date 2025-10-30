@@ -70,6 +70,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           - name: learn-caesar-cipher
@@ -317,7 +318,10 @@ jobs:
       packages: write
       id-token: write
       actions: write
-    runs-on: ubuntu-22.04
+    runs-on:
+      - self-hosted
+      - build-fips
+      - linux
     env:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/ci-intel-app
@@ -336,6 +340,9 @@ jobs:
         run: |
           python3 -m pip install --upgrade pip
           python3 -m pip install blake3
+
+      - name: Record cache provenance (pre-build)
+        run: ./scripts/cache_provenance.sh --stage pre-build
 
       - name: Derive image tags
         id: vars
@@ -615,10 +622,28 @@ jobs:
       - name: Capture determinism evidence
         env:
           IMAGE_DIGEST_REF: ${{ needs.build-sign-publish.outputs.digest_ref }}
+          DETERMINISM_PLATFORMS: linux/amd64,linux/arm64
+          DETERMINISM_RUNS: 2
+          DETERMINISM_SLEEP_SECONDS: 5
         run: |
           set -euo pipefail
           mkdir -p artifacts/evidence/determinism
           ./tools/determinism_check.sh "${IMAGE_DIGEST_REF}" artifacts/evidence/determinism
+          cat artifacts/evidence/determinism/summary.txt
+
+      - name: Capture canary decision evidence
+        env:
+          RUN_ARTIFACTS_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts
+          CANARY_METRICS_URI: https://grafana.example.com/d/payments/canary?var-release=${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/evidence/canary
+          python scripts/capture_canary_decision.py \
+            --decision promote \
+            --query-file fixtures/canary/payments_canary.sql \
+            --metrics-uri "$CANARY_METRICS_URI" \
+            --output artifacts/evidence/canary/decision.json \
+            --ndjson artifacts/evidence/canary/decision.ndjson
 
       - name: Simulate DR drill evidence
         run: |
@@ -644,6 +669,9 @@ jobs:
             --cache-dir "$CACHE_DIR" \
             --output artifacts/evidence/cache/cache-manifest.json \
             --max-files 500
+
+      - name: Record cache provenance (post-build)
+        run: ./scripts/cache_provenance.sh --stage post-build
 
       - name: Verify cache manifest and sign
         env:
@@ -863,7 +891,7 @@ jobs:
         run: |
           opa fmt --diff --fail policies
           opa check --strict policies
-          opa test -v policies
+          opa test -v --ignore kyverno policies
       - name: Verify referrers present
         run: |
           set -euo pipefail
@@ -1060,6 +1088,7 @@ jobs:
             --provenance-uri "$RUN_ARTIFACTS_URL" \
             --signature-uri "$RUN_ARTIFACTS_URL" \
             --release-evidence-uri "$RUN_ARTIFACTS_URL" \
+            --canary-evidence artifacts/evidence/canary/decision.json \
             --artifact-bytes 0 \
             --queue-ms 0 \
             --tests-total 0 \

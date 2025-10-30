@@ -23,11 +23,11 @@ Highest-risk gaps
 - ✅ Phase 1 — Admission control enforced: Kyverno `verifyImages`, SBOM/provenance referrer, and secretless policies ship with fixtures + failing-path coverage (`scripts/test_kyverno_policies.py`, `tools/tests/test_kyverno_policy_checker.py`).
 - ✅ Phase 1 — GitHub Actions supply chain: every workflow pins action SHAs and Rulesets block drifting references (`scripts/check_workflow_integrity.py`, `.github/workflows/security-lint.yml`).
 - ✅ Phase 1 — Secretless pipelines: OIDC-only credentials with CI sweeps for env secrets and over-scoped `GITHUB_TOKEN` usage (`security-lint`, `policies/kyverno/secretless.yaml`).
-- ⏳ Phase 1 — Determinism proof: automate cross-arch/time dual-run diffs and fail on BUILD_ID/JAR drift before Phase 1 exit.
-- ⏳ Phase 2 — Schema discipline: enforce NDJSON ingestion gate on `pipeline_run.v1.2` and sustain v1.1 → v1.2 compatibility checks (blocks Phase 2 storage milestones).
+- ✅ Phase 1 — Determinism proof: release workflow runs cross-arch/time manifest comparisons and fails on hash drift (`tools/determinism_check.sh`, `.github/workflows/release.yml`).
+- ✅ Phase 2 — Schema discipline: registry metadata, fixture validation, and dbt QA run in `schema-ci.yml` (`scripts/check_schema_registry.py`, `scripts/validate_schema.py`, `scripts/run_dbt.py`).
 - ⏳ Phase 1 — Rekor anchoring: Evidence Bundle must capture UUID + inclusion proof and fail CI on missing proofs; see acceptance in Phase 1 — Hermetic build path + CD essentials.
-- ⏳ Phase 4 — Runner isolation: finalize ephemeral runner playbook, egress allowlists, and disk lockdown per Phase 4 — Reliability hardening and chaos.
-- ⏳ Phase 3 — Canary decision auditability: persist promote/rollback queries + windows, hash into Evidence Bundle to unblock analytics gating.
+- ⏳ Phase 4 — Runner isolation: deploy Firecracker/gVisor-backed self-hosted runners with Vault-issued credentials, cache provenance signatures, and enforced egress allowlists using the guardrails in `config/runner-isolation.yaml`.
+- ✅ Phase 3 — Canary decision auditability: release workflow captures promote/rollback query evidence and embeds the decision in `pipeline_run.v1.2` (`scripts/capture_canary_decision.py`, `.github/workflows/release.yml`).
 
 Performance and ops risks
 
@@ -277,6 +277,21 @@ Core components
 
 - ML: scikit-learn baseline; pluggable LLM for classification.
 
+Production runner isolation blueprint
+
+- Jobs that require hardened hosts declare a `self_hosted_profile` in `config/runner-isolation.yaml`.
+- Orchestrator brings up a Firecracker/gVisor sandbox per job with Vault-issued short-lived tokens.
+- `scripts/cache_provenance.sh` captures SHA256/BLAKE3 manifests and cosign signatures for restored caches.
+- Egress allowlist lives in `policies/egress-allowlist.md`; guard enforces labels + `max-parallel`.
+- Evidence bundle links runner guard logs, cache provenance JSON/NDJSON, and attested build artifacts.
+
+Canary decision evidence pipeline
+
+- Release workflow routes 5–20% of traffic through a canary pool.
+- `fixtures/canary/payments_canary.sql` (or service-specific query) compares canary vs baseline error rate and latency over the prior 10 minutes.
+- `scripts/capture_canary_decision.py` records decision, query text, evaluation window, metrics dashboard URI, and notes.
+- Evidence JSON/NDJSON stored under `artifacts/evidence/canary/`; `scripts/emit_pipeline_run.py` embeds the payload in `pipeline_run.v1.2` so downstream analytics can audit promote/rollback choices.
+
 Reference stack (pinned)
 
 - Ingest: GCS landing zone -> BigQuery (partition _DATE, cluster repo, pr).
@@ -516,7 +531,7 @@ Example record (pipeline_run.v1.2)
 
 ```bash
 
-{"schema":"pipeline_run.v1.2","run_id":"1b7c2e4a-6b54-4e3b-9f1e-4e0d9ea9b1a1","repo":"org/app","commit_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","branch":"feature/x","pr":123,"started_at":"2025-10-23T12:00:00Z","ended_at":"2025-10-23T12:04:10Z","status":"success","queue_ms":5000,"artifact_bytes":7340032,"environment":"staging","deployment_id":"deploy-20251023-1200","rollout_step":2,"strategy":"canary","image_digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd","sbom_uri":"https://gcs.example.com/sbom/aaaa.json","provenance_uri":"https://gcs.example.com/prov/aaaa.intoto","signature_uri":"https://gcs.example.com/sig/aaaa.sig","release_evidence_uri":"https://gcs.example.com/evidence/manifest.json","runner_os":"linux","runner_type":"hosted","region":"us-central1","spot":false,"carbon_g_co2e":0.07,"energy":{"kwh":0.03},"cache_keys":["pip-3.12","pytest"],"flakiness_index":0.02,"canary_metrics":{"error_rate":0.001,"success_rate":0.999,"latency_p50_ms":45,"latency_p95_ms":88,"latency_p99_ms":140,"reqs_per_s":120},"jobs":[{"id":"build","name":"build","status":"success","attempt":1,"duration_ms":70000,"queue_ms":2000,"cache":{"hit":true,"key":"pip-3.12"},"machine":{"class":"standard","cpu":"4","ram_gb":16},"logs_uri":"https://gcs.example.com/logs/build.log"},{"id":"test","name":"pytest","status":"success","attempt":1,"duration_ms":120000,"queue_ms":1000,"cache":{"hit":false,"key":"pytest"},"machine":{"class":"standard","cpu":"4","ram_gb":16},"logs_uri":"https://gcs.example.com/logs/pytest.log"}],"tests":{"total":1240,"failed":2,"skipped":10,"duration_ms":118000,"coverage":{"lines_pct":0.86,"branches_pct":0.79,"statements_pct":0.84},"resilience":{"mutants_total":900,"killed":810,"equiv":30,"timeout":12,"score":0.9,"delta_vs_main":0.03,"equivalent_mutants_dropped":true}},"chaos":[{"fault":"kill_job","target":"pytest","seed":42,"rate":0.01,"started_at":"2025-10-23T12:01:10Z","ended_at":"2025-10-23T12:01:30Z","outcome":"recovered","retries":1}],"autopsy":{"root_causes":[{"tool":"pytest","pattern":"AttributeError: NoneType","file":"tests/x_test.py","line":42,"message":"AttributeError: NoneType","suggestion":"ensure setup returns object or add __init__.py","severity":"warn","docs_uri":"https://docs.example.com/autopsy/attrerror"}]},"policies":[{"id":"two_person_prod","result":"allow","reason":"Distinct approvers met two-person rule"}],"cost":{"usd":1.23,"cpu_seconds":420,"gpu_seconds":0}}
+{"schema":"pipeline_run.v1.2","run_id":"1b7c2e4a-6b54-4e3b-9f1e-4e0d9ea9b1a1","repo":"org/app","commit_sha":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","branch":"feature/x","pr":123,"started_at":"2025-10-23T12:00:00Z","ended_at":"2025-10-23T12:04:10Z","status":"success","queue_ms":5000,"artifact_bytes":7340032,"environment":"staging","deployment_id":"deploy-20251023-1200","rollout_step":2,"strategy":"canary","image_digest":"sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd","sbom_uri":"https://gcs.example.com/sbom/aaaa.json","provenance_uri":"https://gcs.example.com/prov/aaaa.intoto","signature_uri":"https://gcs.example.com/sig/aaaa.sig","release_evidence_uri":"https://gcs.example.com/evidence/manifest.json","runner_os":"linux","runner_type":"hosted","region":"us-central1","spot":false,"carbon_g_co2e":0.07,"energy":{"kwh":0.03},"cache_keys":["pip-3.12","pytest"],"flakiness_index":0.02,"canary_metrics":{"error_rate":0.001,"success_rate":0.999,"latency_p50_ms":45,"latency_p95_ms":88,"latency_p99_ms":140,"reqs_per_s":120},"canary":{"decision":"promote","recorded_at":"2025-10-23T12:04:20Z","window":{"start":"2025-10-23T11:59:20Z","end":"2025-10-23T12:04:20Z"},"query":"SELECT * FROM canary_metrics WHERE rollout = 'prod';","metrics_uri":"https://gcs.example.com/canary/run-123.json"},"jobs":[{"id":"build","name":"build","status":"success","attempt":1,"duration_ms":70000,"queue_ms":2000,"cache":{"hit":true,"key":"pip-3.12"},"machine":{"class":"standard","cpu":"4","ram_gb":16},"logs_uri":"https://gcs.example.com/logs/build.log"},{"id":"test","name":"pytest","status":"success","attempt":1,"duration_ms":120000,"queue_ms":1000,"cache":{"hit":false","key":"pytest"},"machine":{"class":"standard","cpu":"4","ram_gb":16},"logs_uri":"https://gcs.example.com/logs/pytest.log"}],"tests":{"total":1240,"failed":2","skipped":10,"duration_ms":118000,"coverage":{"lines_pct":0.86,"branches_pct":0.79,"statements_pct":0.84},"resilience":{"mutants_total":900,"killed":810,"equiv":30,"timeout":12,"score":0.9,"delta_vs_main":0.03,"equivalent_mutants_dropped":true}},"chaos":[{"fault":"kill_job","target":"pytest","seed":42,"rate":0.01,"started_at":"2025-10-23T12:01:10Z","ended_at":"2025-10-23T12:01:30Z","outcome":"recovered","retries":1}],"autopsy":{"root_causes":[{"tool":"pytest","pattern":"AttributeError: NoneType","file":"tests/x_test.py","line":42,"message":"AttributeError: NoneType","suggestion":"ensure setup returns object or add __init__.py","severity":"warn","docs_uri":"https://docs.example.com/autopsy/attrerror"}]},"policies":[{"id":"two_person_prod","result":"allow","reason":"Distinct approvers met two-person rule"}],"cost":{"usd":1.23,"cpu_seconds":420,"gpu_seconds":0}}
 
 ```bash
 
@@ -1139,7 +1154,7 @@ Runtime enforcement upgrades
 
 - Autopsy governance: record LLM model ID/digest/prompts/temperature; prohibit LLM-only gate decisions.
 
-- Runner isolation: ephemeral self-hosted runners with egress policy, read-only workspaces, cache restore provenance verification.
+- Runner isolation: hosted runners and self-hosted profiles governed by `config/runner-isolation.yaml` + `scripts/check_runner_isolation.py`; production rollout adds Firecracker/gVisor sandboxes, Vault-issued tokens, egress allowlists, and cache provenance signatures captured via `scripts/cache_provenance.sh`.
 
 - Cost/carbon enforcement: turn telemetry into budgets that gate PRs exceeding limits.
 
@@ -1155,7 +1170,7 @@ Runtime enforcement upgrades
 
 - Builder hardening: ephemeral isolated builders with OIDC identity, provenance capturing parameters, pinned source URI, reproducible toolchain versions, environment hash recorded in provenance and Evidence Bundle.
 
-- Determinism hardening: cross-arch and cross-time reruns (24h), fail on BUILD_ID/JAR Implementation-Version drift even if SHA identical — in progress: release workflow captures manifest hashes + metadata via `tools/determinism_check.sh` for every digest, next step is automated dual-run comparison.
+- Determinism hardening: release workflow now performs cross-arch/time manifest reruns and fails on hash drift (`tools/determinism_check.sh`); next step is 24h-spaced rebuild diffing to catch BUILD_ID/JAR drift even with stable digests.
 
 - Language-specific reproducibility hooks: PYTHONHASHSEED=0 + pip --require-hashes; Go -trimpath + GOMODSUMDB=on; Java reproducible builds plugin; Node npm ci with lockfile v3; Rust --remap-path-prefix.
 

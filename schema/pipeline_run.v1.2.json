@@ -42,6 +42,30 @@
     "runner_type": { "type": "string", "enum": ["hosted", "self-hosted"] },
     "region": { "type": "string" },
     "spot": { "type": "boolean" },
+    "canary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["decision", "window"],
+      "properties": {
+        "decision": {
+          "type": "string",
+          "enum": ["promote", "rollback", "hold"]
+        },
+        "recorded_at": { "type": "string", "format": "date-time" },
+        "window": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["start", "end"],
+          "properties": {
+            "start": { "type": "string", "format": "date-time" },
+            "end": { "type": "string", "format": "date-time" }
+          }
+        },
+        "query": { "type": "string" },
+        "metrics_uri": { "type": "string", "format": "uri" },
+        "notes": { "type": "string" }
+      }
+    },
     "carbon_g_co2e": { "type": "number", "minimum": 0 },
     "energy": {
       "type": "object",

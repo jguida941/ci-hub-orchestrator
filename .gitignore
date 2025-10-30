@@ -13,8 +13,12 @@ dbt_packages/
 dbt_modules/
 logs/
 manifest.json
+data/warehouse/*.db
 !data/dr/manifest.json
 models/target/
+models/macros/*
+!models/macros/tests/
+!models/macros/tests/not_empty.sql
 partial_parse.msgpack
 run_results.json
 target/

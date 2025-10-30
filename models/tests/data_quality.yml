@@ -3,8 +3,7 @@ models:
   - name: stg_pipeline_runs
     description: "Source view for pipeline_run.v1.2 telemetry."
     tests:
-      - dbt_utils.expression_is_true:
-          expression: "count(*) > 0"
+      - not_empty
     columns:
       - name: run_id
         tests:
@@ -13,28 +12,32 @@ models:
       - name: status
         tests:
           - accepted_values:
-              values: ["success", "failed", "canceled", "skipped"]
+              arguments:
+                values: ["success", "failed", "canceled", "skipped"]
       - name: resilience_score
         tests:
           - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 1
+              arguments:
+                min_value: 0
+                max_value: 1
       - name: cost_usd
         tests:
           - dbt_utils.accepted_range:
-              min_value: 0
+              arguments:
+                min_value: 0
   - name: run_health
     description: "Aggregated run metrics by repo/environment."
     tests:
-      - dbt_utils.expression_is_true:
-          expression: "count(*) > 0"
+      - not_empty
     columns:
       - name: avg_resilience
         tests:
           - dbt_utils.accepted_range:
-              min_value: 0
-              max_value: 1
+              arguments:
+                min_value: 0
+                max_value: 1
       - name: avg_cost_usd
         tests:
           - dbt_utils.accepted_range:
-              min_value: 0
+              arguments:
+                min_value: 0

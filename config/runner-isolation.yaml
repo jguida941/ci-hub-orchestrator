@@ -1,0 +1,60 @@
+version: 1
+defaults:
+  require_cancel_in_progress: true
+  allowed_runners:
+    - ubuntu-22.04
+    - ubuntu-latest
+    - self-hosted
+    - build-fips
+    - linux
+    - isolated
+workflows:
+  unit.yml:
+    jobs:
+      tests:
+        runs_on: ubuntu-22.04
+  mutation.yml:
+    jobs:
+      observatory:
+        runs_on: ubuntu-latest
+  security-lint.yml:
+    jobs:
+      python-security:
+        runs_on: ubuntu-22.04
+      workflow-guard:
+        runs_on: ubuntu-22.04
+  release.yml:
+    jobs:
+      dr-gate:
+        runs_on: ubuntu-22.04
+      project-tests:
+        runs_on: ubuntu-22.04
+        max_parallel: 2
+      pipeline-autopsy:
+        runs_on: ubuntu-22.04
+      predictive-scheduler:
+        runs_on: ubuntu-22.04
+      ephemeral-data-lab:
+        runs_on: ubuntu-22.04
+      build-sign-publish:
+        runs_on:
+          - self-hosted
+          - build-fips
+          - linux
+        self_hosted_profile: isolated-build-fips
+      provenance-input-checks:
+        runs_on: ubuntu-22.04
+      collect-evidence:
+        runs_on: ubuntu-22.04
+      policy-gates:
+        runs_on: ubuntu-22.04
+self_hosted_profiles:
+  isolated-build-fips:
+    required_labels:
+      - self-hosted
+      - build-fips
+      - linux
+    cache_provenance_script: scripts/cache_provenance.sh
+    egress_policy: policies/egress-allowlist.md
+    cache_provenance_script: scripts/cache_provenance.sh
+    egress_policy: policies/egress-allowlist.md

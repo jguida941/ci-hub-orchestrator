@@ -75,6 +75,9 @@ jobs:
       - name: Verify workflow pins + secretless envs
         run: python scripts/check_workflow_integrity.py
 
+      - name: Validate runner isolation budgets
+        run: python scripts/check_runner_isolation.py --config config/runner-isolation.yaml
+
       - name: Secret keyword sweep
         run: |
           set -euo pipefail

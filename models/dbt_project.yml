@@ -4,10 +4,13 @@ config-version: 2
 
 profile: ci_cd_hub
 
-model-paths: ["models/staging", "models/marts"]
-test-paths: ["models/tests"]
-seed-paths: ["models/seeds"]
-macro-paths: ["models/macros"]
+model-paths: ["staging", "marts"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+packages-install-path: dbt_packages
+target-path: target
+log-path: logs
 
 models:
   ci_cd_hub:
@@ -17,4 +20,3 @@ models:
     marts:
       +schema: marts
       +materialized: view
-

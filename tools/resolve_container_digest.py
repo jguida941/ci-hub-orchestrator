@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import contextlib
 import json
 import os
@@ -17,6 +18,7 @@ from typing import Iterable, Optional
 
 
 API_ROOT = "https://api.github.com"
+REGISTRY_ROOT = "https://ghcr.io"
 USER_AGENT = "resolve-container-digest/1.0"
 
 
@@ -24,19 +26,24 @@ class ResolutionError(RuntimeError):
     """Raised when the digest cannot be resolved."""
 
 
-def _ensure_https(url: str) -> None:
+def _ensure_https(url: str, expected_host: str) -> None:
     parsed = urllib.parse.urlsplit(url)
     if parsed.scheme.lower() != "https":
-        raise ResolutionError(f"Insecure URL scheme for GitHub API request: '{url}'.")
-    if parsed.netloc.lower() != "api.github.com":
-        raise ResolutionError(f"Unexpected host for GitHub API request: '{url}'.")
+        raise ResolutionError(f"Insecure URL scheme for request: '{url}'.")
+    if parsed.netloc.lower() != expected_host:
+        raise ResolutionError(f"Unexpected host '{parsed.netloc}' for request: '{url}'.")
 
 
 def _open_request(request: urllib.request.Request, *, timeout: int = 20):
-    _ensure_https(request.full_url)
+    _ensure_https(request.full_url, "api.github.com")
     opener = urllib.request.build_opener(urllib.request.HTTPSHandler())
     return opener.open(request, timeout=timeout)
 
+
+def _open_registry_request(request: urllib.request.Request, *, timeout: int = 20):
+    _ensure_https(request.full_url, "ghcr.io")
+    opener = urllib.request.build_opener(urllib.request.HTTPSHandler())
+    return opener.open(request, timeout=timeout)
 
 @dataclass
 class Subject:
@@ -68,7 +75,7 @@ def _build_request(path: str, token: Optional[str], *, params: Optional[dict] = 
     url = urllib.parse.urljoin(API_ROOT, path)
     if params:
         url = f"{url}?{urllib.parse.urlencode(params)}"
-    _ensure_https(url)
+    _ensure_https(url, "api.github.com")
     request = urllib.request.Request(url)  # noqa: S310 - URL validated by _ensure_https
     request.add_header("Accept", "application/vnd.github+json")
     request.add_header("User-Agent", USER_AGENT)
@@ -135,7 +142,7 @@ def _candidate_digests(version: dict) -> Iterable[str]:
                     yield digest_val
 
 
-def resolve_digest(subject: Subject, tag: str, token: Optional[str]) -> str:
+def _resolve_via_github_api(subject: Subject, tag: str, token: Optional[str]) -> str:
     owner_kind = _detect_owner_kind(subject.owner, token)
     package_name = urllib.parse.quote(subject.package, safe="")
     page = 1
@@ -169,6 +176,103 @@ def resolve_digest(subject: Subject, tag: str, token: Optional[str]) -> str:
     raise ResolutionError(
         f"Tag '{tag}' not found for subject '{subject.registry}/{subject.owner}/{subject.package}'."
     )
+
+
+def _registry_repository(subject: Subject) -> str:
+    return f"{subject.owner}/{subject.package}"
+
+
+def _registry_repository_encoded(subject: Subject) -> str:
+    return "/".join(urllib.parse.quote(part, safe="") for part in _registry_repository(subject).split("/"))
+
+
+def _fetch_registry_token(subject: Subject, token: Optional[str]) -> Optional[str]:
+    scope = f"repository:{_registry_repository(subject)}:pull"
+    params = urllib.parse.urlencode({"service": "ghcr.io", "scope": scope})
+    url = f"{REGISTRY_ROOT}/token?{params}"
+    _ensure_https(url, "ghcr.io")
+    request = urllib.request.Request(url)  # noqa: S310 - URL validated above
+    request.add_header("Accept", "application/json")
+    if token:
+        actor = os.environ.get("GITHUB_ACTOR", subject.owner)
+        basic = base64.b64encode(f"{actor}:{token}".encode("utf-8")).decode("utf-8")
+        request.add_header("Authorization", f"Basic {basic}")
+    try:
+        with contextlib.closing(_open_registry_request(request, timeout=20)) as response:
+            payload = response.read()
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = exc.read().decode("utf-8", "replace")
+        except Exception:  # pragma: no cover - very rare
+            detail = ""
+        raise ResolutionError(
+            f"Failed to obtain GHCR token for '{subject.registry}/{_registry_repository(subject)}': "
+            f"{exc.code} {detail}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise ResolutionError(
+            f"Failed to contact GHCR token endpoint for '{subject.registry}/{_registry_repository(subject)}': {exc}"
+        ) from exc
+
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise ResolutionError("Invalid JSON when fetching GHCR token.") from exc
+    return data.get("token") or data.get("access_token")
+
+
+def _fetch_registry_digest(subject: Subject, tag: str, bearer: Optional[str]) -> str:
+    repo_path = _registry_repository(subject)
+    encoded_path = _registry_repository_encoded(subject)
+    manifest_url = f"{REGISTRY_ROOT}/v2/{encoded_path}/manifests/{urllib.parse.quote(tag, safe='-._')}"
+    _ensure_https(manifest_url, "ghcr.io")
+    request = urllib.request.Request(manifest_url)  # noqa: S310 - URL validated above
+    request.add_header(
+        "Accept",
+        "application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json",
+    )
+    request.add_header("User-Agent", USER_AGENT)
+    if bearer:
+        request.add_header("Authorization", f"Bearer {bearer}")
+
+    try:
+        with contextlib.closing(_open_registry_request(request, timeout=20)) as response:
+            digest = response.headers.get("Docker-Content-Digest")
+            payload = response.read()
+    except urllib.error.HTTPError as exc:
+        try:
+            detail = exc.read().decode("utf-8", "replace")
+        except Exception:  # pragma: no cover - very rare
+            detail = ""
+        raise ResolutionError(
+            f"GHCR manifest request failed for '{repo_path}:{tag}' with {exc.code}: {detail}"
+        ) from exc
+    except urllib.error.URLError as exc:
+        raise ResolutionError(f"Failed to contact GHCR for '{repo_path}:{tag}': {exc}") from exc
+
+    if digest and _DIGEST_PATTERN.match(digest):
+        return digest
+
+    raise ResolutionError(
+        f"Docker-Content-Digest header not found in GHCR response for '{repo_path}:{tag}'."
+    )
+
+
+def _resolve_via_registry(subject: Subject, tag: str, token: Optional[str]) -> str:
+    bearer = _fetch_registry_token(subject, token)
+    return _fetch_registry_digest(subject, tag, bearer)
+
+
+def resolve_digest(subject: Subject, tag: str, token: Optional[str]) -> str:
+    try:
+        return _resolve_via_github_api(subject, tag, token)
+    except ResolutionError as api_error:
+        try:
+            return _resolve_via_registry(subject, tag, token)
+        except ResolutionError as registry_error:
+            raise ResolutionError(
+                f"GitHub API lookup failed ({api_error}). GHCR fallback failed ({registry_error})."
+            ) from registry_error
 
 
 def parse_args(argv: Optional[Iterable[str]] = None) -> argparse.Namespace:

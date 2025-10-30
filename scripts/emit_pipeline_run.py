@@ -116,6 +116,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, help=argparse.SUPPRESS)  # legacy compatibility
     parser.add_argument("--autopsy-report", type=Path, help="Path to autopsy JSON report")
     parser.add_argument("--scheduler-report", type=Path, help="Path to predictive scheduler JSON report")
+    parser.add_argument("--canary-evidence", type=Path, help="Path to canary decision evidence JSON")
     return parser.parse_args()
 
 
@@ -198,10 +199,16 @@ def build_record(args: argparse.Namespace) -> dict[str, Any]:
         scheduler_blob = _load_scheduler_report(args.scheduler_report)
         if scheduler_blob:
             record["scheduler"] = scheduler_blob
+    if args.canary_evidence:
+        canary_payload = _load_canary_evidence(args.canary_evidence)
+        if canary_payload:
+            record["canary"] = canary_payload
     return record
 
 
 AUTOPSY_ALLOWED_FIELDS = {"tool", "pattern", "file", "line", "message", "suggestion", "severity", "docs_uri"}
+CANARY_ALLOWED_FIELDS = {"decision", "recorded_at", "window", "query", "metrics_uri", "notes"}
+CANARY_ALLOWED_DECISIONS = {"promote", "rollback", "hold"}
 
 
 def _load_autopsy_findings(path: Path) -> list[dict[str, Any]]:
@@ -246,6 +253,71 @@ def _load_autopsy_findings(path: Path) -> list[dict[str, Any]]:
                     )
         normalized.append(filtered)
     return normalized
+
+
+def _load_canary_evidence(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        raise SystemExit(f"[emit_pipeline_run] canary evidence file not found: {path}")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise SystemExit(f"[emit_pipeline_run] failed to parse canary evidence {path}: {exc}") from exc
+    if not isinstance(payload, dict):
+        raise SystemExit(f"[emit_pipeline_run] canary evidence must be an object: {path}")
+
+    if "decision" not in payload:
+        raise SystemExit("[emit_pipeline_run] canary evidence missing required field 'decision'")
+    decision = payload.get("decision")
+    if not isinstance(decision, str) or not decision.strip():
+        raise SystemExit("[emit_pipeline_run] canary evidence field 'decision' must be a non-empty string")
+    if decision not in CANARY_ALLOWED_DECISIONS:
+        raise SystemExit(
+            f"[emit_pipeline_run] canary evidence decision '{decision}' invalid "
+            f"(expected one of {sorted(CANARY_ALLOWED_DECISIONS)})"
+        )
+    if "window" not in payload:
+        raise SystemExit("[emit_pipeline_run] canary evidence missing required field 'window'")
+    window = payload.get("window")
+    if not isinstance(window, dict):
+        raise SystemExit("[emit_pipeline_run] canary evidence window must be an object")
+    missing_window = {"start", "end"} - window.keys()
+    if missing_window:
+        raise SystemExit(
+            f"[emit_pipeline_run] canary evidence window missing keys: {sorted(missing_window)}"
+        )
+    for key in ("start", "end"):
+        value = window.get(key)
+        if not isinstance(value, str) or not value.strip():
+            raise SystemExit(f"[emit_pipeline_run] canary evidence window '{key}' must be a string timestamp")
+        try:
+            datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise SystemExit(
+                f"[emit_pipeline_run] canary evidence window '{key}' must be a valid ISO-8601 timestamp"
+            ) from exc
+
+    if "recorded_at" in payload:
+        recorded_at = payload["recorded_at"]
+        if not isinstance(recorded_at, str) or not recorded_at.strip():
+            raise SystemExit(
+                "[emit_pipeline_run] canary evidence field 'recorded_at' must be a non-empty string when present"
+            )
+        try:
+            datetime.fromisoformat(recorded_at.replace("Z", "+00:00"))
+        except ValueError as exc:
+            raise SystemExit(
+                "[emit_pipeline_run] canary evidence field 'recorded_at' must be a valid ISO-8601 timestamp"
+            ) from exc
+
+    for optional_field in ("query", "metrics_uri", "notes"):
+        if optional_field in payload:
+            value = payload[optional_field]
+            if not isinstance(value, str) or not value.strip():
+                raise SystemExit(
+                    f"[emit_pipeline_run] canary evidence field '{optional_field}' must be a non-empty string when present"
+                )
+
+    return {key: payload[key] for key in CANARY_ALLOWED_FIELDS if key in payload}
 
 
 def _load_scheduler_report(path: Path) -> dict[str, Any]:

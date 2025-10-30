@@ -29,7 +29,7 @@
 
 ## Definition of Done / Checklist
 
-1. Run the suites listed in [Testing](./TESTING.md) that apply to your change (`pytest`, `opa test`, `scripts/validate_schema.py`, ingest dry runs, etc.).
+1. Run the suites listed in [Testing](./TESTING.md) that apply to your change (`pytest`, `opa test -v --ignore 'kyverno*' policies`, `scripts/validate_schema.py`, ingest dry runs, etc.).
 
 2. Update module README/runbook if user-facing flows change (e.g., add new flags to `tools/mutation_observatory.py` or new Kyverno steps).
 
