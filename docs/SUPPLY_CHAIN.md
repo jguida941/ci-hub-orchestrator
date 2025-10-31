@@ -2,7 +2,7 @@
 
 ## Signing & Provenance
 
-- Builds use keyless cosign signing and emit SLSA v1.0 provenance.
+- Builds use keyless cosign signing and emit SLSA v1.0 provenance. Tooling installs are pinned and checksum-verified via `scripts/install_tools.sh` (oras 1.2.0, cosign v2.2.4, rekor-cli v1.3.1, syft 1.18.0, grype 0.102.0, crane v0.19.2).
 
 - `tools/publish_referrers.sh` uploads CycloneDX/SPDX SBOMs and provenance as OCI 1.1 referrers and signs them.
 
@@ -22,7 +22,7 @@
 
 ## Referrer Presence Gate
 
-- Release workflow verifies required referrers (SPDX, CycloneDX, SLSA) via OPA before promotion.
+- Release workflow attaches SPDX, CycloneDX, VEX, and SLSA provenance as OCI 1.1 referrers and asserts their presence with `oras discover --format json`.
 
 ## SBOM + VEX Policy Feed
 
@@ -35,5 +35,14 @@
 - After publishing the image, the release workflow runs `tools/determinism_check.sh` against the immutable digest to capture the raw OCI manifest, a SHA256 over that manifest, and environment metadata. The resulting files live under `artifacts/evidence/determinism/` and prove what was pushed without relying on mutable tags.
 
 ## Base Image SLO
+
+## Verification checklist
+
+- `crane digest ghcr.io/<owner>/<image>:<tag>` ⇒ digest matches the release evidence (`tag-digest.txt`).
+- `docker buildx imagetools inspect <digest>` ⇒ output contains `linux/amd64` and `linux/arm64` (`manifest.txt`).
+- `cosign verify --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' <digest>` then `cosign download signature|certificate|chain <digest>` ⇒ `artifacts/evidence/cosign-signature.sig`, `cosign-cert.pem`, and `cosign-cert-chain.pem` exist and are non-empty.
+- `cosign verify-attestation --type slsaprovenance <digest>` ⇒ attestation subject digest matches the image.
+- `oras discover --format json <digest>` ⇒ descriptors/manifests include `application/spdx+json`, `application/vnd.cyclonedx+json`, and `application/vnd.in-toto+json` (`referrers.json`).
+- `rekor-cli get --log-index <index>` ⇒ log entry includes the image digest and matches `rekor-entry-*.json`.
 
 - Builds fail when base images introduce critical CVEs without VEX "not affected" evidence.

@@ -464,26 +464,46 @@ else
   exit 1
 fi
 
-if [[ -n "$INDEX_FILE" ]]; then
-  tmp_entry=$(mktemp)
-  fetch_ok=0
-  if [[ -n "$UUID" ]] && rekor_log_entry_get --uuid "$UUID" "$tmp_entry"; then
-    fetch_ok=1
-  elif [[ -n "$MATCHED_INDEX" ]] && rekor_log_entry_get --log-index "$MATCHED_INDEX" "$tmp_entry"; then
-    fetch_ok=1
+ENTRY_PATH="$OUTPUT_DIR/rekor-entry-${TIMESTAMP}.json"
+entry_fetch_ok=0
+if [[ -n "$UUID" ]] && rekor_log_entry_get --uuid "$UUID" "$ENTRY_PATH"; then
+  entry_fetch_ok=1
+elif [[ -n "$MATCHED_INDEX" ]] && rekor_log_entry_get --log-index "$MATCHED_INDEX" "$ENTRY_PATH"; then
+  entry_fetch_ok=1
+else
+  rm -f "$ENTRY_PATH"
+fi
+
+if [[ $entry_fetch_ok -eq 1 ]]; then
+  parsed_log_index=$(jq -r "${REKOR_JQ_HELPERS}"'
+    (cached_entry_log_index // empty)
+  ' "$ENTRY_PATH")
+  if [[ -z "$MATCHED_INDEX" && -n "$parsed_log_index" ]]; then
+    MATCHED_INDEX="$parsed_log_index"
   fi
-  if [[ $fetch_ok -eq 1 ]]; then
-    log_index=$(jq -r "${REKOR_JQ_HELPERS}"'
-      (cached_entry_log_index // empty)
-    ' "$tmp_entry")
-    if [[ -n "$log_index" ]]; then
-      mkdir -p "$(dirname "$INDEX_FILE")"
-      if ! { [[ -f "$INDEX_FILE" ]] && grep -q "^${log_index} " "$INDEX_FILE"; }; then
-        printf '%s %s\n' "$log_index" "$DIGEST" >> "$INDEX_FILE"
-      fi
+  if [[ -n "$INDEX_FILE" && -n "$MATCHED_INDEX" ]]; then
+    mkdir -p "$(dirname "$INDEX_FILE")"
+    if ! { [[ -f "$INDEX_FILE" ]] && grep -q "^${MATCHED_INDEX} " "$INDEX_FILE"; }; then
+      printf '%s %s\n' "$MATCHED_INDEX" "$DIGEST" >> "$INDEX_FILE"
     fi
   fi
-  rm -f "$tmp_entry"
+  jq -s '
+    def extract_entry($entry):
+      if ($entry | type) != "object" then $entry
+      elif $entry.logEntry then $entry.logEntry
+      elif $entry.LogEntry then $entry.LogEntry
+      elif $entry.entry then $entry.entry
+      elif $entry.Entry then $entry.Entry
+      else $entry end;
+    (.[0] // {}) as $proof
+    | (.[1] // {}) as $entry
+    | $proof + {
+        logEntry: ($proof.logEntry // extract_entry($entry))
+      }
+  ' "$PROOF_PATH" "$ENTRY_PATH" > "${PROOF_PATH}.tmp"
+  mv "${PROOF_PATH}.tmp" "$PROOF_PATH"
+else
+  >&2 echo "[rekor_monitor] Warning: unable to fetch Rekor log entry for digest $DIGEST"
 fi
 
 echo "Stored Rekor inclusion proof at $PROOF_PATH"
@@ -495,5 +515,6 @@ jq -n \
   --arg timestamp "$TIMESTAMP" \
   --arg uuid "${UUID:-}" \
   --arg log_index "${MATCHED_INDEX:-}" \
-  '{"subject":$subject,"digest":$digest,"proof_path":$proof_path,"timestamp":$timestamp,"uuid":($uuid // ""), "log_index":($log_index // "")}' \
+  --arg entry_path "$( [[ -f "$ENTRY_PATH" ]] && printf '%s' "$ENTRY_PATH" || printf '' )" \
+  '{"subject":$subject,"digest":$digest,"proof_path":$proof_path,"timestamp":$timestamp,"uuid":($uuid // ""), "log_index":($log_index // ""), "entry_path":($entry_path // "")}' \
   > "$OUTPUT_DIR/rekor-proof-index-${TIMESTAMP}.json"

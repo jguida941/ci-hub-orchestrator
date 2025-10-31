@@ -6,7 +6,7 @@
 
 - Secrets: CI pipelines operate secretless via OIDC; non-OIDC credentials are denied.
 
-- Supply chain: cosign keyless signing, SLSA v1.0 provenance, OCI referrers, Kyverno admission policies.
+- Supply chain: cosign keyless signing with certificate/chain capture, tagged digest locks via crane, SLSA v1.0 provenance, OCI referrers validated with `oras discover`, Rekor transparency (`rekor-cli get` + `tools/verify_rekor_proof.py`), and Kyverno admission policies.
 
 - Storage: WORM buckets with least-privilege IAM and signed URLs (short TTL).
 

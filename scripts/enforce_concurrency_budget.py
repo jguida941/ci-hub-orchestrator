@@ -52,11 +52,16 @@ def _load_yaml(path: Path) -> dict[str, Any]:
     return data
 
 
+ALLOWED_GITHUB_HOSTS = {"api.github.com"}
+
+
 def _http_get(url: str, token: str) -> dict[str, Any]:
     parsed = urllib.parse.urlsplit(url)
-    if parsed.scheme != "https":
+    host = (parsed.hostname or "").lower()
+    port = parsed.port or (443 if parsed.scheme.lower() == "https" else None)
+    if parsed.scheme.lower() != "https":
         raise SystemExit(f"[concurrency-budget] refusing to fetch non-HTTPS URL: {url}")
-    if parsed.netloc and not parsed.netloc.endswith("github.com"):
+    if host not in ALLOWED_GITHUB_HOSTS or port not in (None, 443):
         raise SystemExit(f"[concurrency-budget] refusing to contact unknown host: {parsed.netloc}")
 
     request = urllib.request.Request(  # noqa: S310 - scheme/netloc validated above

@@ -3,7 +3,7 @@
 PYTHON ?= python3
 PIP ?= pip3
 MKDOCS ?= mkdocs
-MARKDOWNLINT ?= npx --yes markdownlint-cli@0.39.0
+MARKDOWNLINT ?= npx --yes markdownlint-cli2@0.18.1
 
 ARTIFACTS_DIR ?= artifacts
 SBOM_DIR ?= $(ARTIFACTS_DIR)/sbom

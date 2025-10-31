@@ -1,0 +1,8 @@
+{
+  "globs": [
+    "**/*.md"
+  ],
+  "config": {
+    "default": true
+  }
+}

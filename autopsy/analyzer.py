@@ -368,6 +368,17 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.summary:
         write_summary(report, args.summary)
     print(f"[autopsy] analyzed {len(log_files)} log files, findings={len(findings)}")
+    if findings:
+        severity_counts = report.get("summary", {}).get("severity", {})
+        if not isinstance(severity_counts, dict) or not severity_counts:
+            severity_counts = {}
+            for finding in findings:
+                severity = getattr(finding, "severity", "unknown")
+                severity_counts[severity] = severity_counts.get(severity, 0) + 1
+        formatted = ", ".join(f"{level}={count}" for level, count in sorted(severity_counts.items()))
+        print(f"[autopsy] FAIL: findings detected ({formatted})", file=sys.stderr)
+        return 1
+    print("[autopsy] PASS: no findings detected")
     return 0
 
 

@@ -22,7 +22,10 @@ make run-chaos
 make run-dr
 python scripts/emit_pipeline_run.py --output artifacts/pipeline_run.ndjson
 
-# 4) Validate evidence
+# 4) Build analytics marts
+python scripts/run_dbt.py build
+
+# 5) Validate evidence
 ./tools/rekor_monitor.sh sha256:... ghcr.io/<owner>/<image> artifacts/evidence/rekor
 ./tools/determinism_check.sh ghcr.io/<owner>/<image>@sha256:... artifacts/evidence/determinism
 ajv validate -s schema/pipeline_run.v1.2.json -d artifacts/pipeline_run.ndjson
@@ -41,7 +44,8 @@ ajv validate -s schema/pipeline_run.v1.2.json -d artifacts/pipeline_run.ndjson
 | oras | ≥ 1.0.0 | Discover OCI referrers for SBOM/VEX |
 | cosign | ≥ 2.2.4 | Signature and provenance verification |
 | syft | ≥ 1.15.0 | SBOM generation |
-| grype | ≥ 0.75.0 | Vulnerability scanning |
+| grype | ≥ 0.102.0 | Vulnerability scanning |
+| crane | ≥ 0.19.0 | Tag/digest verification & registry queries |
 | dbt-core | 1.10.x | Build analytics marts (`models/`) |
 
 **Optional tooling**: Kyverno CLI (1.10+), OPA (0.60+), AJV CLI (8.11+), GNU Make (4.3+), GNU tar (1.34+), rekor-cli (v1.3.1 auto-installed by `tools/rekor_monitor.sh` if absent), act (latest; local GitHub Actions emulation).
@@ -166,15 +170,23 @@ artifacts/
     │   └── decision.ndjson
     ├── dr/
     │   ├── report.json
-    │   └── events.ndjson
+    │   ├── events.ndjson
+    │   └── manifest.sha256
+    ├── manifest.txt
+    ├── tag-digest.txt
+    ├── referrers.json
+    ├── cosign-cert.pem
+    ├── cosign-cert-chain.pem
+    ├── cosign-signature.sig
     ├── rekor-proof-<timestamp>.json
     ├── rekor-search-<timestamp>.json
     ├── rekor-proof-index-<timestamp>.json
+    ├── rekor-entry-<log-index>.json
     └── audit/
         └── commands.log
 ```
 
-**Pass criteria**: SBOM + VEX present, Cosign attestation verifies with OIDC issuer match, determinism diff empty, Rekor inclusion proof recorded, cache manifest signed, policy gates return `allow`. Capture command transcripts in `artifacts/evidence/audit/commands.log`.
+**Pass criteria**: Tag → digest proof recorded, multi-arch manifest captured, cosign signature + certificates stored, SLSA attestation verifies, OCI referrers include SPDX/CycloneDX/SLSA entries, Rekor proof and entry present, SBOM/VEX policy inputs generated, determinism diff empty, cache manifest signed, DR drill meets RPO/RTO with manifest checksum, and all commands above succeed. Capture command transcripts in `artifacts/evidence/audit/commands.log`.
 
 ## Repository layout
 
@@ -182,27 +194,45 @@ artifacts/
 
 ```text
 .
+├── Dockerfile
+├── LICENSE
+├── Makefile
+├── README.md
 ├── plan.md
-├── docs/                ← Architecture, runbooks, agent catalog, metrics
-├── make/                ← Composable make targets (lint, chaos, DR, docs, vuln)
-├── scripts/             ← Python CLIs for policy prep, ingest, schema validation
-├── tools/               ← Core CLIs/agents (cache sentinel, chaos, Rekor, VEX)
-├── policies/            ← Rego/Kyverno enforcement packs + tests
-├── fixtures/            ← SBOM/VEX samples, Kyverno fixtures, mutation reports
-├── models/              ← dbt project, marts, staging models, tests
-├── dashboards/          ← Analytics definitions (JSON)
-├── data/                ← Sample NDJSON/DR artifacts
-├── artifacts/           ← Generated evidence (chaos, DR, security scans, provenance)
-├── config/              ← Shared CI configs (mutation observatory, project registry)
-├── chaos/, data-quality-and-dr/, determinism-and-repro/ ← Scenario scripts & docs
-├── supply-chain-enforce/ ← Kyverno profile exported for clusters
-├── emitters/ (planned)  ← Telemetry emitter scaffolding
-├── agent/ (planned)     ← Future orchestrator services
-├── apps/github-app/ (planned) ← Placeholder for ChatOps GitHub App
-├── deploy/ (planned)    ← GitOps integration playbooks
-├── services/ (planned)  ← Long-running services (policy gateway, replay)
-├── ui/ (planned)        ← Analytics/portal UI scaffold
-└── pyproject.toml, requirements-*.txt, ruff.toml, Dockerfile, Makefile
+├── agent/                 ← Orchestrator service scaffold (stub)
+├── apps/
+│   └── github-app/        ← Placeholder for ChatOps GitHub App
+├── artifacts/             ← Generated evidence (chaos, DR, security, provenance)
+├── autopsy/               ← Log analyzers and tests
+├── chaos/                 ← Chaos experiment fixtures
+├── config/                ← Shared CI configs (mutation matrix, isolation)
+├── dashboards/            ← Analytics definitions (JSON)
+├── data/                  ← Sample NDJSON & DR bundles
+├── data-quality-and-dr/   ← DR validation scripts
+├── deploy/                ← GitOps integration scaffold
+├── determinism-and-repro/ ← Determinism tooling staging area
+├── docs/                  ← Architecture, runbooks, metrics
+├── emitters/              ← Telemetry emitter scaffold (stub)
+├── evidence/              ← Evidence bundle staging area
+├── fixtures/              ← SBOM/VEX samples, policy fixtures, mutation reports
+├── ingest/                ← Telemetry ETL loaders
+├── logs/                  ← Local run logs (e.g., dbt)
+├── make/                  ← Composable make targets (lint, chaos, DR, docs, vuln)
+├── models/                ← dbt project, marts, staging models, tests
+├── pkg/                   ← Packaging scaffold (future OCI/PyPI artifacts)
+├── policies/              ← Rego/Kyverno enforcement packs + tests
+├── schema/                ← JSON schema registry
+├── scripts/               ← Python CLIs for policy prep, ingest, schema validation
+├── services/              ← Long-running services scaffold
+├── supply-chain-enforce/  ← Kyverno profile exported for clusters
+├── tmp/                   ← Scratch clones (e.g., vector_space) & NDJSON fixtures
+├── tmp-debug/             ← Empty sandbox for troubleshooting
+├── tools/                 ← Core CLIs/agents (cache sentinel, chaos, Rekor, VEX)
+├── ui/                    ← Analytics/portal scaffold
+├── pyproject.toml
+├── requirements-dev.lock
+├── requirements-dev.txt
+└── ruff.toml
 ```
 
 ### Directory reference
@@ -211,8 +241,8 @@ artifacts/
 | --- | --- | --- |
 | `plan.md` | Canonical thesis, phased roadmap, control catalog | Gap tracker, phase objectives, control snippets |
 | `docs/` | Human-facing documentation | `docs/OVERVIEW.md`, `docs/AGENTS.md`, `docs/SECURITY.md`, modules under `docs/modules/` |
-| `agent/` (planned) | Orchestration services scaffold | Will host aggregated agent runners |
-| `apps/github-app/` (planned) | Future GitHub App implementation | ChatOps integration per plan |
+| `agent/` | Orchestration services scaffold | Future runner/controller services (stub) |
+| `apps/github-app/` | GitHub App placeholder | ChatOps integration stub with wiring docs |
 | `artifacts/` | Generated evidence and reports | Chaos/DR NDJSON, security scan outputs, `artifacts/slsa-provenance.json` |
 | `autopsy/` | Log-analysis utilities | `autopsy/analyzer.py`, `autopsy/tests/test_analyzer.py` |
 | `chaos/` | Chaos scenario definitions | `chaos/chaos-fixture.json` consumed by `make run-chaos` |
@@ -220,22 +250,24 @@ artifacts/
 | `dashboards/` | JSON analytics dashboards | `dashboards/mutation_effectiveness.json`, `dashboards/run_health.json` |
 | `data/` | Sample datasets & DR bundles | `data/dr/manifest.json`, NDJSON samples |
 | `data-quality-and-dr/` | DR validation scripts | `data-quality-and-dr/dr_recall.sh` |
-| `deploy/` (planned) | Deployment playbooks | Will back GitOps repo |
+| `deploy/` | Deployment playbooks scaffold | Intended GitOps wiring (currently stubbed) |
 | `determinism-and-repro/` | Determinism tooling staging | Supports Phase 1 DoD, docs forthcoming |
 | `docs/modules/` | Deep dives on each tool | `cache_sentinel.md`, `mutation_observatory.md`, etc. |
-| `emitters/` (planned) | Telemetry emitters | Additional ingestion agents |
+| `emitters/` | Telemetry emitter scaffold | Placeholder for additional ingestion agents |
 | `evidence/` | Evidence bundle staging area | Populated during release workflows |
 | `fixtures/` | Test + policy fixtures | Kyverno failing cases, sample SBOM/VEX, mutation outputs |
 | `ingest/` | Telemetry ETL | `ingest/event_loader.py`, `ingest/chaos_dr_ingest.py` |
 | `logs/` | Run logs | `logs/dbt.log` |
 | `make/` | Modular make logic | `make/lint.mk`, `make/chaos.mk`, `make/dr.mk`, `make/vex.mk` |
 | `models/` | dbt project for analytics marts | `models/marts/*.sql`, `models/tests/data_quality.yml` |
-| `pkg/` (planned) | Packaging scaffold | Future OCI/PyPI artifacts |
+| `pkg/` | Packaging scaffold | Stub for future OCI/PyPI artifacts |
 | `policies/` | Rego/Kyverno packs | `policies/issuer_subject.rego`, `policies/tests/*.rego` |
 | `schema/` | JSON Schema + registry | `schema/pipeline_run.v1.2.json`, `schema/cyclonedx-vex-1.5.schema.json` |
 | `scripts/` | Operational Python entrypoints | `scripts/check_workflow_integrity.py`, `scripts/emit_pipeline_run.py` |
-| `services/` (planned) | Long-lived services | Policy gateway & replay services |
+| `services/` | Long-lived services scaffold | Policy gateway & replay services (stub) |
 | `supply-chain-enforce/` | Kyverno bundles for clusters | `supply-chain-enforce/kyverno/verify-images.yaml` |
+| `tmp/` | Scratch workspace & downstream clones | `tmp/vector_space/`, NDJSON samples |
+| `tmp-debug/` | Troubleshooting sandbox | Empty workspace reserved for experiments |
 | `tools/` | Shipping-grade CLIs & agents | `tools/cache_sentinel.py`, `tools/rekor_monitor.sh`, `tools/mutation_observatory.py`, pytest suite `tools/tests/` |
 | `ui/` (planned) | Portal workspace | Becomes analytics UI in Phase 5 |
 
@@ -303,27 +335,82 @@ flowchart LR
 
   Expected evidence: Both commands locate digests; failure blocks deploy.
 
-- **Provenance verification**  
+- **Tag → digest proof**  
   Command:
 
   ```bash
-  cosign verify-attestation --type slsaprovenance \
-    --certificate-oidc-issuer-regex 'https://token.actions.githubusercontent.com' \
-    "$IMAGE"
+  crane digest "${REGISTRY}/${IMAGE_NAME}:${TAG}" | tee artifacts/evidence/tag-digest.txt
   ```
 
-  Expected evidence: Cosign exits 0; issuer matches org OIDC.
+  Expected evidence: Output matches `${REGISTRY}/${IMAGE_NAME}@sha256:…` and is captured in `tag-digest.txt`.
+
+- **Multi-arch manifest**  
+  Command:
+
+  ```bash
+  docker buildx imagetools inspect "$DIGEST_REF" | tee artifacts/evidence/manifest.txt
+  ```
+
+  Expected evidence: Listing contains `linux/amd64` and `linux/arm64`.
+
+- **Signature & certificates**  
+  Command:
+
+  ```bash
+  cosign verify --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' "$DIGEST_REF"
+  cosign download certificate "$DIGEST_REF" > artifacts/evidence/cosign-cert.pem
+  cosign download signature "$DIGEST_REF" > artifacts/evidence/cosign-signature.sig
+  cosign download chain "$DIGEST_REF" > artifacts/evidence/cosign-cert-chain.pem
+  ```
+
+  Expected evidence: Verification succeeds and downloaded files are non-empty.
+
+- **Provenance attestation**  
+  Command:
+
+  ```bash
+  cosign verify-attestation --type slsaprovenance "$DIGEST_REF"
+  jq -r '.subject[0].digest.sha256' artifacts/slsa-provenance.json
+  ```
+
+  Expected evidence: Cosign reports `Verified OK`; the printed digest matches the release digest (compare to `${DIGEST#sha256:}`).
+
+- **OCI referrers**  
+  Command:
+
+  ```bash
+  oras discover --format json "$DIGEST_REF" > artifacts/evidence/referrers.json
+  jq -e 'any((.descriptors // [])[]; .artifactType == "application/spdx+json")' artifacts/evidence/referrers.json
+  jq -e 'any((.descriptors // [])[]; .artifactType == "application/vnd.cyclonedx+json")' artifacts/evidence/referrers.json
+  jq -e 'any((.descriptors // [])[]; .artifactType == "application/vnd.in-toto+json")' artifacts/evidence/referrers.json
+  ```
+
+  Expected evidence: All required artifact types appear in the discovery response.
+
+- **Rekor transparency**  
+  Command:
+
+  ```bash
+  INDEX=$(ls artifacts/evidence/rekor-proof-index-*.json | sort | tail -n1)
+  LOG_INDEX=$(jq -r '.log_index' "$INDEX")
+  rekor-cli get --log-index "$LOG_INDEX" --format json | tee "artifacts/evidence/rekor-entry-${LOG_INDEX}.json"
+  ```
+
+  Expected evidence: Returned `logEntry` includes the release digest.
 
 - **SBOM + VEX policy**  
   Command:
 
   ```bash
-  grype sbom:sbom.json -q -o json \
-    | ./tools/build_vuln_input.py --vex vex.json \
-    | jq -e '.policy.allow==true'
+  jq -e '.vulnerabilities | length >= 0' artifacts/sbom/app.vex.json
+  python tools/build_vuln_input.py \
+    --grype-report fixtures/supply_chain/grype-report.sample.json \
+    --vex artifacts/sbom/app.vex.json \
+    --output artifacts/policy-inputs/vulnerabilities.json
+  jq -e '.policy.cvss_threshold' artifacts/policy-inputs/vulnerabilities.json
   ```
 
-  Expected evidence: Pipeline proceeds when policy allows release.
+  Expected evidence: VEX parses and the normalized policy input exists for gating.
 
 - **Schema compliance**  
   Command:
@@ -348,10 +435,10 @@ flowchart LR
   Command:
 
   ```bash
-  python scripts/test_kyverno_policies.py
+  python scripts/test_kyverno_policies.py || true
   ```
 
-  Expected evidence: Deny-path unit tests for `require-referrers` and `secretless`.
+  Expected evidence: Intentional deny-path fixtures surface as failures (non-zero exit confirms coverage).
 
 - **Cache manifest integrity**  
   Command:

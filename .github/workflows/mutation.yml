@@ -17,12 +17,41 @@ jobs:
     permissions:
       contents: read
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - slug: ci-cd-hub
+            repository: jguida941/ci-cd-hub
+            branch: master
+          - slug: learn-caesar-cipher
+            repository: jguida941/learn-caesar-cipher
+            branch: main
     env:
       MUTATION_CONFIG: config/mutation-observatory.ci.yaml
-      RUN_DIR: artifacts/mutation
+      RUN_DIR: artifacts/mutation/${{ matrix.slug }}
+      TARGET_REPO: ${{ matrix.repository }}
+      TARGET_BRANCH: ${{ matrix.branch }}
+      MUTATION_ARTIFACT_NAME: mutation-observatory-${{ matrix.slug }}
+      MATRIX_SLUG: ${{ matrix.slug }}
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Checkout ${{ matrix.repository }}
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ matrix.branch }}
+          path: target
+          token: ${{ secrets.REPO_READ_TOKEN || github.token }}
+
+      - name: Capture target metadata
+        id: target_meta
+        run: |
+          set -euo pipefail
+          COMMIT=$(git -C target rev-parse HEAD)
+          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -38,6 +67,7 @@ jobs:
       - name: Generate mutation reports
         run: |
           set -euo pipefail
+          mkdir -p "$RUN_DIR"
           python tools/scripts/generate_mutation_reports.py \
             --stryker "$RUN_DIR/stryker-report.json" \
             --mutmut "$RUN_DIR/mutmut-report.json"
@@ -52,10 +82,16 @@ jobs:
             --ndjson "$RUN_DIR/run.ndjson" \
             --markdown "$RUN_DIR/summary.md" \
             --html "$RUN_DIR/summary.html" \
-            --repo "${{ github.repository }}" \
-            --branch "${{ github.ref_name }}" \
-            --commit-sha "${{ github.sha }}" \
+            --repo "${TARGET_REPO}" \
+            --branch "${TARGET_BRANCH}" \
+            --commit-sha "${{ steps.target_meta.outputs.commit }}" \
             --run-id "${{ github.run_id }}-${{ github.run_attempt }}"
+
+      - name: Annotate summary with repository
+        run: |
+          set -euo pipefail
+          printf '## Repository: %s (%s)\n\n' "$TARGET_REPO" "$TARGET_BRANCH" | cat - "$RUN_DIR/summary.md" > "$RUN_DIR/summary.tmp"
+          mv "$RUN_DIR/summary.tmp" "$RUN_DIR/summary.md"
 
       - name: Print summary
         run: cat "$RUN_DIR/summary.md"
@@ -63,11 +99,12 @@ jobs:
       - name: Upload Mutation Observatory artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: mutation-observatory
+          name: ${{ env.MUTATION_ARTIFACT_NAME }}
           path: ${{ env.RUN_DIR }}
+          if-no-files-found: error
 
       - name: Comment Mutation Observatory summary
-        if: github.event_name == 'pull_request'
+        if: github.event_name == 'pull_request' && matrix.repository == github.repository
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
@@ -92,14 +129,16 @@ jobs:
               repo,
               run_id: runId,
             });
+            const expectedName = process.env.MUTATION_ARTIFACT_NAME || 'mutation-observatory';
             const artifact = artifactsResponse.data.artifacts.find(
-              (a) => a.name === 'mutation-observatory' && !a.expired
+              (a) => a.name === expectedName && !a.expired
             );
             let htmlLink = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
             if (artifact) {
               htmlLink = htmlLink + `/artifacts/${artifact.id}`;
             }
-            const header = '🧪 **Mutation Observatory Report**';
+            const slug = process.env.MATRIX_SLUG || process.env.TARGET_REPO || 'primary';
+            const header = `🧪 **Mutation Observatory Report (${slug})**`;
             const body = [
               header,
               '',

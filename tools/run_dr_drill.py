@@ -86,7 +86,38 @@ def main() -> int:
             "metrics": result.report.metrics,
         },
     )
-    return 0
+
+    manifest_digest = result.report.notes.get("manifest_sha256")
+    if manifest_digest:
+        digest_path = evidence_dir / "manifest.sha256"
+        manifest_reference = result.report.manifest
+        digest_path.write_text(f"{manifest_digest}  {manifest_reference}\n", encoding="utf-8")
+
+    policy = result.report.notes.get("policy") or {}
+    rto = result.report.metrics.get("rto_seconds")
+    rpo = result.report.metrics.get("rpo_minutes")
+    max_rto = policy.get("max_rto_seconds")
+    max_rpo = policy.get("max_rpo_minutes")
+
+    passed = True
+    if rto is None or rpo is None:
+        passed = False
+    if max_rto is not None and rto is not None and rto > max_rto:
+        passed = False
+    if max_rpo is not None and rpo is not None and rpo > max_rpo:
+        passed = False
+
+    status = "PASS" if passed else "FAIL"
+    rto_display = f"{rto}" if rto is not None else "unknown"
+    rpo_display = f"{rpo}" if rpo is not None else "unknown"
+    max_rto_display = f"{max_rto}s" if max_rto is not None else "no limit"
+    max_rpo_display = f"{max_rpo}m" if max_rpo is not None else "no limit"
+    print(
+        f"[dr-drill] {status}: "
+        f"RTO={rto_display}s (limit={max_rto_display}), "
+        f"RPO={rpo_display}m (limit={max_rpo_display})"
+    )
+    return 0 if passed else 1
 
 
 if __name__ == "__main__":

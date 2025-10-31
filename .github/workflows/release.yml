@@ -132,6 +132,7 @@ jobs:
           fi
 
       - name: Run project tests
+        id: run_project_tests
         run: |
           set -euo pipefail
           cd project/${{ matrix.path }}
@@ -173,20 +174,35 @@ jobs:
         if: always()
         run: |
           set -euo pipefail
-          mkdir -p artifacts/telemetry
-          export MATRIX_NAME="${{ matrix.name }}"
-          OUTPUT_PATH=$(python -c "import hashlib, os, re; name=os.environ['MATRIX_NAME']; safe=re.sub(r'[^0-9A-Za-z._-]+', '_', name).strip('_') or 'job'; digest=hashlib.sha256(name.encode('utf-8')).hexdigest()[:8]; print(f'artifacts/telemetry/jobs-{safe}-{digest}.ndjson')")
+          TELEMETRY_DIR="artifacts/telemetry"
+          mkdir -p "$TELEMETRY_DIR"
           DURATION=$(cat artifacts/logs/${{ matrix.name }}.duration 2>/dev/null || echo 0)
           CHANGED=$(cat artifacts/logs/${{ matrix.name }}.changed 2>/dev/null || echo 0)
+          SAFE_NAME=$(printf '%s' "${{ matrix.name }}" | tr -c 'A-Za-z0-9._-' '_' | sed -E 's/_+/_/g;s/^_//;s/_$//')
+          if [[ -z "$SAFE_NAME" ]]; then
+            SAFE_NAME="job"
+          fi
+          JOB_STATUS="${{ steps.run_project_tests.outcome }}"
+          case "$JOB_STATUS" in
+            failure) STATUS="failure" ;;
+            cancelled) STATUS="canceled" ;;
+            skipped) STATUS="skipped" ;;
+            success) STATUS="success" ;;
+            *) STATUS="failure" ;;
+          esac
+          BASE_PATH="${TELEMETRY_DIR}/${SAFE_NAME}"
           python scripts/record_job_telemetry.py \
-            --output "$OUTPUT_PATH" \
+            --output "${BASE_PATH}.ndjson" \
             --job-name "${{ matrix.name }}" \
             --duration-ms "$DURATION" \
             --queue-ms 0 \
             --tests-total 0 \
             --changed-files "$CHANGED" \
             --runner-type hosted \
-            --runner-size medium
+            --runner-size medium \
+            --status "$STATUS" \
+            --junit "${BASE_PATH}.junit.xml" \
+            --coverage "${BASE_PATH}.coverage.xml"
 
       - name: Upload project test logs
         if: always()
@@ -194,15 +210,15 @@ jobs:
         with:
           name: project-test-logs-${{ matrix.name }}
           path: artifacts/logs
-          if-no-files-found: warn
+          if-no-files-found: error
 
       - name: Upload job telemetry
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: job-telemetry-${{ matrix.name }}
+          name: job-telemetry
           path: artifacts/telemetry
-          if-no-files-found: warn
+          if-no-files-found: error
 
   pipeline-autopsy:
     needs: project-tests
@@ -270,6 +286,7 @@ jobs:
         with:
           name: job-telemetry
           path: artifacts/telemetry
+          merge-multiple: true
         continue-on-error: true
       - name: Consolidate job telemetry
         run: |
@@ -280,16 +297,25 @@ jobs:
           set -euo pipefail
           mkdir -p artifacts/telemetry artifacts/scheduler
           TELEMETRY_FILE="artifacts/telemetry/jobs.ndjson"
+          USING_BASELINE=0
           if [ ! -f "$TELEMETRY_FILE" ] || [ ! -s "$TELEMETRY_FILE" ]; then
             if [ ! -f "fixtures/telemetry/baseline_jobs.ndjson" ] || [ ! -s "fixtures/telemetry/baseline_jobs.ndjson" ]; then
               echo "::error::[scheduler] baseline telemetry fixture missing or empty at fixtures/telemetry/baseline_jobs.ndjson"
               exit 1
             fi
             cp fixtures/telemetry/baseline_jobs.ndjson "$TELEMETRY_FILE"
+            USING_BASELINE=1
           fi
           python scripts/generate_scheduler_reports.py \
             --telemetry "$TELEMETRY_FILE" \
             --output-dir artifacts/scheduler
+          if [ "$USING_BASELINE" -eq 1 ]; then
+            echo "::warning::[scheduler] using baseline telemetry fixture"
+          fi
+          if [ ! -s artifacts/scheduler/recommendations.json ]; then
+            echo "::error::[scheduler] no scheduler recommendations generated"
+            exit 1
+          fi
       - name: Upload scheduler recommendation
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -458,12 +484,20 @@ jobs:
             --subject "${{ steps.refs.outputs.digest_ref }}" \
             --manufacturer "${{ github.repository_owner }}" \
             --product "${IMAGE_NAME}"
+      - name: Validate SBOM artifacts
+        run: |
+          set -euo pipefail
+          test -s "$SBOM_DIR/app.spdx.json"
+          test -s "$SBOM_DIR/app.cdx.json"
+          test -s "$SBOM_DIR/app.vex.json"
+          jq -e '.vulnerabilities' "$SBOM_DIR/app.vex.json" >/dev/null
 
       - name: Upload SBOMs
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: sbom
           path: ${{ env.SBOM_DIR }}
+          if-no-files-found: error
 
       - name: Sign image with cosign (keyless)
         env:
@@ -512,7 +546,6 @@ jobs:
     with:
       image: ghcr.io/${{ github.repository_owner }}/ci-intel-app
       digest: ${{ needs.build-sign-publish.outputs.digest }}
-      compile-generator: true
       private-repository: ${{ github.event.repository.private }}
     secrets:
       registry-username: ${{ github.actor }}
@@ -532,6 +565,7 @@ jobs:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/ci-intel-app
       COSIGN_EXPERIMENTAL: "1"
+      COSIGN_YES: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
@@ -560,6 +594,46 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify multi-architecture manifest
+        env:
+          DIGEST_REF: ${{ needs.build-sign-publish.outputs.digest_ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/evidence
+          docker buildx imagetools inspect "$DIGEST_REF" | tee artifacts/evidence/manifest.txt
+          grep -q 'linux/amd64' artifacts/evidence/manifest.txt
+          grep -q 'linux/arm64' artifacts/evidence/manifest.txt
+      - name: Verify tag resolves to expected digest
+        env:
+          TAG_REF: ${{ needs.build-sign-publish.outputs.tag_ref }}
+          EXPECTED_DIGEST: ${{ needs.build-sign-publish.outputs.digest }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/evidence
+          ACTUAL_DIGEST="$(crane digest "$TAG_REF")"
+          ACTUAL_NO_PREFIX="${ACTUAL_DIGEST#sha256:}"
+          EXPECTED_NO_PREFIX="${EXPECTED_DIGEST#sha256:}"
+          if [[ "$ACTUAL_NO_PREFIX" != "$EXPECTED_NO_PREFIX" ]]; then
+            echo "::error::Tag $TAG_REF resolves to $ACTUAL_DIGEST but expected $EXPECTED_DIGEST"
+            exit 1
+          fi
+          printf '%s %s\n' "$TAG_REF" "$ACTUAL_DIGEST" > artifacts/evidence/tag-digest.txt
+          test -s artifacts/evidence/tag-digest.txt
+      - name: Verify cosign signature
+        env:
+          DIGEST_REF: ${{ needs.build-sign-publish.outputs.digest_ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/evidence
+          cosign verify \
+            --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' \
+            "$DIGEST_REF"
+          cosign download signature "$DIGEST_REF" > artifacts/evidence/cosign-signature.sig
+          cosign download certificate "$DIGEST_REF" > artifacts/evidence/cosign-cert.pem
+          cosign download chain "$DIGEST_REF" > artifacts/evidence/cosign-cert-chain.pem
+          test -s artifacts/evidence/cosign-signature.sig
+          test -s artifacts/evidence/cosign-cert.pem
+          test -s artifacts/evidence/cosign-cert-chain.pem
 
       - name: Download SBOMs
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -589,15 +663,22 @@ jobs:
           mkdir -p artifacts
           attempts=0
           max_attempts=5
+          success=0
           until cosign download attestation "$DIGEST_REF" > artifacts/attestation.intoto.jsonl; do
-                        attempts=$((attempts + 1))
-                        if [[ $attempts -ge $max_attempts ]]; then
-                          echo "[collect-evidence] Failed to download attestation from registry after ${attempts} attempts" >&2
-                          exit 1
-                        fi
-                        sleep 5
-                        echo "[collect-evidence] Attestation not yet available, retrying (${attempts}/${max_attempts})..."
+            attempts=$((attempts + 1))
+            if [[ $attempts -ge $max_attempts ]]; then
+              echo "::warning::[collect-evidence] attestation not yet available in registry (will attach below)"
+              break
+            fi
+            sleep 5
+            echo "[collect-evidence] Attestation not yet available, retrying (${attempts}/${max_attempts})..."
           done
+          if [[ -s artifacts/attestation.intoto.jsonl ]]; then
+            success=1
+          fi
+          if [[ $success -eq 0 ]]; then
+            rm -f artifacts/attestation.intoto.jsonl
+          fi
 
       - name: Prepare provenance file
         run: |
@@ -623,6 +704,7 @@ jobs:
           python3 -m tools.normalize_provenance \
             --source "$SOURCE" \
             --destination artifacts/slsa-provenance.json
+          test -s artifacts/slsa-provenance.json
 
       - name: Verify provenance subject digest
         env:
@@ -630,6 +712,23 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m tools.verify_provenance
+      - name: Attach SLSA provenance attestation
+        env:
+          DIGEST_REF: ${{ needs.build-sign-publish.outputs.digest_ref }}
+        run: |
+          set -euo pipefail
+          cosign attest \
+            --type slsaprovenance \
+            --predicate artifacts/slsa-provenance.json \
+            "$DIGEST_REF"
+      - name: Verify provenance attestation
+        env:
+          DIGEST_REF: ${{ needs.build-sign-publish.outputs.digest_ref }}
+        run: |
+          set -euo pipefail
+          cosign verify-attestation \
+            --type slsaprovenance \
+            "$DIGEST_REF"
 
       - name: Publish SBOM/provenance referrers
         run: |
@@ -644,6 +743,24 @@ jobs:
               artifacts/sbom/app.spdx.json artifacts/sbom/app.cdx.json \
               artifacts/slsa-provenance.json
           fi
+      - name: Ensure OCI referrers present
+        env:
+          DIGEST_REF: ${{ needs.build-sign-publish.outputs.digest_ref }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/evidence
+          oras discover --output json "$DIGEST_REF" > artifacts/evidence/referrers.json
+          test -s artifacts/evidence/referrers.json
+          jq -e '.descriptors // []' artifacts/evidence/referrers.json >/dev/null
+          for artifact_type in application/spdx+json application/vnd.cyclonedx+json application/vnd.in-toto+json; do
+            if ! jq -e --arg type "$artifact_type" '
+              (any((.descriptors // [])[]; .artifactType == $type)) or
+              (any((.manifests // [])[]; .artifactType == $type))
+            ' artifacts/evidence/referrers.json >/dev/null; then
+              echo "::error::Missing referrer of type $artifact_type"
+              exit 1
+            fi
+          done
 
       - name: Capture determinism evidence
         env:
@@ -681,8 +798,10 @@ jobs:
             exit 1
           fi
           python tools/run_dr_drill.py \
+            --manifest data/dr/manifest.json \
             --output artifacts/evidence/dr/report.json \
             --ndjson artifacts/evidence/dr/events.ndjson \
+            --evidence-dir artifacts/evidence/dr \
             --current-time "${CURRENT_TIME}"
 
       - name: Record cache manifest
@@ -721,6 +840,33 @@ jobs:
       - name: Verify Rekor evidence
         run: |
           python3 tools/verify_rekor_proof.py --evidence-dir artifacts/evidence --digest "${{ needs.build-sign-publish.outputs.digest }}"
+          PROOF_FILE="$(ls artifacts/evidence/rekor-proof-*.json | sort | tail -n1)"
+          test -s "$PROOF_FILE"
+      - name: Retrieve Rekor log entry
+        run: |
+          set -euo pipefail
+          INDEX_FILE="$(ls artifacts/evidence/rekor-proof-index-*.json | sort | tail -n1)"
+          if [[ -z "$INDEX_FILE" ]]; then
+            echo "::error::No rekor-proof-index file found"
+            exit 1
+          fi
+          LOG_INDEX="$(jq -r '.log_index // ""' "$INDEX_FILE")"
+          UUID="$(jq -r '.uuid // ""' "$INDEX_FILE")"
+          if [[ -n "$LOG_INDEX" ]]; then
+            ENTRY_FILE="artifacts/evidence/rekor-entry-${LOG_INDEX}.json"
+            rekor-cli get --log-index "$LOG_INDEX" --log-url "${REKOR_LOG:-https://rekor.sigstore.dev}" --format json > "$ENTRY_FILE"
+          elif [[ -n "$UUID" ]]; then
+            ENTRY_FILE="artifacts/evidence/rekor-entry-${UUID}.json"
+            rekor-cli get --uuid "$UUID" --log-url "${REKOR_LOG:-https://rekor.sigstore.dev}" --format json > "$ENTRY_FILE"
+          else
+            echo "::error::Rekor index file missing log index and uuid"
+            exit 1
+          fi
+          PROOF_FILE="$(ls artifacts/evidence/rekor-proof-*.json | sort | tail -n1)"
+          test -s "$PROOF_FILE"
+          jq -e '.logEntry' "$PROOF_FILE" >/dev/null
+          test -s "$ENTRY_FILE"
+          jq -e '.' "$ENTRY_FILE" >/dev/null
 
       - name: Upload Evidence bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -729,9 +875,8 @@ jobs:
           path: |
             artifacts/evidence
             artifacts/sbom
-            artifacts/predicate
-            artifacts/predicate.intoto.jsonl
-          if-no-files-found: ignore
+            artifacts/slsa-provenance.json
+          if-no-files-found: error
 
   policy-gates:
     needs:
@@ -1046,6 +1191,7 @@ jobs:
         with:
           name: job-telemetry
           path: artifacts/telemetry
+          merge-multiple: true
         continue-on-error: true
       - name: Report artifact availability
         run: |
@@ -1066,10 +1212,27 @@ jobs:
           else
             echo "✗ telemetry fragments missing (no *.ndjson found)"
           fi
+      - name: Validate telemetry artifacts
+        run: |
+          set -euo pipefail
+          if ! compgen -G "artifacts/telemetry/*.junit.xml" > /dev/null; then
+            echo "::error::JUnit summaries missing from telemetry bundle"
+            exit 1
+          fi
+          if ! compgen -G "artifacts/telemetry/*.coverage.xml" > /dev/null; then
+            echo "::error::Coverage summaries missing from telemetry bundle"
+            exit 1
+          fi
+          while IFS= read -r -d '' file; do test -s "$file" || { echo "::error::Empty telemetry artifact $file"; exit 1; }; done < <(find artifacts/telemetry -type f -name "*.junit.xml" -print0)
+          while IFS= read -r -d '' file; do test -s "$file" || { echo "::error::Empty telemetry artifact $file"; exit 1; }; done < <(find artifacts/telemetry -type f -name "*.coverage.xml" -print0)
       - name: Consolidate job telemetry
         run: |
           set -euo pipefail
           python scripts/consolidate_telemetry.py artifacts/telemetry jobs.ndjson
+          if [ ! -s artifacts/telemetry/jobs.ndjson ]; then
+            echo "::error::Consolidated telemetry file is empty"
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5

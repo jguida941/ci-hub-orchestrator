@@ -47,3 +47,8 @@
 - Rekor inclusion proofs verified post-release.
 
 - Rekor monitor job stores proofs under `artifacts/evidence/` for audit.
+
+## Automation gate outputs
+
+- `tools/run_dr_drill.py` enforces manifest policy limits. It exits non-zero when observed RPO/RTO breach `policies.{max_rpo_minutes,max_rto_seconds}` and prints a `[dr-drill] PASS: RTO=… RPO=…` summary on success.
+- Each drill writes `artifacts/evidence/dr/manifest.sha256` so auditors can confirm the exact manifest used to execute the drill.

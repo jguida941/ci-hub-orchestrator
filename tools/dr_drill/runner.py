@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -103,6 +104,7 @@ def _enforce_policies(manifest: Manifest, rpo_minutes: float, rto_seconds: float
 def run_drill(manifest_path: Path, evidence_dir: Path, *, now: Optional[datetime] = None) -> DrillResult:
     repo_root = Path(__file__).resolve().parents[2]
     manifest = load_manifest(manifest_path)
+    manifest_digest = hashlib.sha256(manifest.source.read_bytes()).hexdigest()
     run_started = _utc_now()
     evidence_dir.mkdir(parents=True, exist_ok=True)
     if now is not None:
@@ -215,6 +217,7 @@ def run_drill(manifest_path: Path, evidence_dir: Path, *, now: Optional[datetime
         notes={
             "policy": policy_details,
             "services_checked": payload_stats.get("services"),
+            "manifest_sha256": manifest_digest,
         },
     )
     return DrillResult(report=report, events=events)

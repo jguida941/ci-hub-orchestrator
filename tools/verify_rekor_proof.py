@@ -152,8 +152,30 @@ def _ensure_signed_timestamp(proof: dict[str, Any], verification: dict[str, Any]
     raise SystemExit("[verify-rekor-proof] signedEntryTimestamp missing from proof output")
 
 
-def verify_proof(proof_path: Path, expected_digest: str | None) -> dict[str, Any]:
+def _extract_log_entry(document: dict[str, Any]) -> dict[str, Any] | None:
+    for key in ("logEntry", "LogEntry", "entry", "Entry"):
+        candidate = document.get(key)
+        if isinstance(candidate, dict):
+            return candidate
+    return None
+
+
+def verify_proof(
+    proof_path: Path,
+    expected_digest: str | None,
+    *,
+    entry_document: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     proof = _normalize_proof(_load_json(proof_path))
+    if entry_document is not None and not isinstance(entry_document, dict):
+        raise TypeError(f"entry_document must be dict or None, got {type(entry_document).__name__}")
+    if entry_document and (
+        not isinstance(proof.get("logEntry"), dict)
+        and not isinstance(proof.get("LogEntry"), dict)
+    ):
+        extracted = _extract_log_entry(entry_document)
+        if extracted:
+            proof["logEntry"] = extracted
 
     verification = _extract_section(
         proof,
@@ -180,6 +202,12 @@ def verify_proof(proof_path: Path, expected_digest: str | None) -> dict[str, Any
             ("Entry",),
         ),
     )
+    if not isinstance(log_entry, dict):
+        if entry_document:
+            extracted = _extract_log_entry(entry_document)
+            if isinstance(extracted, dict):
+                log_entry = extracted
+                proof["logEntry"] = extracted
     if not isinstance(log_entry, dict):
         raise SystemExit("[verify-rekor-proof] logEntry missing from proof output")
 
@@ -252,7 +280,7 @@ def load_index(index_path: Path) -> dict[str, Any]:
     index = _load_json(index_path)
     if not isinstance(index, dict):
         raise SystemExit("[verify-rekor-proof] index file must be a JSON object")
-    for field in ("digest", "proof_path", "uuid"):
+    for field in ("digest", "proof_path"):
         if field not in index or not isinstance(index[field], str) or not index[field]:
             raise SystemExit(f"[verify-rekor-proof] index missing '{field}' value")
     return index
@@ -304,8 +332,22 @@ def main(argv: list[str] | None = None) -> int:
         else:
             raise SystemExit(f"[verify-rekor-proof] proof file {proof_path} not found")
 
+    entry_document: dict[str, Any] | None = None
+    entry_path_value = index.get("entry_path")
+    if entry_path_value:
+        entry_path = Path(entry_path_value)
+        if not entry_path.is_file():
+            alt_entry = index_path.parent / entry_path.name
+            if alt_entry.is_file():
+                entry_path = alt_entry
+            else:
+                raise SystemExit(f"[verify-rekor-proof] entry file {entry_path_value} not found")
+        entry_json = _load_json(entry_path)
+        if isinstance(entry_json, dict):
+            entry_document = entry_json
+
     digest = args.digest or index["digest"]
-    verify_proof(proof_path, digest)
+    verify_proof(proof_path, digest, entry_document=entry_document)
     print(
         f"[verify-rekor-proof] verified inclusion proof {proof_path} (digest={digest}, uuid={index.get('uuid','')})"
     )
