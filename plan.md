@@ -85,7 +85,8 @@ Blockers to ship v1.0
 5. Egress allowlist not enforced — CI jobs require default-deny egress with explicit allowlist (registry, GitHub, Rekor, etc.) and an audit that fails on unexpected domains.
 6. `pull_request_target` remains allowed — add policy/Ruleset guardrails or an explicit allowlist.
 
-## High-leverage upgrades (next)
+High-leverage upgrades (next)
+------------------------------
 
 1. **Ship reusable hub workflow** (`.github/workflows/hub.yml`) with a pinned revision, documented inputs/outputs, and a conformance run proving SBOM/VEX/provenance gates fail when evidence is missing.
 2. **Enforce policy gating at CI boundary** — fail PRs when SPDX/CycloneDX/SLSA referrers are absent or VEX thresholds (CVSS/EPSS) are exceeded; Kyverno enforcement follows once cluster-side wiring lands.
@@ -97,6 +98,18 @@ Blockers to ship v1.0
 8. **SBOM coverage & VEX rigor** — validate component counts/transitives, require VEX states for highs/criticals, and fail on missing or stale states.
 9. **Analytics chain of custody** — sign dbt manifests, record job inputs and Git SHAs in telemetry, and treat data tests as gates.
 10. **Operational guardrails** — add promotion environments with manual approvals + digest verification, release rollback playbooks, and ChatOps commands surfacing evidence digests.
+11. **Two-week hardening sprint (v1.0 GH-hosted)**  
+    - *PR-1 (CI boundary gates)*  
+      Files: `.github/workflows/release.yml`, `.github/workflows/security-lint.yml`, `tools/slsa_verify.sh`, `tools/referrer_gate.sh`, `tools/egress_allow.sh`, `policies/workflows.rego`.  
+      Steps: enforce SLSA verify, referrer presence, egress allowlist, and ban `pull_request_target`.  
+    - *PR-2 (Determinism + cache integrity blockers)*  
+      Files: `tools/determinism_check.sh`, `tools/cache_sentinel.py`, `.github/workflows/release.yml`.  
+      Steps: enforce fixed env, dual-run diff, pre-restore cache verification/quarantine telemetry.  
+    - *PR-3 (Immutable evidence bundle + schema lock)*  
+      Files: `tools/pack_evidence.sh`, `.github/workflows/schema-ci.yml`, `schema/fixtures/pipeline_run.v1.2.example.ndjson`, README (evidence digest reference).  
+      Steps: tar/sign/push evidence bundle to OCI, require canonical schema fixtures via AJV.  
+    - *Truth table gates (all must pass)*: Rekor proof, SLSA attestation issuer/subject/workflow/tag/builder, referrer presence (SPDX/CycloneDX/in-toto), determinism diff empty, cache verification/quarantine event, telemetry schema v1.2 validated, egress allowlist enforced, `pull_request_target` banned.  
+    - *Org controls*: enforce Rulesets (no unpinned actions, signed commits/tags, required checks, CODEOWNERS on `.github/**`), enable Dependabot/Renovate weekly security updates.
 
 High-risk gaps to schedule next
 
