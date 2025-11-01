@@ -57,7 +57,7 @@
   ---
   **Phase 0 – Gate Integrity (Blockers)**
 
-  - [x] Cache integrity enforced before restore: Sentinel deps installed with `--no-cache-dir`, verification runs immediately after cache restore and before project installs, mismatches quarantined, fork caches segregated via `repository_owner` in cache keys, and `cache_quarantine` telemetry emitted (`plan.md:30`, `release.yml:99-151`, `scripts/emit_cache_quarantine_event.py`).
+  - [x] Cache integrity enforced before restore: Sentinel deps installed with `--no-cache-dir`, cache manifests signed with cosign keyless signing, signatures verified before BLAKE3 digest checks, verification runs immediately after cache restore and before project installs, mismatches quarantined, fork caches segregated via `repository_owner` in cache keys, and `cache_quarantine` telemetry emitted (`plan.md:30`, `plan.md:1633`, `release.yml:141-187`, `release.yml:311-348`, `scripts/emit_cache_quarantine_event.py`).
   - [ ] Runtime secretless sweep: add live env/process scanning to fail fast on leaked secrets while keeping manifests linted (`plan.md:31`, `security-lint.yml:75-92`).
   - [ ] Provenance verification with `slsa-verifier`: install the binary and run with `--source-uri`, `--workflow`, `--source-tag`, and `--builder-id` alongside Cosign (`plan.md:34`, `release.yml:709-731`).
   - [ ] Default-deny egress allowlist: enforce the iptables allowlist smoke test and alert on unexpected destinations (`plan.md:85`, `policies/egress-allowlist.md`).
@@ -69,7 +69,7 @@
 
   - [ ] Evidence bundle attestation: sign the aggregate evidence bundle on the release digest and verify during promotion (`plan.md:40`, `release.yml:821-835`).
   - [ ] DR drill freshness gate: fail the release when the last drill exceeds the 7-day SLA (`plan.md:43`, `release.yml:780-805`).
-  - [ ] Fork cache isolation & telemetry: scope cache keys by repository owner and emit cache hit/miss/quarantine metrics (`plan.md:30`, `release.yml:99-105`).
+  - [x] Fork cache isolation & telemetry: cache keys scoped by repository_owner, quarantine telemetry emitted via scripts/emit_cache_quarantine_event.py (`plan.md:30`, `release.yml:99-151`).
   - [ ] Multi-arch SBOM parity: compare component counts across amd64/arm64 manifests before promotion (`plan.md:331`, `release.yml:765-775`).
   - [ ] SARIF hygiene automation: deduplicate findings and enforce suppression TTLs in the security pipeline (`plan.md:47`, `scripts/summarize_codeql.py`).
   - [ ] LLM governance documentation: finalize deterministic rule-path policy and manual approval requirements for ML-driven findings (`plan.md:49`).
