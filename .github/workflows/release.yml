@@ -91,6 +91,12 @@ jobs:
       - name: Checkout automation repo
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
+      - name: Runtime secret sweep
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/security
+          ./scripts/scan_runtime_secrets.sh artifacts/security/runtime-secrets.json
+
       - name: Checkout ${{ matrix.name }}
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
         with:
@@ -541,6 +547,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Runtime secret sweep
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/security
+          ./scripts/scan_runtime_secrets.sh artifacts/security/runtime-secrets.json
 
       - name: Install Python deps (cache sentinel)
         run: |

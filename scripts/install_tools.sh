@@ -255,9 +255,14 @@ install_crane() {
   )
   tar -xzf "$TMP_DIR/${tar}" -C "$TMP_DIR" crane
   sudo install -m 0755 "$TMP_DIR/crane" /usr/local/bin/crane
-  if ! crane version | tr -d '\n' | grep -q "$(printf '%s' "${CRANE_VERSION}" | tr -d '\n')"; then
-    log "crane version mismatch"
-    exit 1
+  # crane prints either v-prefixed or plain semver; accept both while still enforcing the pin
+  CRANE_VERSION_OUTPUT=$(crane version 2>&1 || true)
+  if ! echo "$CRANE_VERSION_OUTPUT" | grep -q "${CRANE_VERSION}"; then
+    if ! echo "$CRANE_VERSION_OUTPUT" | grep -q "${CRANE_VERSION#v}"; then
+      log "crane version mismatch (expected ${CRANE_VERSION})"
+      echo "$CRANE_VERSION_OUTPUT"
+      exit 1
+    fi
   fi
 }
 

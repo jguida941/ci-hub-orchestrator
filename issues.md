@@ -34,7 +34,7 @@ Plan.md and the current implementation describe a Phase 1–2 hybrid CI/CD hub. 
 ## Phase 0 – Gate Integrity (Blockers)
 
 - [x] Cache integrity enforced before restore (manifests signed with cosign, bundles verified pre-restore, mismatches quarantined, fork caches isolated, telemetry emitted).
-- [ ] Runtime secretless sweep (live environment scanning for leaked secrets).
+- [x] Runtime secretless sweep (live environment scanning for leaked secrets via `scripts/scan_runtime_secrets.sh`).
 - [ ] Provenance verification with `slsa-verifier` (assert source URI, workflow, tag, builder ID).
 - [ ] Default-deny egress allowlist (iptables smoke test + unexpected-destination failure).
 - [ ] Kyverno enforcement evidence & `pull_request_target` guard (deny-by-default proof and workflow policy).
