@@ -106,6 +106,10 @@ jobs:
           python3 -m pip install --no-cache-dir --upgrade pip
           python3 -m pip install --no-cache-dir blake3
 
+      - name: Install cosign for signature verification
+        run: |
+          ./scripts/install_tools.sh
+
       - name: Download previous cache manifest from last successful run
         id: download_manifest
         uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11 # v6
@@ -118,11 +122,11 @@ jobs:
           repo: ${{ github.repository }}
         continue-on-error: true
 
-      - name: Download previous cache manifest signature
-        id: download_signature
+      - name: Download previous cache manifest bundle
+        id: download_bundle
         uses: dawidd6/action-download-artifact@bf251b5aa9c2f7eeb574a96ee720e24f801b7c11 # v6
         with:
-          name: cache-manifest-sig-${{ matrix.name }}
+          name: cache-manifest-bundle-${{ matrix.name }}
           path: .cache-manifests
           workflow: release.yml
           workflow_conclusion: success
@@ -146,17 +150,18 @@ jobs:
           set -euo pipefail
           CACHE_DIR="$(python3 -m pip cache dir)"
           MANIFEST_PATH=".cache-manifests/cache-manifest.json"
-          SIG_PATH=".cache-manifests/cache-manifest.sig"
+          BUNDLE_PATH=".cache-manifests/cache-manifest.bundle"
           mkdir -p artifacts/cache-quarantine
           if [ -f "$MANIFEST_PATH" ]; then
             echo "::notice::Verifying restored cache against previous manifest"
 
-            # Step 1: Verify manifest signature if available
-            if [ -f "$SIG_PATH" ]; then
-              echo "::notice::Verifying cache manifest signature with cosign"
+            # Step 1: Verify manifest bundle (signature + certificate) if available
+            if [ -f "$BUNDLE_PATH" ]; then
+              echo "::notice::Verifying cache manifest signature with cosign (keyless)"
               if ! cosign verify-blob \
+                --bundle "$BUNDLE_PATH" \
                 --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' \
-                --signature "$SIG_PATH" \
+                --certificate-identity-regexp 'https://github.com/' \
                 "$MANIFEST_PATH"; then
                 echo "::error::Cache manifest signature verification failed - potential tampering detected"
                 echo "verified=false" >> "$GITHUB_OUTPUT"
@@ -164,7 +169,7 @@ jobs:
               fi
               echo "::notice::Cache manifest signature verified successfully"
             else
-              echo "::warning::No signature found for cache manifest (first run or signature not yet uploaded)"
+              echo "::warning::No bundle found for cache manifest (first run or bundle not yet uploaded)"
             fi
 
             # Step 2: Verify BLAKE3 digests against the (now-authenticated) manifest
@@ -319,7 +324,7 @@ jobs:
             ./scripts/install_tools.sh
           fi
           cosign sign-blob --yes \
-            --output-signature .cache-manifests/cache-manifest.sig \
+            --bundle .cache-manifests/cache-manifest.bundle \
             .cache-manifests/cache-manifest.json
 
       - name: Emit cache quarantine telemetry
@@ -339,12 +344,12 @@ jobs:
           path: .cache-manifests/cache-manifest.json
           if-no-files-found: warn
 
-      - name: Upload cache manifest signature for next run
+      - name: Upload cache manifest bundle for next run
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: cache-manifest-sig-${{ matrix.name }}
-          path: .cache-manifests/cache-manifest.sig
+          name: cache-manifest-bundle-${{ matrix.name }}
+          path: .cache-manifests/cache-manifest.bundle
           if-no-files-found: warn
 
       - name: Upload cache quarantine evidence

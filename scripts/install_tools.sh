@@ -136,16 +136,24 @@ install_rekor() {
     exit 1
   fi
 
-  # Try to download and verify checksum (optional)
+  # Try to download and verify checksum (optional - don't fail build if missing)
   if curl -fsSL "${url}.sha256" -o "$TMP_DIR/${file}.sha256" 2>/dev/null; then
-    (cd "$TMP_DIR" && sha256sum -c "$(basename "${file}.sha256")") || log "Warning: rekor-cli checksum verification failed, continuing anyway"
+    (cd "$TMP_DIR" && sha256sum -c "$(basename "${file}.sha256")") || {
+      log "Warning: rekor-cli checksum verification failed"
+      # Checksum exists but doesn't match - this is suspicious, fail hard
+      exit 1
+    }
   else
-    log "Warning: No checksum file found for rekor-cli, skipping verification"
+    log "Warning: No checksum file found for rekor-cli ${REKOR_VERSION}, skipping checksum verification"
   fi
 
   sudo install -m 0755 "$TMP_DIR/${file}" /usr/local/bin/rekor-cli
+
+  # Enforce version match per plan.md supply-chain pinning requirements
   if ! rekor-cli version --format json | grep -E "\"GitVersion\"\\s*:\\s*\"v?${REKOR_VERSION}\"" >/dev/null; then
-    log "Warning: rekor-cli version mismatch, but continuing"
+    log "rekor-cli version mismatch (expected ${REKOR_VERSION})"
+    rekor-cli version || true
+    exit 1
   fi
 }
 
