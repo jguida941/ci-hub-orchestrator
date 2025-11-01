@@ -77,13 +77,31 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r requirements-dev.txt
 
+      - name: Install target dependencies
+        run: |
+          set -euo pipefail
+          cd target
+          # Install target repo dependencies if they exist
+          if [ -f requirements.txt ]; then
+            python -m pip install -r requirements.txt
+          elif [ -f requirements-dev.txt ]; then
+            python -m pip install -r requirements-dev.txt
+          elif [ -f pyproject.toml ]; then
+            python -m pip install -e '.[dev]' || python -m pip install -e .
+          fi
+          # Ensure pytest is available
+          python -m pip install pytest
+
       - name: Generate mutation reports
         run: |
           set -euo pipefail
           mkdir -p "$RUN_DIR"
+          # Run pytest against the target repo, not the hub's tests
           python tools/scripts/generate_mutation_reports.py \
             --stryker "$RUN_DIR/stryker-report.json" \
-            --mutmut "$RUN_DIR/mutmut-report.json"
+            --mutmut "$RUN_DIR/mutmut-report.json" \
+            --allow-fail \
+            --pytest-args target
       - name: Sync reports for observatory
         run: |
           set -euo pipefail
