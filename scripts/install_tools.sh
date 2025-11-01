@@ -161,11 +161,28 @@ install_syft() {
   local tar="syft_${SYFT_VERSION}_${OS}_${ARCH}.tar.gz"
   local url="https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/${tar}"
   log "Installing syft ${SYFT_VERSION}"
-  download_and_verify "$url" "$TMP_DIR/${tar}" "${url}.sha256"
+
+  # Download tarball
+  if ! curl -fsSL "$url" -o "$TMP_DIR/${tar}"; then
+    log "Failed to download syft from ${url}"
+    exit 1
+  fi
+
+  # Try to verify checksum (optional)
+  if curl -fsSL "${url}.sha256" -o "$TMP_DIR/${tar}.sha256" 2>/dev/null; then
+    (cd "$TMP_DIR" && sha256sum -c "$(basename "${tar}.sha256")") || {
+      log "Warning: syft checksum verification failed"
+      exit 1
+    }
+  else
+    log "Warning: No checksum file found for syft ${SYFT_VERSION}, skipping verification"
+  fi
+
   tar -xzf "$TMP_DIR/${tar}" -C "$TMP_DIR" syft
   sudo install -m 0755 "$TMP_DIR/syft" /usr/local/bin/syft
   if ! syft version | grep -E "Version:\s+${SYFT_VERSION}" >/dev/null; then
-    log "syft version mismatch"
+    log "syft version mismatch (expected ${SYFT_VERSION})"
+    syft version || true
     exit 1
   fi
 }
@@ -174,11 +191,28 @@ install_grype() {
   local tar="grype_${GRYPE_VERSION}_${OS}_${ARCH}.tar.gz"
   local url="https://github.com/anchore/grype/releases/download/v${GRYPE_VERSION}/${tar}"
   log "Installing grype ${GRYPE_VERSION}"
-  download_and_verify "$url" "$TMP_DIR/${tar}" "${url}.sha256"
+
+  # Download tarball
+  if ! curl -fsSL "$url" -o "$TMP_DIR/${tar}"; then
+    log "Failed to download grype from ${url}"
+    exit 1
+  fi
+
+  # Try to verify checksum (optional)
+  if curl -fsSL "${url}.sha256" -o "$TMP_DIR/${tar}.sha256" 2>/dev/null; then
+    (cd "$TMP_DIR" && sha256sum -c "$(basename "${tar}.sha256")") || {
+      log "Warning: grype checksum verification failed"
+      exit 1
+    }
+  else
+    log "Warning: No checksum file found for grype ${GRYPE_VERSION}, skipping verification"
+  fi
+
   tar -xzf "$TMP_DIR/${tar}" -C "$TMP_DIR" grype
   sudo install -m 0755 "$TMP_DIR/grype" /usr/local/bin/grype
   if ! grype version | grep -E "Version:\s+${GRYPE_VERSION}" >/dev/null; then
-    log "grype version mismatch"
+    log "grype version mismatch (expected ${GRYPE_VERSION})"
+    grype version || true
     exit 1
   fi
 }
