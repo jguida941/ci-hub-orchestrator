@@ -814,8 +814,11 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/evidence
+          # Verify signature with identity pattern per plan.md:143-146
+          # Pattern allows any tag ref from this repo's release workflow
           cosign verify \
-            --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp "^https://github\\.com/${{ github.repository }}/\\.github/workflows/release\\.yml@refs/(tags|heads)/.*$" \
             "$DIGEST_REF"
           cosign download signature "$DIGEST_REF" > artifacts/evidence/cosign-signature.sig
           cosign download certificate "$DIGEST_REF" > artifacts/evidence/cosign-cert.pem
@@ -915,8 +918,11 @@ jobs:
           DIGEST_REF: ${{ needs.build-sign-publish.outputs.digest_ref }}
         run: |
           set -euo pipefail
+          # Verify attestation with identity pattern per plan.md:113-116
           cosign verify-attestation \
             --type slsaprovenance \
+            --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+            --certificate-identity-regexp "^https://github\\.com/${{ github.repository }}/\\.github/workflows/release\\.yml@refs/(tags|heads)/.*$" \
             "$DIGEST_REF"
 
       - name: Verify provenance with slsa-verifier
