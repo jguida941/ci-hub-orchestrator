@@ -57,4 +57,4 @@ jobs:
           pytest tools/tests/test_kyverno_policy_checker.py
       - name: Lint docs
         run: |
-          npx --yes markdownlint-cli2 "**/*.md"
+          make lint-markdown
