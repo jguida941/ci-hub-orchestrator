@@ -4,16 +4,15 @@ __pycache__/
 *.pyc
 .DS_Store
 # Runner artifacts
-artifacts/**/*.html
+artifacts/
 Screenshot\ *.png
-artifacts/dr/
 
 # dbt build artifacts and caches
 dbt_packages/
 dbt_modules/
 logs/
 manifest.json
-data/warehouse/*.db
+data/warehouse/
 !data/dr/manifest.json
 models/target/
 models/macros/*
@@ -22,3 +21,9 @@ models/macros/*
 partial_parse.msgpack
 run_results.json
 target/
+
+# IDE
+.idea/
+
+# Temp
+tmp/

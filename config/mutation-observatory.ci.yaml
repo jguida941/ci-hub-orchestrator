@@ -4,10 +4,10 @@ targets:
   - name: frontend-fixture
     tool: stryker
     parser: stryker
-    report_path: ../artifacts/mutation/stryker-report.json
+    report_path: ${RUN_DIR}/stryker-report.json
     threshold: 0.55
   - name: backend-fixture
     tool: mutmut
     parser: mutmut_json
-    report_path: ../artifacts/mutation/mutmut-report.json
+    report_path: ${RUN_DIR}/mutmut-report.json
     threshold: 0.60

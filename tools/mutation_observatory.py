@@ -77,7 +77,8 @@ def load_config(config_path: Path) -> tuple[dict[str, Any], list[TargetConfig]]:
             name = str(entry["name"])
             tool = str(entry["tool"])
             parser = str(entry.get("parser", tool))
-            report_path = Path(entry["report_path"])
+            report_path_raw = os.path.expandvars(str(entry["report_path"]))
+            report_path = Path(report_path_raw).expanduser()
         except KeyError as exc:  # pragma: no cover - config validation
             raise MutationObservatoryError(f"missing required key for target #{idx}: {exc}") from exc
 
@@ -90,8 +91,14 @@ def load_config(config_path: Path) -> tuple[dict[str, Any], list[TargetConfig]]:
             max_value=1.0,
         )
         command = _normalize_command(entry.get("command"))
-        workdir = entry.get("workdir")
-        resolved_workdir = (base_dir / Path(workdir)).resolve() if workdir else None
+        workdir_value = entry.get("workdir")
+        resolved_workdir: Optional[Path] = None
+        if workdir_value:
+            workdir_expanded = Path(os.path.expandvars(str(workdir_value))).expanduser()
+            if workdir_expanded.is_absolute():
+                resolved_workdir = workdir_expanded
+            else:
+                resolved_workdir = (base_dir / workdir_expanded).resolve()
         env = _ensure_string_dict(entry.get("env"), f"env for target '{name}'")
         labels = entry.get("labels") or {}
         baseline_score = _coerce_optional_float(

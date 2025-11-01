@@ -32,8 +32,10 @@ jobs:
         id: codeql_upload
         run: |
           set -euo pipefail
-          upload=true
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
+          upload="${CODEQL_UPLOAD:-false}"
+          if [ "$upload" != "true" ]; then
+            upload=false
+          elif [ "${{ github.event_name }}" = "pull_request" ]; then
             fork=$(jq -r '.pull_request.head.repo.fork' "$GITHUB_EVENT_PATH")
             if [ "$fork" = "true" ]; then
               upload=false
@@ -43,6 +45,7 @@ jobs:
         shell: bash
         env:
           GITHUB_EVENT_PATH: ${{ github.event_path }}
+          CODEQL_UPLOAD: ${{ vars.CODEQL_UPLOAD || 'false' }}
       - name: Checkout
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
