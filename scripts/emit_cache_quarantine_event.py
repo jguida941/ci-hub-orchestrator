@@ -29,9 +29,13 @@ def emit_quarantine_event(quarantine_dir: pathlib.Path, output: pathlib.Path) ->
             "status": "clean",
         }
     else:
-        quarantined_files = list(quarantine_dir.rglob("*"))
-        # Filter out directories, only count files
-        quarantined_files = [f for f in quarantined_files if f.is_file()]
+        try:
+            quarantined_files = list(quarantine_dir.rglob("*"))
+            # Filter out directories, only count files
+            quarantined_files = [f for f in quarantined_files if f.is_file()]
+        except (OSError, PermissionError) as exc:
+            print(f"[cache_quarantine] Warning: Error accessing quarantine directory: {exc}")
+            quarantined_files = []
 
         event = {
             "event_type": "cache_quarantine",
