@@ -294,20 +294,20 @@ jobs:
             --coverage "${BASE_PATH}.coverage.xml"
 
       - name: Upload project test logs
-        if: always()
+        if: always() && steps.run_project_tests.conclusion != 'skipped' && steps.run_project_tests.conclusion != 'cancelled'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: project-test-logs-${{ matrix.name }}-${{ github.run_attempt }}
           path: artifacts/logs
-          if-no-files-found: ignore
+          if-no-files-found: error
 
       - name: Upload job telemetry
-        if: always()
+        if: always() && steps.run_project_tests.conclusion != 'skipped' && steps.run_project_tests.conclusion != 'cancelled'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: job-telemetry-${{ matrix.name }}-${{ github.run_attempt }}
           path: artifacts/telemetry
-          if-no-files-found: ignore
+          if-no-files-found: error
 
       - name: Record cache manifest (post-test)
         if: always()
