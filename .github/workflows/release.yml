@@ -561,7 +561,15 @@ jobs:
           # Verify default-deny egress control per plan.md:32,85
           # Only approved destinations should be reachable
           mkdir -p artifacts/security
-          ./scripts/test_egress_allowlist.sh artifacts/security/egress-test.json
+
+          # Use enforcement mode if available (requires sudo on self-hosted runners)
+          if [[ "${RUNNER_TYPE:-github-hosted}" == "self-hosted" ]] && sudo -n true 2>/dev/null; then
+            # Apply technical enforcement with iptables
+            sudo ./scripts/enforce_egress_control.sh enforce artifacts/security/egress-enforcement.json
+          else
+            # Fall back to audit mode for GitHub-hosted runners
+            ./scripts/test_egress_allowlist.sh artifacts/security/egress-test.json
+          fi
 
       - name: Verify Kyverno enforcement evidence
         run: |
@@ -585,6 +593,19 @@ jobs:
             echo "PYTHONHASHSEED=0"
             echo "SOURCE_DATE_EPOCH=$SOURCE_DATE_EPOCH"
           } >> "$GITHUB_ENV"
+
+      - name: Validate determinism readiness
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/determinism
+          ./scripts/validate_cross_time_determinism.sh validate
+
+      - name: Schedule cross-time validation
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          # Schedule 24-hour delayed rebuild for determinism validation
+          ./scripts/validate_cross_time_determinism.sh schedule "${{ github.ref }}"
 
       - name: Install Python deps (cache sentinel)
         run: |
@@ -1132,6 +1153,18 @@ jobs:
           test -s "$ENTRY_FILE"
           jq -e '.' "$ENTRY_FILE" >/dev/null
 
+      - name: Sign Evidence Bundle
+        run: |
+          set -euo pipefail
+          # Sign the complete evidence bundle for chain of custody
+          mkdir -p artifacts/signed-evidence
+          ./scripts/sign_evidence_bundle.sh artifacts/evidence artifacts/signed-evidence
+
+          # Display bundle info
+          echo "Evidence bundle signed:"
+          ls -lh artifacts/signed-evidence/evidence-bundle-*.tar.gz
+          echo "SHA256: $(cat artifacts/signed-evidence/evidence-bundle-*.sha256)"
+
       - name: Upload Evidence bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -1140,6 +1173,7 @@ jobs:
             artifacts/evidence
             artifacts/sbom
             artifacts/slsa-provenance.json
+            artifacts/signed-evidence
           if-no-files-found: error
 
   policy-gates:

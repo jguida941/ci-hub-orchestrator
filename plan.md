@@ -13,13 +13,11 @@ Primary outcomes
 
 - Efficiency: predictive scheduling, cache integrity, cost/carbon tracking.
 
-Needs Update – Gap Tracker
---------------------------
+## Needs Update – Gap Tracker
 
 Use this section as the running ledger of high-priority gaps and the precise controls we still need to land so work-in-progress items do not disappear in the longer narrative below.
 
-Short Answer — Harden Now
--------------------------
+## Short Answer — Harden Now
 
 Strong plan. Harden these gaps now and remove contradictions.
 
@@ -87,8 +85,7 @@ Blockers to ship v1.0
 5. Egress allowlist not enforced — CI jobs require default-deny egress with explicit allowlist (registry, GitHub, Rekor, etc.) and an audit that fails on unexpected domains.
 6. `pull_request_target` remains allowed — add policy/Ruleset guardrails or an explicit allowlist.
 
-High-leverage upgrades (next)
-------------------------------
+## High-leverage upgrades (next)
 
 1. **Ship reusable hub workflow** (`.github/workflows/hub.yml`) with a pinned revision, documented inputs/outputs, and a conformance run proving SBOM/VEX/provenance gates fail when evidence is missing.
 2. **Enforce policy gating at CI boundary** — fail PRs when SPDX/CycloneDX/SLSA referrers are absent or VEX thresholds (CVSS/EPSS) are exceeded; Kyverno enforcement follows once cluster-side wiring lands.
@@ -330,29 +327,25 @@ Org-level controls
 - Require signed and annotated tags for all release patterns; reject lightweight tags.
 - Forbid untrusted third-party actions unless mirrored internally and pinned by SHA.
 
-Telemetry and traceability
---------------------------
+## Telemetry and traceability
 
 - Enforce `OTEL_RESOURCE_ATTRIBUTES=service.name,service.version,git.sha` across jobs; propagate tracing metadata into Evidence Bundles.
 - Inject `traceparent` into PR comments and artifacts to stitch CI spans with downstream services.
 - Record kernel version, containerd build, and image layer digests in provenance; alert on skew > 100 ms or drift across redundant runners.
 
-Data-quality gates
-------------------
+## Data-quality gates
 
 - Add dbt expectations for rowcount deltas, null caps, and distribution checks on core marts; promote failures from warn to block for scorecard tables.
 - Integrate Great Expectations (or dbt-expectations) for metric distribution drift to detect silent dashboard regressions.
 
-Exit-criteria adjustments
--------------------------
+## Exit-criteria adjustments
 
 - Add “Example fixtures validate” to the v1.0 checklist to ensure schema samples stay in sync.
 - Require admission to deny images missing both SBOM and provenance referrers whose subjects match the exact image digest.
 - Ensure cache verification/quarantine emits `cache_quarantine` telemetry and alerting before sign-off.
 - Disallow `pull_request_target` unless explicitly justified and recorded with CODEOWNERS approval.
 
-7-day plan
-----------
+## 7-day plan
 
 1. Reconcile schema/example divergence and wire the canonical fixture into `schema-ci.yml`.
 2. Lock Rekor inclusion as a hard gate (release step landed) and add failing-path units for missing UUID/inclusion proofs.
@@ -361,8 +354,7 @@ Exit-criteria adjustments
 5. Add the egress allowlist smoke test and enforce the `pull_request_target` ban.
 6. Sign the Evidence Bundle as an attestation targeting the release digest.
 
-30-day plan
------------
+## 30-day plan
 
 1. Deliver token-bucket fairness with queue SLO enforcement and denial metrics.
 2. Enforce multi-arch parity gates comparing packages and SBOM component counts across manifests.
@@ -381,8 +373,7 @@ Minimal workflow/test suite to ship now
 
 Summary of additional guardrails: lean on CodeQL for AI-assisted security analysis, expand linting with ESLint and YAML linters, bring in Dependabot/Snyk plus Trivy for dependency/container coverage, and evaluate free DeepSource/Codacy reviews to keep PR feedback tight.
 
-Security Tooling Matrix
------------------------
+## Security Tooling Matrix
 
 | Language/Surface | Tool | Enforce as Gate | Budget/Threshold | Phase Introduced |
 | --- | --- | --- | --- | --- |
@@ -1107,8 +1098,7 @@ Critical delivery adds
 
 - Cost/carbon telemetry: per-run cost, cache savings, region, grams CO2e surfaced in dashboards.
 
-Hardening validation backlog
-----------------------------
+## Hardening validation backlog
 
 End-state goal: every release runs these verification suites automatically. Items marked ⏳ are defined but not yet implemented.
 
@@ -1169,8 +1159,7 @@ Where AI can assist (optional stretch)
 
 - Canary governance: persist the raw promote/rollback queries with their evaluation windows, hash + attach them to the Evidence Bundle, and require sign-off before altering thresholds.
 
-Minimum evidence bundle to declare "secure enough"
---------------------------------------------------
+## Minimum evidence bundle to declare "secure enough"
 
 All items must be automated and attached per release before v1.0 sign-off:
 
@@ -1183,8 +1172,7 @@ All items must be automated and attached per release before v1.0 sign-off:
 - DR drill result in SLA with replay verification (✅ workflow; ensure fail on stale run >7d).
 - Schema-CI + dbt results + freshness SLA (✅ jobs; ensure metrics archived in evidence bundle).
 
-Tests to wire before calling v1.0
----------------------------------
+## Tests to wire before calling v1.0
 
 - Supply chain: referrer presence gate, Cosign bundle verification (including Rekor inclusion), base image CVE budget with VEX overrides.
 - Determinism: cross-arch and cross-time reruns, locale/TZ variation, hermetic build with egress deny.
@@ -1195,8 +1183,7 @@ Tests to wire before calling v1.0
 - Cost/carbon: enforce budgets in PR gate; evidence archive.
 - Canary: store query text/window, deterministic scorer/thresholds under version control.
 
-7-day enablement checklist (GitHub-hosted runners)
---------------------------------------------------
+## 7-day enablement checklist (GitHub-hosted runners)
 
 1. Keep the Rekor gate enforced, add regression coverage (missing UUID/proof), and surface alerting on gate failure.
 2. Enforce OCI referrer presence + Cosign bundle verification.
@@ -1935,8 +1922,12 @@ Outcome: one centrally maintained toolchain that every repo can consume by downl
 | Security enforcement | 2.5 | ❌ Bandit soft-fail, no runtime secret scanning, no egress control | Remove continue-on-error, add runtime scanning |
 | Overall enterprise readiness | 3.2 | Strong foundation with critical enforcement gaps | Fix 6 blockers for production |
 
-# Production-Grade Recommendations (2025-11-01 Audit)
-## Immediate Actions (Week 1) - Security Hardening
+Production-Grade Recommendations (2025-11-01 Audit)
+====================================================
+
+Immediate Actions (Week 1) - Security Hardening
+------------------------------------------------
+
 ### 1. Fix Bandit Enforcement (1 hour)
 
 ```bash
@@ -1957,6 +1948,7 @@ sed -i '/continue-on-error: true/d' .github/workflows/security-lint.yml
 ### 3. Block pull_request_target (3 hours)
 
 Create `policies/workflows.rego`:
+
 ```rego
 package workflows
 default allow = false
@@ -1967,29 +1959,35 @@ deny[msg] {
 ```
 
 Short-Term Actions (Weeks 2-4) - Infrastructure
-1. Fix Bandit Enforcement (1 hour)
---------------------------------------
+------------------------------------------------
+
+### 1. Switch Kyverno to Enforcement Mode
 
 - Switch from audit-only to deny-by-default mode
 - Test with known-bad images to verify enforcement
 
-2. Runtime Secret Scanning (4 hours)
+### 2. Runtime Secret Scanning (4 hours)
+
 Extend `scripts/check_secrets_in_workflow.py`:
+
 ```python
 # Add runtime environment scanning
 for proc in Path('/proc').glob('[0-9]*/environ'):
     check_for_secrets(proc.read_bytes())
 ```
 
-3. Evidence Bundle Attestation (8 hours)
+### 3. Evidence Bundle Attestation (8 hours)
+
 ```bash
 # Sign the entire evidence bundle
 tar czf evidence.tar.gz artifacts/evidence/
 cosign sign-blob evidence.tar.gz --bundle evidence.bundle
 ```
 
-4. Automated Dependency Updates (2 hours)
+### 4. Automated Dependency Updates (2 hours)
+
 Create `.github/dependabot.yml`:
+
 ```yaml
 version: 2
 updates:
@@ -2001,25 +1999,29 @@ updates:
 ```
 
 Medium-Term Actions (Weeks 5-8) - Operational Excellence
-1. Fix Bandit Enforcement (1 hour)
---------------------------------------
+---------------------------------------------------------
 
-# Compare SBOM component counts across architectures
+### 1. Multi-Arch SBOM Validation (4 hours)
+
+```bash
 diff <(jq '.components | length' sbom-amd64.json) \
      <(jq '.components | length' sbom-arm64.json)
 ```
 
-2. Runner Fairness Metrics (16 hours)
+### 2. Runner Fairness Metrics (16 hours)
+
 - Implement token-bucket throttling per repo/team
 - Add queue_denials metrics when SLOs exceeded
 - Surface in Grafana dashboard
 
-3. Dashboard Integration (12 hours)
+### 3. Dashboard Integration (12 hours)
+
 - Wire dbt models to Looker Studio
 - Create Grafana dashboards for real-time metrics
 - Add alerting rules for SLO breaches
 
-4. Cross-Time Determinism (12 hours)
+### 4. Cross-Time Determinism (12 hours)
+
 ```bash
 # Add 24-hour spaced rebuild validation
 SOURCE_DATE_EPOCH=$(($(date +%s) - 86400))
@@ -2029,9 +2031,11 @@ SOURCE_DATE_EPOCH=$(date +%s)
 diff hash-24h-ago.txt hash-now.txt
 ```
 
-## Architecture Enhancements
+Architecture Enhancements
+-------------------------
 
 ### Multi-Layer Defense Architecture
+
 ```yaml
 Layer 1: GitHub Rulesets (preventive)
   - Enforce signed commits
@@ -2055,18 +2059,22 @@ Layer 4: Runtime Protection (adaptive)
 ```
 
 Zero-Trust Supply Chain
+
 - Binary authorization with explicit allowlists
 - SLSA Level 3 verification with all parameters
 - Attestation chain: code → build → test → scan → sign → verify → deploy
 - KEV/EPSS scoring for SBOM vulnerability assessment
 
 Resilience & Recovery Architecture
+
 - Circuit breakers for external dependencies
 - Retry with exponential backoff for transient failures
 - Failure injection points for chaos testing
 - Automated rollback based on SLO breaches
 
-## Production Metrics to Add
+Production Metrics to Add
+-------------------------
+
 ```json
 {
   "security_metrics": {
@@ -2090,45 +2098,52 @@ Resilience & Recovery Architecture
 }
 ```
 
-## Key Success Factors for Production
+Key Success Factors for Production
+-----------------------------------
 
-1. Fix Bandit Enforcement (1 hour)
---------------------------------------
+### 1. Enforce Security Gates
 
 - No audit-only modes (switch to deny-by-default)
 - All security tools must block on failures
 
-2. Automate Recovery
+### 2. Automate Recovery
+
 - Self-healing pipelines with circuit breakers
 - Automated rollback on metric degradation
 - Chaos testing with automated recovery validation
 
-3. Prove Compliance
+### 3. Prove Compliance
+
 - Evidence bundles with complete chain of custody
 - Signed attestations for all artifacts
 - Audit logs with tamper-proof storage
 
-4. Measure Everything
+### 4. Measure Everything
+
 - Security metrics (MTTR, policy violations)
 - Reliability metrics (success rate, build time)
 - Efficiency metrics (cache hits, cost per run)
 
-5. Test Failures
+### 5. Test Failures
+
 - Regular chaos engineering drills
 - DR drills with 7-day freshness enforcement
 - Failure injection in 1% of PR builds
 
-## Final Assessment
+Final Assessment
+----------------
 
 **Your CI/CD Hub has impressive sophistication but critical production gaps:**
 
 Strengths
+
 - Excellent supply chain controls (Cosign, SBOM/VEX, Rekor)
 - Comprehensive test coverage (87 test cases)
 - Strong documentation (14 markdown files)
 - Clean architecture with good separation of concerns
 
 Critical Gaps (Must Fix)
+
 1. **Bandit soft-fail** - High security risk
 2. **Kyverno not deployed** - Policies are theoretical only
 3. **No pull_request_target blocking** - Security vulnerability
@@ -2137,13 +2152,16 @@ Critical Gaps (Must Fix)
 6. **Evidence bundle not attested** - Incomplete chain of custody
 
 Timeline to Production
+
 - **Week 1**: Fix critical security issues (Bandit, pull_request_target, DR gate)
 - **Weeks 2-4**: Deploy infrastructure (Kyverno, runtime scanning, attestations)
 - **Weeks 5-8**: Operational excellence (dashboards, metrics, cross-time determinism)
 - **Total**: 6-8 weeks to production readiness
 
 Bottom Line
+
 You've built a sophisticated foundation that exceeds most industry standards in design, but enforcement is weak. The architecture is sound, tooling is comprehensive, but you need to:
+
 1. **Make everything a hard gate** (no soft failures)
 2. **Deploy the policies** (Kyverno to cluster)
 3. **Complete the evidence chain** (sign bundles, enforce freshness)

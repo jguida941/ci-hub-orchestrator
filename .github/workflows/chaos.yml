@@ -2,7 +2,7 @@ name: chaos-in-pipeline
 
 on:
   workflow_dispatch:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened]
   schedule:
     - cron: "0 6 * * *"
@@ -20,7 +20,7 @@ env:
 
 jobs:
   chaos:
-    if: ${{ (vars.CHAOS_KILL_SWITCH || 'false') != 'true' && (github.event_name != 'pull_request_target' || contains(github.event.pull_request.labels.*.name, vars.CHAOS_LABEL || 'chaos-opt-in')) }}
+    if: ${{ (vars.CHAOS_KILL_SWITCH || 'false') != 'true' && (github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, vars.CHAOS_LABEL || 'chaos-opt-in')) }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
