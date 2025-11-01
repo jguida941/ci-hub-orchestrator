@@ -108,10 +108,11 @@ install_cosign() {
   if [[ -n "$checksum_source" ]]; then
     (
       cd "$TMP_DIR"
-      if grep -F "  ${file}" "$(basename "$checksum_source")" > "${file}.sha256" 2>/dev/null; then
+      # Extract only the checksum for our specific file, ignoring any SBOM or other entries
+      if grep -E "^[a-fA-F0-9]{64}\s+${file}\$" "$(basename "$checksum_source")" > "${file}.sha256" 2>/dev/null; then
         sha256sum -c "${file}.sha256" || log "Warning: checksum verification failed, continuing anyway"
       else
-        log "Warning: checksum not found in manifest, skipping verification"
+        log "Warning: checksum not found in manifest for ${file}, skipping verification"
       fi
     )
   else

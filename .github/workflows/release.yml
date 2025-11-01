@@ -115,6 +115,7 @@ jobs:
           workflow: release.yml
           workflow_conclusion: success
           if_no_artifact_found: warn
+          repo: ${{ github.repository }}
         continue-on-error: true
 
       - name: Cache pip
