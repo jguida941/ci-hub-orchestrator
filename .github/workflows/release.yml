@@ -152,43 +152,49 @@ jobs:
           MANIFEST_PATH=".cache-manifests/cache-manifest.json"
           BUNDLE_PATH=".cache-manifests/cache-manifest.bundle"
           mkdir -p artifacts/cache-quarantine
-          if [ -f "$MANIFEST_PATH" ]; then
-            echo "::notice::Verifying restored cache against previous manifest"
 
-            # Step 1: Verify manifest bundle (signature + certificate) if available
-            if [ -f "$BUNDLE_PATH" ]; then
-              echo "::notice::Verifying cache manifest signature with cosign (keyless)"
-              if ! cosign verify-blob \
-                --bundle "$BUNDLE_PATH" \
-                --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' \
-                --certificate-identity-regexp 'https://github.com/' \
-                "$MANIFEST_PATH"; then
-                echo "::error::Cache manifest signature verification failed - potential tampering detected"
-                echo "verified=false" >> "$GITHUB_OUTPUT"
-                exit 1
-              fi
-              echo "::notice::Cache manifest signature verified successfully"
-            else
-              echo "::warning::No bundle found for cache manifest (first run or bundle not yet uploaded)"
-            fi
+          # If no previous manifest exists, skip verification (first run)
+          if [ ! -f "$MANIFEST_PATH" ]; then
+            echo "verified=skipped" >> "$GITHUB_OUTPUT"
+            echo "::notice::No previous cache manifest found; skipping verification (first run)"
+            exit 0
+          fi
 
-            # Step 2: Verify BLAKE3 digests against the (now-authenticated) manifest
-            if python3 tools/cache_sentinel.py verify \
-              --cache-dir "$CACHE_DIR" \
-              --manifest "$MANIFEST_PATH" \
-              --quarantine-dir artifacts/cache-quarantine \
-              --report artifacts/cache-verify-post.json; then
-              echo "verified=true" >> "$GITHUB_OUTPUT"
-              echo "::notice::Cache verification passed"
-            else
+          echo "::notice::Verifying restored cache against previous manifest"
+
+          # Step 1: Verify manifest bundle (signature + certificate) if available
+          if [ -f "$BUNDLE_PATH" ]; then
+            echo "::notice::Verifying cache manifest signature with cosign (keyless)"
+            if ! cosign verify-blob \
+              --bundle "$BUNDLE_PATH" \
+              --certificate-oidc-issuer-regexp 'https://token.actions.githubusercontent.com' \
+              --certificate-identity-regexp 'https://github.com/' \
+              "$MANIFEST_PATH"; then
+              echo "::error::Cache manifest signature verification failed - potential tampering detected"
               echo "verified=false" >> "$GITHUB_OUTPUT"
-              echo "::error::Cache verification failed; quarantined mismatches"
-              cat artifacts/cache-verify-post.json
               exit 1
             fi
+            echo "::notice::Cache manifest signature verified successfully"
           else
-            echo "verified=skipped" >> "$GITHUB_OUTPUT"
-            echo "::notice::No previous cache manifest found; skipping verification (likely first run)"
+            echo "::warning::No bundle found for cache manifest (signature not yet uploaded)"
+          fi
+
+          # Step 2: Verify BLAKE3 digests against the (now-authenticated) manifest
+          # Create cache directory if it doesn't exist (empty cache case)
+          mkdir -p "$CACHE_DIR"
+
+          if python3 tools/cache_sentinel.py verify \
+            --cache-dir "$CACHE_DIR" \
+            --manifest "$MANIFEST_PATH" \
+            --quarantine-dir artifacts/cache-quarantine \
+            --report artifacts/cache-verify-post.json; then
+            echo "verified=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::Cache verification passed"
+          else
+            echo "verified=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Cache verification failed; quarantined mismatches"
+            cat artifacts/cache-verify-post.json
+            exit 1
           fi
 
       - name: Install project
@@ -308,15 +314,13 @@ jobs:
           set -euo pipefail
           CACHE_DIR="$(python3 -m pip cache dir)"
           mkdir -p .cache-manifests
-          if [ ! -d "$CACHE_DIR" ]; then
-            echo "::notice::Cache directory does not exist, skipping manifest recording"
-            echo '{"files": [], "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'", "cache_dir": "'"$CACHE_DIR"'"}' > .cache-manifests/cache-manifest.json
-          else
-            python3 tools/cache_sentinel.py record \
-              --cache-dir "$CACHE_DIR" \
-              --output .cache-manifests/cache-manifest.json \
-              --max-files 500
-          fi
+          # Create cache directory if it doesn't exist so cache_sentinel produces proper schema
+          # An empty directory results in a valid manifest with zero entries
+          mkdir -p "$CACHE_DIR"
+          python3 tools/cache_sentinel.py record \
+            --cache-dir "$CACHE_DIR" \
+            --output .cache-manifests/cache-manifest.json \
+            --max-files 500
 
       - name: Sign cache manifest
         if: always()

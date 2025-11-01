@@ -150,10 +150,11 @@ install_rekor() {
   sudo install -m 0755 "$TMP_DIR/${file}" /usr/local/bin/rekor-cli
 
   # Enforce version match per plan.md supply-chain pinning requirements
-  # Note: rekor-cli version output format varies (JSON vs text), check for version string
-  if ! rekor-cli version 2>&1 | grep -E "(GitVersion|Version).*${REKOR_VERSION}" >/dev/null; then
+  # rekor-cli prints ASCII banner before version info, so capture full output
+  VERSION_OUTPUT=$(rekor-cli version 2>&1 || true)
+  if ! echo "$VERSION_OUTPUT" | grep -qE "(GitVersion|Version)[:\s]+${REKOR_VERSION}"; then
     log "rekor-cli version mismatch (expected ${REKOR_VERSION})"
-    rekor-cli version || true
+    echo "$VERSION_OUTPUT"
     exit 1
   fi
 }
