@@ -319,6 +319,10 @@ jobs:
           COSIGN_EXPERIMENTAL: "1"
         run: |
           set -euo pipefail
+          if [ ! -f .cache-manifests/cache-manifest.json ]; then
+            echo "::notice::No cache manifest to sign (tests may have failed)"
+            exit 0
+          fi
           # Install cosign if not present
           if ! command -v cosign &> /dev/null; then
             ./scripts/install_tools.sh
