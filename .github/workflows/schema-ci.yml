@@ -41,15 +41,15 @@ jobs:
             cp fixtures/pipeline_run_v1_2/sample.ndjson data/warehouse/pipeline_runs.ndjson
           fi
           python - <<'PY'
-            import pathlib
-            import duckdb
+import pathlib
+import duckdb
 
-            db_path = pathlib.Path('data/warehouse/ci_cd_hub.db')
-            db_path.parent.mkdir(parents=True, exist_ok=True)
-            con = duckdb.connect(str(db_path))
-            con.execute("CREATE SCHEMA IF NOT EXISTS analytics")
-            con.close()
-          PY
+db_path = pathlib.Path('data/warehouse/ci_cd_hub.db')
+db_path.parent.mkdir(parents=True, exist_ok=True)
+con = duckdb.connect(str(db_path))
+con.execute("CREATE SCHEMA IF NOT EXISTS analytics")
+con.close()
+PY
       - name: Validate schema registry + fixtures
         run: |
           python scripts/check_schema_registry.py --registry schema/registry.json
