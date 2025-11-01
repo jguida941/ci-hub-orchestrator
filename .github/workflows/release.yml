@@ -896,6 +896,24 @@ jobs:
             --type slsaprovenance \
             "$DIGEST_REF"
 
+      - name: Verify provenance with slsa-verifier
+        env:
+          DIGEST_REF: ${{ needs.build-sign-publish.outputs.digest_ref }}
+        run: |
+          set -euo pipefail
+          # Extract the provenance from the attestation
+          cosign download attestation "$DIGEST_REF" > artifacts/attestation-bundle.jsonl
+
+          # slsa-verifier requires the image digest without the registry
+          IMAGE_DIGEST="${{ needs.build-sign-publish.outputs.digest }}"
+
+          # Verify provenance with explicit assertions per plan.md:34,150-156
+          slsa-verifier verify-image "$DIGEST_REF" \
+            --provenance-path artifacts/attestation-bundle.jsonl \
+            --source-uri "github.com/${{ github.repository }}" \
+            --source-tag "${{ github.ref_name }}" \
+            --builder-id "https://github.com/slsa-framework/slsa-github-generator/.github/workflows/generator_container_slsa3.yml@refs/tags/v2.1.0"
+
       - name: Publish SBOM/provenance referrers
         run: |
           set -euo pipefail

@@ -8,6 +8,7 @@ REKOR_VERSION="v1.3.1"
 SYFT_VERSION="1.18.0"
 GRYPE_VERSION="0.102.0"
 CRANE_VERSION="v0.19.2"
+SLSA_VERIFIER_VERSION="v2.6.0"
 
 # Allow CI overrides; otherwise detect from uname.
 log() {
@@ -266,9 +267,46 @@ install_crane() {
   fi
 }
 
+install_slsa_verifier() {
+  local file="slsa-verifier-${OS}-${ARCH}"
+  local base_url="https://github.com/slsa-framework/slsa-verifier/releases/download/${SLSA_VERIFIER_VERSION}"
+  local url="${base_url}/${file}"
+  log "Installing slsa-verifier ${SLSA_VERIFIER_VERSION}"
+
+  # Download the binary
+  if ! curl -fsSL "$url" -o "$TMP_DIR/${file}"; then
+    log "Failed to download slsa-verifier binary from ${url}"
+    exit 1
+  fi
+
+  # Try to download and verify checksum
+  if curl -fsSL "${url}.sha256" -o "$TMP_DIR/${file}.sha256" 2>/dev/null; then
+    (cd "$TMP_DIR" && sha256sum -c "$(basename "${file}.sha256")") || {
+      log "slsa-verifier checksum verification failed"
+      exit 1
+    }
+  else
+    log "Warning: No checksum file found for slsa-verifier ${SLSA_VERIFIER_VERSION}, skipping verification"
+  fi
+
+  sudo install -m 0755 "$TMP_DIR/${file}" /usr/local/bin/slsa-verifier
+
+  # Verify version
+  VERSION_OUTPUT=$(slsa-verifier version 2>&1 || true)
+  if ! echo "$VERSION_OUTPUT" | grep -q "${SLSA_VERIFIER_VERSION}"; then
+    if ! echo "$VERSION_OUTPUT" | grep -q "${SLSA_VERIFIER_VERSION#v}"; then
+      log "slsa-verifier version mismatch (expected ${SLSA_VERIFIER_VERSION})"
+      echo "$VERSION_OUTPUT"
+      exit 1
+    fi
+  fi
+  log "slsa-verifier ${SLSA_VERIFIER_VERSION} verified"
+}
+
 install_oras
 install_cosign
 install_rekor
 install_syft
 install_grype
 install_crane
+install_slsa_verifier

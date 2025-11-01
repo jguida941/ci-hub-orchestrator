@@ -35,7 +35,7 @@ Plan.md and the current implementation describe a Phase 1–2 hybrid CI/CD hub. 
 
 - [x] Cache integrity enforced before restore (manifests signed with cosign, bundles verified pre-restore, mismatches quarantined, fork caches isolated, telemetry emitted).
 - [x] Runtime secretless sweep (live environment scanning for leaked secrets via `scripts/scan_runtime_secrets.sh`).
-- [ ] Provenance verification with `slsa-verifier` (assert source URI, workflow, tag, builder ID).
+- [x] Provenance verification with `slsa-verifier` (assert source URI, workflow, tag, builder ID via `.github/workflows/release.yml:899-915`).
 - [ ] Default-deny egress allowlist (iptables smoke test + unexpected-destination failure).
 - [ ] Kyverno enforcement evidence & `pull_request_target` guard (deny-by-default proof and workflow policy).
 - [ ] Bandit gate (remove `continue-on-error`, enforce zero high findings).
