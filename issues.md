@@ -1,11 +1,47 @@
 # CI/CD Hub - Comprehensive Audit Report
 
+## Production-Grade Security Audit (2025-11-01)
+
+### Executive Verdict
+**Current Status: ~75% Production-Grade** - Strong architecture with critical enforcement gaps. The design is excellent; biggest gaps are hard gates at CI/admission boundary, complete SLSA verification, and org-level blocking of risky triggers.
+
+### ✅ Already Production-Ready Components
+- **SLSA verification**: Full parameters implemented (`--source-uri`, `--source-tag`, `--builder-id`) in `.github/workflows/release.yml:978-986`
+- **Kyverno admission**: Set to `Enforce` mode in `policies/kyverno/verify-images.yaml:12`
+- **OCI Referrers**: Both OCI 1.1 and ORAS fallback implemented in `.github/workflows/release.yml:1010-1026`
+- **Runtime secret scanning**: `/proc/*/environ` sweeps in `scripts/scan_runtime_secrets.sh:66-102`
+- **Deterministic builds**: SOURCE_DATE_EPOCH set in `.github/workflows/release.yml:577`
+
+### 🔴 Critical Gaps Blocking Production
+
+1. **pull_request_target Security Risk**
+   - **Finding**: `.github/workflows/chaos.yml:5` uses `pull_request_target` trigger
+   - **Risk**: Enables cache poisoning and secret exposure from untrusted PR code
+   - **Fix Required**: Remove trigger and add org-level Ruleset + OPA policy enforcement
+
+2. **Egress Control Not Enforced**
+   - **Finding**: `scripts/test_egress_allowlist.sh` runs in audit mode only
+   - **Risk**: No technical blocking of unauthorized network destinations
+   - **Fix Required**: Implement iptables default-deny or Azure VNET with egress rules
+
+3. **Evidence Bundle Not Signed**
+   - **Finding**: Individual artifacts signed but not the complete bundle
+   - **Risk**: No tamper-proof chain of custody for audit evidence
+   - **Fix Required**: Add `cosign sign-blob` for entire evidence.tar.gz
+
+4. **Cross-Time Determinism Not Validated**
+   - **Finding**: No 24-hour delayed rebuild validation
+   - **Risk**: Cannot prove builds are reproducible across time
+   - **Fix Required**: Add scheduled workflow with fixed SOURCE_DATE_EPOCH
+
 ## Audit Corrections Applied (2025-11-01)
 
 - ✅ Admission testing coverage exists (`tools/tests/test_kyverno_policy_checker.py` exercises allow/deny paths).
 - ✅ Schema fixtures fail the build on mismatch (`scripts/validate_schema.py`, `.github/workflows/schema-ci.yml`).
 - ✅ Rekor monitor retries with backoff (`tools/rekor_monitor.sh:395-439`).
 - ✅ OPA policy tests run in the release workflow (`.github/workflows/release.yml:1068`).
+- ✅ SLSA verifier includes all required parameters (builder-id, source-uri, source-tag)
+- ✅ Runtime secret scanning includes /proc/*/environ sweeps
 
 All other findings remain valid and were re-confirmed via code review.
 
@@ -42,22 +78,27 @@ Plan.md and the current implementation describe a Phase 1–2 hybrid CI/CD hub. 
 
 ## Phase 1 – Hardening & Evidence
 
-- [ ] Evidence bundle attestation (sign aggregate evidence bundle and verify during promotion).
-- [ ] DR drill freshness gate (fail release when last drill > 7 days).
+- [ ] **Evidence bundle attestation** (sign aggregate evidence bundle and verify during promotion).
+- [ ] **DR drill freshness gate** (fail release when last drill > 7 days).
 - [x] Fork cache isolation & telemetry (scoped keys + quarantine telemetry).
-- [ ] Multi-arch SBOM parity (compare component counts before promotion).
+- [ ] **Multi-arch SBOM parity** (compare component counts before promotion).
 - [ ] SARIF hygiene automation (dedupe, TTL enforcement).
 - [ ] LLM governance documentation (document deterministic rule-path policy and approvals).
+- [ ] **Remove pull_request_target** (security risk in chaos.yml).
+- [ ] **Enforce technical egress controls** (iptables or Azure VNET).
+- [ ] **Cross-time determinism validation** (24-hour delayed rebuild).
 
 ## Phase 2 – Extended Controls (30-Day Horizon)
 
-- [ ] KEV/EPSS-aware SBOM diff gate (risk score ≥ 7 requires signed VEX coverage).
+- [ ] **KEV/EPSS-aware SBOM diff gate** (risk score ≥ 0.7 requires signed VEX coverage).
 - [ ] Runner fairness budget (token-bucket enforcement + telemetry/SLOs).
 - [ ] Observability completeness (cost/carbon metrics, cache hit/miss data, dashboard URIs in evidence bundle).
 - [ ] Dependabot/Renovate automation with SBOM diff gates.
-- [ ] Analytics tamper resistance (NDJSON signatures + WORM storage).
-- [ ] Org-wide Rulesets (no unpinned actions, PAT prevention, release protections).
+- [ ] **Analytics tamper resistance** (NDJSON signatures + WORM storage).
+- [ ] **Org-wide Rulesets** (no unpinned actions, PAT prevention, release protections, ban pull_request_target).
 - [ ] DR artifact recall drill governance.
+- [ ] **GitHub Artifact Attestations** (add actions/attest-build-provenance@v3).
+- [ ] **Tighten cosign identity regex** (lock to exact workflow@refs/tags pattern).
 
 ## Detailed Findings & Fixes
 
@@ -74,6 +115,12 @@ Plan.md and the current implementation describe a Phase 1–2 hybrid CI/CD hub. 
    - Add `--timeout 120s` to avoid hanging on Fulcio/Rekor outages.
 6. **OPA Eval Error Handling (To Do)**
    - Differentiate policy denial from runtime failure via exit codes.
+7. **pull_request_target (Critical)**
+   - Remove from chaos.yml and ban org-wide via Rulesets.
+8. **Egress Enforcement (Critical)**
+   - Move from audit to enforcement mode with technical controls.
+9. **Evidence Bundle Signing (Critical)**
+   - Sign the complete evidence bundle with cosign.
 
 ## Metrics & Observability Gaps
 
@@ -90,13 +137,18 @@ Plan.md and the current implementation describe a Phase 1–2 hybrid CI/CD hub. 
 - Actions pinned by SHA, OIDC-only credentials.
 - Rekor anchoring, SBOM/provenance referrers, cosign verification.
 - Multi-arch determinism checks.
+- Full SLSA verification parameters.
+- Runtime secret scanning with /proc sweeps.
 
 **Weak Points**
 
+- **pull_request_target trigger present** (critical security risk).
 - Admission policies defined but not deployed to cluster (Kyverno ready but theoretical).
 - Egress controls tested but not enforced (audit mode only on GitHub-hosted runners).
+- Evidence bundle not cryptographically signed as a whole.
+- Cross-time determinism not validated.
 
-Risk level reduced to **medium** with Phase 0 blockers resolved. Deployment of Kyverno policies to production cluster required for full enforcement.
+Risk level: **medium-high** until critical gaps are closed.
 
 ## v1.0 Exit Checklist Snapshot (plan.md:1695-1721)
 
@@ -109,10 +161,42 @@ Risk level reduced to **medium** with Phase 0 blockers resolved. Deployment of K
 | SBOM + VEX gate                  | ✅ Yes     | Grype + VEX processing enforced                               |
 | Cache Sentinel                   | ✅ Yes     | Pre-use verification with quarantine and fork isolation       |
 | Schema registry check            | ✅ Yes     | `scripts/validate_schema.py` enforces fixture compatibility   |
+| Pull request security            | 🔴 No      | pull_request_target must be removed                          |
+| Egress enforcement               | 🔴 No      | Technical blocking required                                  |
+| Evidence integrity               | 🔴 No      | Bundle signing required                                      |
+
+## Priority Action Items for Production Readiness
+
+### Week 1 (Critical Security)
+1. **Remove pull_request_target** from chaos.yml (2 hours)
+2. **Implement technical egress controls** (8 hours)
+3. **Sign Evidence Bundle** with cosign (4 hours)
+
+### Week 2 (Compliance & Reproducibility)
+4. **Add cross-time determinism validation** (8 hours)
+5. **Tighten cosign identity regex** (2 hours)
+6. **Deploy Kyverno policies to cluster** (16 hours)
+
+### Week 3-4 (Risk Management)
+7. **Implement KEV/EPSS vulnerability gates** (16 hours)
+8. **Configure WORM storage for evidence** (8 hours)
+9. **Add GitHub Artifact Attestations** (4 hours)
+
+## Success Criteria for Production
+
+- All gates enforce (no soft-fails)
+- slsa-verifier complete with all parameters
+- Referrers present and verified
+- Rekor inclusion proofs validated
+- Runtime secrets clean
+- Egress technically enforced
+- Determinism proven across time
+- pull_request_target banned org-wide
+- Evidence bundle signed and immutable
 
 ## Next Workstreams After-this Backlog
 
-Once the unchecked items above are completed, proceed with the longer-range initiatives in `plan.md`, notably:
+Once the critical gaps above are closed, proceed with the longer-range initiatives in `plan.md`, notably:
 
 - **Runner isolation enhancements** (`plan.md:1150-1166`).
 - **Dependabot/Renovate rollout with SBOM diff gates** (`plan.md:1180-1195`).
@@ -120,4 +204,8 @@ Once the unchecked items above are completed, proceed with the longer-range init
 - **Cost/carbon enforcement and telemetry budgets** (`plan.md:1250-1280`).
 - **Full admission policy trio (digest allowlists, provenance, SBOM)** (`plan.md:1290-1335`).
 
-These next workstreams should begin only after Phase 0 blockers are closed and Phase 1 items reach parity with plan.md.
+These next workstreams should begin only after critical security gaps are closed and Phase 1 items reach parity with plan.md.
+
+## Bottom Line
+
+**The architecture is strong.** Make the controls binding (deny-by-default), remove pull_request_target, sign the Evidence Bundle, enforce referrers (with fallback), implement technical egress blocking, and prove cross-time determinism. That moves you from "designed to be secure" to **provably secure at runtime and at admission**.
