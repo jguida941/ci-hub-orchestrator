@@ -560,7 +560,8 @@ jobs:
           set -euo pipefail
           # Verify default-deny egress control per plan.md:32,85
           # Only approved destinations should be reachable
-          ./scripts/test_egress_allowlist.sh
+          mkdir -p artifacts/security
+          ./scripts/test_egress_allowlist.sh artifacts/security/egress-test.json
 
       - name: Install Python deps (cache sentinel)
         run: |
@@ -902,7 +903,9 @@ jobs:
           fi
           python3 -m tools.normalize_provenance \
             --source "$SOURCE" \
-            --destination artifacts/slsa-provenance.json
+            --destination artifacts/slsa-provenance.records.json \
+            --predicate-destination artifacts/slsa-provenance.json
+          test -s artifacts/slsa-provenance.records.json
           test -s artifacts/slsa-provenance.json
 
       - name: Verify provenance subject digest

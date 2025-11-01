@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -37,6 +38,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Allow empty provenance files (default: fail if no envelopes are present).",
     )
+    parser.add_argument(
+        "--predicate-destination",
+        type=Path,
+        help="Optional path to write the decoded in-toto statement (map with predicateType/predicate).",
+    )
     return parser.parse_args()
 
 
@@ -48,6 +54,24 @@ def main() -> None:
     if not records and not args.allow_empty:
         raise SystemExit("provenance file does not contain any DSSE envelopes")
     provenance_io.dump_records(records, args.destination, indent=args.indent)
+
+    if args.predicate_destination:
+        if not records:
+            # Empty records with allow-empty -> write empty file for downstream steps
+            args.predicate_destination.parent.mkdir(parents=True, exist_ok=True)
+            args.predicate_destination.write_text("{}\n", encoding="utf-8")
+        else:
+            envelope = provenance_io.select_envelope(records, None, 0)
+            statement = envelope
+            if "payload" in envelope:
+                statement = provenance_io.decode_statement(envelope)
+            if not isinstance(statement, dict):
+                raise SystemExit("decoded provenance statement is not an object")
+            args.predicate_destination.parent.mkdir(parents=True, exist_ok=True)
+            args.predicate_destination.write_text(
+                json.dumps(statement, indent=args.indent) + "\n",
+                encoding="utf-8",
+            )
 
 
 if __name__ == "__main__":

@@ -25,7 +25,9 @@ def main() -> None:
     if not expected:
         raise SystemExit("expected digest missing")
 
-    path = pathlib.Path("artifacts/slsa-provenance.json")
+    path = pathlib.Path("artifacts/slsa-provenance.records.json")
+    if not path.exists():
+        path = pathlib.Path("artifacts/slsa-provenance.json")
     if not path.exists():
         raise SystemExit("provenance file missing")
 

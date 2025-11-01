@@ -4,8 +4,12 @@ i#!/usr/bin/env bash
 
 set -euo pipefail
 
+REPORT_FILE="${1:-artifacts/security/egress-test.json}"
+mkdir -p "$(dirname "$REPORT_FILE")"
+
 log() {
   echo "[egress-test] $*" >&2
+  echo "$*" >> "${REPORT_FILE}.log"
 }
 
 # Approved destinations (allowlist)
@@ -81,13 +85,26 @@ log ""
 log "================================================"
 log "Results: ${PASSED} passed, ${FAILED} failed"
 
+# Generate JSON report
+cat > "$REPORT_FILE" <<EOF
+{
+  "passed": $PASSED,
+  "failed": $FAILED,
+  "total": $((PASSED + FAILED)),
+  "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "status": "$( [[ $FAILED -eq 0 ]] && echo "pass" || echo "fail" )"
+}
+EOF
+
 if [[ $FAILED -gt 0 ]]; then
   log "ERROR: Egress control test failed"
   log "Expected behavior:"
   log "  - Allowed hosts should be reachable"
   log "  - Forbidden hosts should be blocked"
+  log "Evidence: $REPORT_FILE"
   exit 1
 else
   log "SUCCESS: All egress control tests passed"
+  log "Evidence: $REPORT_FILE"
   exit 0
 fi
