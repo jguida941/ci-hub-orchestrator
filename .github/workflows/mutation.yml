@@ -81,16 +81,41 @@ jobs:
         run: |
           set -euo pipefail
           cd target
-          # Install target repo dependencies if they exist
-          if [ -f requirements.txt ]; then
-            python -m pip install -r requirements.txt
-          elif [ -f requirements-dev.txt ]; then
-            python -m pip install -r requirements-dev.txt
-          elif [ -f pyproject.toml ]; then
-            python -m pip install -e '.[dev]' || python -m pip install -e .
+          # Install target repo dependencies - try multiple sources
+          INSTALLED=0
+
+          # Try pyproject.toml first (most comprehensive)
+          if [ -f pyproject.toml ]; then
+            echo "::notice::Found pyproject.toml, attempting installation"
+            if python -m pip install -e '.[dev]' 2>/dev/null; then
+              INSTALLED=1
+              echo "::notice::Installed via pyproject.toml[dev]"
+            elif python -m pip install -e . 2>/dev/null; then
+              INSTALLED=1
+              echo "::notice::Installed via pyproject.toml"
+            fi
           fi
-          # Ensure pytest is available
+
+          # Try requirements-dev.txt (includes test dependencies)
+          if [ $INSTALLED -eq 0 ] && [ -f requirements-dev.txt ]; then
+            echo "::notice::Found requirements-dev.txt"
+            python -m pip install -r requirements-dev.txt
+            INSTALLED=1
+          fi
+
+          # Try requirements.txt (production dependencies)
+          if [ $INSTALLED -eq 0 ] && [ -f requirements.txt ]; then
+            echo "::notice::Found requirements.txt"
+            python -m pip install -r requirements.txt
+            INSTALLED=1
+          fi
+
+          # Always ensure pytest is available
           python -m pip install pytest
+
+          if [ $INSTALLED -eq 0 ]; then
+            echo "::warning::No dependency files found (pyproject.toml, requirements*.txt)"
+          fi
 
       - name: Generate mutation reports
         run: |
