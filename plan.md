@@ -2070,7 +2070,7 @@ deny[msg] {
 
 ### 2. Runtime Secret Scanning (4 hours)
 
-Extend `scripts/check_secrets_in_workflow.py`:
+Extend `scripts/scan_runtime_secrets.sh` or `scripts/check_workflow_integrity.py`:
 
 ```python
 # Add runtime environment scanning

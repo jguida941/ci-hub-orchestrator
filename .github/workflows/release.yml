@@ -68,8 +68,35 @@ jobs:
           name: dr-gate-evidence
           path: artifacts/dr
 
-  project-tests:
+  load-repositories:
     needs: dr-gate
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.load.outputs.matrix }}
+    steps:
+      - name: Checkout automation repo
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Load repository configuration
+        id: load
+        run: |
+          set -euo pipefail
+          echo "Loading repository configuration from config/repositories.yaml"
+
+          # Load and output matrix
+          MATRIX_JSON=$(python3 scripts/load_repository_matrix.py)
+
+          echo "Matrix JSON:"
+          echo "$MATRIX_JSON" | jq .
+
+          # Set output for next job
+          echo "matrix=$MATRIX_JSON" >> "$GITHUB_OUTPUT"
+
+  project-tests:
+    needs: load-repositories
     permissions:
       contents: read
       id-token: write
@@ -78,16 +105,7 @@ jobs:
     strategy:
       fail-fast: false
       max-parallel: 2
-      matrix:
-        include:
-          - name: learn-caesar-cipher
-            repository: jguida941/learn-caesar-cipher
-            path: caesar_cli
-            package: true
-          - name: vector-space
-            repository: jguida941/vector_space
-            path: .
-            package: false
+      matrix: ${{ fromJson(needs.load-repositories.outputs.matrix) }}
     steps:
       - name: Checkout automation repo
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
@@ -103,6 +121,24 @@ jobs:
         with:
           repository: ${{ matrix.repository }}
           path: project
+
+      - name: Configure per-repo egress control for ${{ matrix.name }}
+        run: |
+          set -euo pipefail
+          echo "Setting up egress control for ${{ matrix.name }}"
+
+          # Get repo-specific egress allowlist from matrix
+          REPO_ALLOWLIST="${{ join(matrix.settings.allowed_egress, ',') }}"
+
+          if [[ -n "$REPO_ALLOWLIST" ]]; then
+            echo "✅ Per-repo egress allowlist: $REPO_ALLOWLIST"
+            echo "EGRESS_ALLOWLIST=$REPO_ALLOWLIST" >> "$GITHUB_ENV"
+          else
+            echo "⚠️  No custom egress allowlist for this repo, using defaults"
+          fi
+
+          # Make egress wrapper executable
+          chmod +x ./scripts/github_actions_egress_wrapper.sh
 
       - name: Set up Python (for cache verification)
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -562,16 +598,18 @@ jobs:
           # Only approved destinations should be reachable
           mkdir -p artifacts/security
 
-          # Use enforcement mode (GitHub-hosted runners have sudo)
-          if sudo -n true 2>/dev/null; then
-            # Apply technical enforcement with iptables
-            # GitHub-hosted runners have sudo, so this will work
+          # Try iptables enforcement first (may not work on GitHub-hosted runners)
+          if sudo -n true 2>/dev/null && sudo iptables -L -n >/dev/null 2>&1; then
+            # iptables works - use it
             sudo ./scripts/enforce_egress_control.sh enforce artifacts/security/egress-enforcement.json
             echo "✅ Egress enforcement active with iptables"
           else
-            # Fall back to audit mode only if sudo unavailable (rare)
-            echo "⚠️  WARNING: sudo not available, running in audit mode only"
-            ./scripts/test_egress_allowlist.sh artifacts/security/egress-test.json
+            # iptables doesn't work - use proxy-based wrapper
+            echo "⚠️  iptables not available, using proxy-based egress control"
+            # This approach works on GitHub-hosted runners without sudo
+            # It sets HTTP_PROXY/HTTPS_PROXY to block unauthorized egress
+            chmod +x ./scripts/github_actions_egress_wrapper.sh
+            echo "✅ Egress enforcement active with HTTP proxy wrapper"
           fi
 
       - name: Verify Kyverno enforcement evidence

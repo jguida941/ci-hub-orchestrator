@@ -14,20 +14,27 @@ log() {
   echo "[egress-wrapper] $*" >&2
 }
 
-# Allowed destinations (from plan.md egress allowlist)
-ALLOWED_DOMAINS=(
-  "github.com"
-  "api.github.com"
-  "ghcr.io"
-  "registry.npmjs.org"
-  "pypi.org"
-  "files.pythonhosted.org"
-  "rekor.sigstore.dev"
-  "fulcio.sigstore.dev"
-  "tuf-repo-cdn.sigstore.dev"
-  "objects.githubusercontent.com"
-  "storage.googleapis.com"
-)
+# Default allowed destinations (from plan.md egress allowlist)
+# Can be overridden via EGRESS_ALLOWLIST environment variable
+if [[ -n "${EGRESS_ALLOWLIST:-}" ]]; then
+  # Parse comma-separated list from environment
+  IFS=',' read -ra ALLOWED_DOMAINS <<< "$EGRESS_ALLOWLIST"
+else
+  # Default allowlist for all repositories
+  ALLOWED_DOMAINS=(
+    "github.com"
+    "api.github.com"
+    "ghcr.io"
+    "registry.npmjs.org"
+    "pypi.org"
+    "files.pythonhosted.org"
+    "rekor.sigstore.dev"
+    "fulcio.sigstore.dev"
+    "tuf-repo-cdn.sigstore.dev"
+    "objects.githubusercontent.com"
+    "storage.googleapis.com"
+  )
+fi
 
 # Create egress monitoring wrapper
 create_proxy_pac() {

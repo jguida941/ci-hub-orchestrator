@@ -1,0 +1,59 @@
+# Multi-Repository CI/CD Hub Configuration
+# This file defines all repositories managed by the CI/CD hub
+#
+# Each repository can have custom settings for:
+# - Build timeouts
+# - Resource limits
+# - Egress allowlist
+# - Secret scopes
+# - Concurrency limits
+
+repositories:
+  - name: learn-caesar-cipher
+    owner: jguida941
+    enabled: true
+    settings:
+      build_timeout: 30m
+      resource_limit_mb: 2048
+      max_parallel_jobs: 2
+      allowed_egress:
+        - github.com
+        - api.github.com
+        - registry.npmjs.org
+        - objects.githubusercontent.com
+      secret_scope: caesar-cipher
+      package: true
+      path: caesar_cli
+
+  - name: vector-space
+    owner: jguida941
+    enabled: true
+    settings:
+      build_timeout: 45m
+      resource_limit_mb: 4096
+      max_parallel_jobs: 2
+      allowed_egress:
+        - github.com
+        - api.github.com
+        - pypi.org
+        - files.pythonhosted.org
+        - objects.githubusercontent.com
+      secret_scope: vector-space
+      package: false
+      path: .
+
+# Template for adding new repositories:
+#  - name: my-project
+#    owner: github-username
+#    enabled: true
+#    settings:
+#      build_timeout: 30m
+#      resource_limit_mb: 2048
+#      max_parallel_jobs: 2
+#      allowed_egress:
+#        - github.com
+#        - api.github.com
+#        # Add package registries as needed
+#      secret_scope: my-project-scope
+#      package: true  # or false
+#      path: .  # or subdirectory
