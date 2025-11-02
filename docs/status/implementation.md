@@ -34,7 +34,7 @@ repositories:
 - ✅ Per-repo settings for customization
 
 ### 2. Per-Repository Egress Control
-**Status**: ✅ Complete
+**Status**: 🟡 Implemented, CI validation pending
 
 **What we built**:
 - Enhanced `scripts/github_actions_egress_wrapper.sh` with dynamic allowlists
@@ -51,13 +51,13 @@ settings:
 ```
 
 **Benefits**:
-- ✅ Each repo has its own egress allowlist
-- ✅ Python repos get PyPI, Node repos get NPM
-- ✅ Prevents repos from accessing unauthorized services
-- ✅ Enforced via HTTP_PROXY/HTTPS_PROXY wrapper
+- ✅ Each repo has its own HTTP allowlist via `NO_PROXY`
+- ✅ Python repos get PyPI, Node repos get npm
+- ✅ Prevents HTTP-aware tooling from reaching unauthorized services
+- ⚠️ Raw sockets/custom clients still bypass; first CI run must confirm denial evidence
 
 ### 3. Repository Isolation Foundation
-**Status**: ✅ Complete
+**Status**: ⚠️ Partial
 
 **What we built**:
 - Separate matrix entries per repository
@@ -66,9 +66,9 @@ settings:
 - Per-repo concurrency limits (configurable)
 
 **Benefits**:
-- ✅ One repo can't starve others
-- ✅ Resource limits prevent runaway builds
-- ✅ Timeouts catch hanging builds
+- ✅ One repo's failure does not cancel others (fail-fast disabled)
+- ✅ Per-repo timeouts stop runaway tests
+- ⚠️ `max_parallel_jobs` and `resource_limit_mb` are parsed but not enforced on GitHub-hosted runners
 
 ---
 
@@ -117,10 +117,10 @@ settings:
 - No workflow changes needed
 - Enable/disable repos instantly
 
-✅ **Per-Repository Egress Control**
-- Custom allowlists per repo
-- Enforced via proxy wrapper
-- Prevents unauthorized network access
+🟡 **Per-Repository Egress Control**
+- Custom allowlists per repo (`NO_PROXY`)
+- Enforced via proxy wrapper for HTTP-aware tooling
+- Requires CI validation to confirm blocked domains generate failures
 
 ⚠️ **Resource Isolation (Partial)**
 - ✅ Per-repo test timeouts enforced (via timeout command)

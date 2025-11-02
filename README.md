@@ -3,7 +3,10 @@
 [LICENSE](LICENSE) · [Security](docs/SECURITY.md)
 
 > Production-grade CI/CD intelligence platform that hardens the software supply chain, proves determinism, and converts pipeline telemetry into executive-grade analytics—implemented according to the blueprint in `plan.md`.
-
+>
+> **Current status (2025-11-02)**: ~85 % ready for trusted single-repository use on GitHub-hosted runners. Multi-repository hub features (per-repo secrets, rate limiting, cost tracking) remain in progress. Proxy-based egress controls need validation in CI, and cross-time determinism is a post-release audit, not a merge gate.
+>
+> **Use in production only after**: confirming egress enforcement in real runs, deploying Kyverno policies to the target cluster, and implementing the Phase 2 roadmap in `MULTI_REPO_IMPLEMENTATION_STATUS.md`. Track real-time readiness in [`HONEST_STATUS.md`](docs/status/honest-status.md).
 This README gives engineers, auditors, and downstream repos an actionable entry point: how to run the core checks, what the platform guarantees, which components are stable, and where to find every artifact referenced in the plan.
 
 ## Quick start
@@ -68,11 +71,24 @@ ajv validate -s schema/pipeline_run.v1.2.json -d artifacts/pipeline_run.ndjson
 | Data | dbt-core, BigQuery-compatible NDJSON | dbt project in `models/`, ingestion scripts in `ingest/` and `scripts/`. |
 | Testing & QA | pytest, Ruff, Bandit, pip-audit, CodeQL | Executed via `make` targets and workflows like `unit.yml`, `security-lint.yml`, `codeql.yml`. |
 
+## Current multi-repo capabilities (v1.0.10 snapshot)
+
+| Area | Status | Notes |
+| --- | --- | --- |
+| Repository registry | ✅ Implemented | `config/repositories.yaml` + `scripts/load_repository_matrix.py` drive the matrix. |
+| Per-repo egress allowlists | 🟡 Implemented, pending validation | HTTP-aware tooling is forced through a proxy wrapper; run a CI job to confirm black-hole behaviour for unauthorized domains. |
+| Per-repo timeouts | 🟡 Implemented | `timeout` enforces `settings.build_timeout`; job-level `timeout-minutes` remains global (60 min). |
+| Per-repo concurrency limits | ❌ Not supported on hosted runners | `settings.max_parallel_jobs` is parsed but GitHub Actions applies `strategy.max-parallel` globally. |
+| Memory limits | ❌ Not supported on hosted runners | `settings.resource_limit_mb` is informational only. |
+| Cross-time determinism | 🟡 Post-release audit | The follow-up workflow files issues on drift; gating still required. |
+| Secrets, rate limiting, cost tracking | 🚧 Planned | See `MULTI_REPO_IMPLEMENTATION_STATUS.md` Phase 2 roadmap. |
+
 ## Security boundaries & claims
 
-- **Guarantees**: Workflows pinned by SHA; OIDC-only credentials; SBOM, VEX, provenance, and signatures emitted for release artifacts; Rego + Kyverno policy evaluation blocks promotion lacking evidence; telemetry must satisfy `schema/pipeline_run.v1.2.json` before ingest. Alignment target: **SLSA Level 3**.
-- **Non-guarantees**: Downstream cluster runtime isolation, tenant secrets managed outside hub runners, third-party GitHub Action supply chain beyond pinned commits, runtime service hardening post-deploy.
-- **Proof required for SLSA L3 assertion**: Cosign verification logs, Rekor inclusion proof, signed SBOM/VEX, determinism check outputs, cache manifest signatures, and policy evaluation results—all stored in the Evidence Bundle (`artifacts/evidence/`).
+- **Guarantees**: Workflows pinned by SHA; OIDC-only credentials; SBOM, VEX, provenance, and signatures emitted for release artifacts; proxy-based egress allowlists applied to all HTTP-aware tooling; telemetry must satisfy `schema/pipeline_run.v1.2.json` before ingest. Alignment target: **SLSA Level 3**.
+- **Non-guarantees (yet)**: Downstream cluster runtime isolation, per-repository secrets, GitHub Actions proxy coverage for tools that do not honour `HTTP(S)_PROXY`, third-party GitHub Action supply chain beyond pinned commits, runtime service hardening post-deploy.
+- **Controls running in CI but not yet enforced in production**: Kyverno/OPA policy evaluation (`scripts/verify_kyverno_enforcement.sh`) runs as evidence but policies are not deployed to the target cluster; cross-time determinism is monitored post-release via `.github/workflows/cross-time-determinism.yml`.
+- **Proof required for SLSA L3 assertion**: Cosign verification logs, Rekor inclusion proof, signed SBOM/VEX, determinism check outputs, cache manifest signatures, and policy evaluation results—all stored in the Evidence Bundle (`artifacts/evidence/`).
 
 ## Delivery roadmap (see `plan.md`)
 
@@ -246,7 +262,7 @@ artifacts/
 | `artifacts/` | Generated evidence and reports | Chaos/DR NDJSON, security scan outputs, `artifacts/slsa-provenance.json` |
 | `autopsy/` | Log-analysis utilities | `autopsy/analyzer.py`, `autopsy/tests/test_analyzer.py` |
 | `chaos/` | Chaos scenario definitions | `chaos/chaos-fixture.json` consumed by `make run-chaos` |
-| `config/` | Shared CI configs | `config/mutation-observatory.ci.yaml`, `config/projects.yaml` |
+| `config/` | Shared CI configs | `config/mutation-observatory.ci.yaml`, `config/repositories.yaml` (dynamic multi-repo registry), legacy `config/projects.yaml` |
 | `dashboards/` | JSON analytics dashboards | `dashboards/mutation_effectiveness.json`, `dashboards/run_health.json` |
 | `data/` | Sample datasets & DR bundles | `data/dr/manifest.json`, NDJSON samples |
 | `data-quality-and-dr/` | DR validation scripts | `data-quality-and-dr/dr_recall.sh` |
@@ -576,7 +592,7 @@ Each entry clones the downstream repository, installs dependencies, and runs its
 inside the hub’s release workflow. All evidence (pipeline telemetry, canary decision,
 cache provenance, determinism) is captured automatically for every matrix entry. Keep the
 matrix in source control or move it into a config file (for example,
-`config/projects.yaml`) if you prefer to manage the list outside the workflow.
+`config/repositories.yaml`) if you prefer to manage the list outside the workflow. (`config/projects.yaml` remains for legacy scripts.)
 
 - [`scripts/cache_provenance.sh`](scripts/cache_provenance.sh) — records aggregated SHA256/BLAKE3 digests for build caches and appends them to the Evidence Bundle.
 

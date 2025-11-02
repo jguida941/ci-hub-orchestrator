@@ -289,8 +289,12 @@ jobs:
           LOG_PATH="$GITHUB_WORKSPACE/artifacts/logs/${{ matrix.name }}.log"
           START_TIME=$(date +%s)
 
-          # Per-repo timeout from matrix settings
-          TIMEOUT_MINUTES=${{ matrix.timeout_minutes }}
+          # Per-repo timeout from matrix settings (default to 30 minutes if absent)
+          TIMEOUT_MINUTES=${{ matrix.timeout_minutes || 30 }}
+          if [[ -z "$TIMEOUT_MINUTES" ]] || ! [[ "$TIMEOUT_MINUTES" =~ ^[0-9]+$ ]]; then
+            echo "::warning::matrix.timeout_minutes is invalid or missing; defaulting to 30 minutes"
+            TIMEOUT_MINUTES=30
+          fi
           TIMEOUT_SECONDS=$((TIMEOUT_MINUTES * 60))
           echo "::notice::Test timeout set to ${TIMEOUT_MINUTES} minutes for ${{ matrix.name }}"
 

@@ -2,10 +2,10 @@
 
 ## Executive Summary
 
-The CI/CD hub is currently **single-hub, multi-repo light** architecture that orchestrates test execution and evidence collection across 2 downstream repositories (learn-caesar-cipher, vector_space) but lacks critical multi-tenancy, scalability, and service mesh patterns required for true production multi-repo enterprise service.
+The CI/CD hub is now a **single-hub, multi-repo pilot**: repositories are discovered dynamically from `config/repositories.yaml`, per-repo HTTP allowlists are applied via proxy environment variables, and per-repo test timeouts are honoured. However, the platform still lacks several pieces required for true multi-tenant operation—namely secret scoping, fair scheduling, strong runtime isolation, and cost tracking.
 
-**Current Capability**: Matrix-based parallel execution of per-repo tasks in monolithic release workflow
-**Missing for v1.0**: Isolation boundaries, rate limiting, cross-repo dependency management, hierarchical config, cost allocation, GitOps orchestration
+**Current capability (v1.0.10)**: Matrix-based execution with dynamic repo configuration, proxy-based egress allowlists, per-repo test timeouts, shared telemetry and evidence bundles.
+**Missing for v1.0**: Per-repo secrets, rate limiting, hard resource isolation, cross-repo dependency management, hierarchical config inheritance, cost allocation, GitOps orchestration.
 
 ---
 
@@ -13,61 +13,37 @@ The CI/CD hub is currently **single-hub, multi-repo light** architecture that or
 
 ### 1.1 Repo Isolation Mechanisms
 
-**Status**: ⚠️ PARTIAL - Logical only, no technical enforcement
+**Status**: ⚠️ PARTIAL - Logical separation with proxy egress, but shared runtime
 
 #### What Exists:
-- **Matrix-based segmentation** (`.github/workflows/release.yml:78-90`):
-  ```yaml
-  matrix:
-    include:
-      - name: learn-caesar-cipher
-        repository: jguida941/learn-caesar-cipher
-        path: caesar_cli
-        package: true
-      - name: vector-space
-        repository: jguida941/vector_space
-        path: .
-        package: false
-  ```
-  - Each repo checked out separately to `project/` directory
+- **Matrix-based segmentation** driven by `scripts/load_repository_matrix.py` using `config/repositories.yaml`
+  - Each repo checked out under `project/${{ matrix.path }}`
   - Per-repo cache keys scoped by `matrix.name`
-  - Per-repo test logs and telemetry uploaded with `${{ matrix.name }}` suffix
+  - Proxy-based egress allowlists exported per repo (`.github/workflows/release.yml:130-156`)
+  - Per-repo test timeouts enforced with `timeout "${TIMEOUT_SECONDS}s"` (`release.yml:283-310`)
 
 #### What's Missing:
-- **No container-level isolation** - All repos run on same runner OS with shared filesystem
-- **No process isolation** - Jobs share environment variables (e.g., `GITHUB_TOKEN`, `CI_INTEL_BQ_PROJECT`)
-- **No network isolation** - All repos can reach all registries, GitHub APIs
-- **No credentials per-repo** - Single shared GITHUB_TOKEN (and optional REPO_READ_TOKEN) for all repos
-- **No sandbox/firecracker** - Mentioned as "optional" stretch goal in plan.md but not implemented
-- **No secrets segregation** - Repos share default GITHUB_TOKEN, no per-repo secret scoping
+- **No container-level or process isolation** – all matrix entries share the same GitHub-hosted runner
+- **Proxy enforcement covers only HTTP-aware tooling** – raw sockets can bypass the allowlist
+- **Shared credentials** – `GITHUB_TOKEN` remains common across all repos (no per-repo secret scoping)
+- **No sandbox/firecracker** – isolation requires self-hosted runners (Phase 2 roadmap)
 
 ### 1.2 Per-Repo Configuration Capabilities
 
-**Status**: ⚠️ MINIMAL - Static matrix only
+**Status**: ⚠️ PARTIAL - Dynamic registry with limited overrides
 
 #### What Exists:
-- **Static project registry** (`config/projects.yaml`):
-  ```yaml
-  projects:
-    - name: learn-caesar-cipher
-      repository: jguida941/learn-caesar-cipher
-      path: caesar_cli
-      package: true
-  ```
-  - Hardcoded repo list
-  - Per-repo path override for polyrepo setups
-  - Package vs. non-package flag
+- **Dynamic registry** (`config/repositories.yaml`) feeding the workflow matrix
+- **Configurable knobs per repo**:
+  - `path`, `package` flag for build/install behavior
+  - `build_timeout` parsed into `matrix.timeout_minutes`
+  - `allowed_egress` merged into per-repo proxy allowlists
 
 #### What's Missing:
-- **Dynamic repo registration** - Adding repos requires code change + PR
-- **Per-repo workflow overrides** - No way to customize test commands, runner size, timeout per repo
-- **Per-repo secrets/vars mapping** - No config to say "repo X uses secret Y"
-- **Per-repo environment selection** - All repos promote to same environment
-- **Per-repo branch rules** - No support for different release branches (main vs. develop)
-- **Inheritance/defaults** - Each repo repeats full config instead of inheriting org defaults
-- **Schema versioning** - No version negotiation between hub and downstream repos
-
-**Gap**: No centralized config management like ArgoCD ApplicationSet or Helm values.yaml patterns
+- **Per-repo secrets/vars mapping** – still pending (shared `GITHUB_TOKEN`)
+- **Per-repo environment selection/branch rules** – single release path
+- **Inheritance/defaults** – no schema/version negotiation or templating
+- **Schema enforcement for repositories.yaml** – input validation TODO
 
 ### 1.3 Tenant/Repo Segregation in Caching, Artifacts
 
@@ -247,21 +223,19 @@ The CI/CD hub is currently **single-hub, multi-repo light** architecture that or
 
 ### 3.2 Service Discovery Mechanisms
 
-**Status**: ⚠️ MINIMAL - Static registration
+**Status**: 🟡 PARTIAL - YAML-backed registry, no control plane
 
 #### What Exists:
-- **Static project list** (`config/projects.yaml`):
-  - Hardcoded 2 repos
-  - Loaded via `scripts/load_projects.py`
+- **Git-based registry** (`config/repositories.yaml`)
+  - Repos enabled/disabled without editing workflows
+  - Settings injected into matrix via `scripts/load_repository_matrix.py`
 
 #### Missing:
-- **No dynamic service discovery** - No Consul, Eureka, etcd integration
-- **No health checks** - No periodic repo availability check
-- **No deregistration on failure** - Failed repos stay in registry
-- **No registry API** - Can't query "what repos are registered?"
-- **No load balancer support** - No weighted routing
-- **No canary deregistration** - No gradual removal of unhealthy repos
-- **No service mesh control plane** - No Istio or Linkerd integration
+- **No dynamic service discovery** beyond Git (no Consul/Eureka/etcd)
+- **No health checks** or auto-deregistration when repos fail repeatedly
+- **No query API** – consumers must read YAML directly
+- **No weighted routing/load balancing** for heavy repos
+- **No service mesh control plane** or policy-aware discovery
 
 ### 3.3 Inter-Repo Dependency Handling
 
@@ -285,23 +259,21 @@ But currently: vector-space can't specify this dependency
 
 ### 3.4 Centralized Configuration Management
 
-**Status**: ⚠️ MINIMAL - Static YAML only
+**Status**: ⚠️ MINIMAL - GitOps-style config without validation
 
 #### What Exists:
 - **Checked-in configs**:
-  - `config/projects.yaml` - Project registry
-  - `config/runner-isolation.yaml` - Concurrency budgets
-  - `.github/workflows/*.yml` - Workflow definitions
-  - `schema/pipeline_run.v1.2.json` - Data schema
+  - `config/repositories.yaml` – dynamic registry + per-repo knobs
+  - `config/runner-isolation.yaml` – workflow-level concurrency budgets
+  - `.github/workflows/*.yml` – orchestration definitions
+  - `schema/pipeline_run.v1.2.json` – telemetry schema
 
 #### Missing:
-- **No config server** - No Spring Cloud Config, Consul, etcd
-- **No remote config** - All configs committed to repo
-- **No configuration inheritance** - No template or mixin pattern
-- **No config versioning** - No semantic versioning of config schemas
-- **No config rollback** - No automated rollback if config causes failures
-- **No A/B testing configs** - Can't test new config on subset of repos
-- **No feature flags** - No way to toggle features per repo (all-or-nothing per org)
+- **No config server or API** – updates require Git PRs
+- **No schema validation** for `repositories.yaml` (future enhancement)
+- **No configuration inheritance/templating**
+- **No automated rollback** on config failure
+- **No feature flags / partial rollouts**
 - **No overrides per environment** - Same config for all environments (prod/staging/dev)
 
 **Gaps**:
@@ -545,7 +517,7 @@ Current: No way to express this; vector-space tests against whatever is already 
 
 #### What Exists:
 - **Org-level config files**:
-  - `config/projects.yaml` - repo list
+  - `config/repositories.yaml` - repo list
   - `config/runner-isolation.yaml` - concurrency limits
   - `.github/workflows/*.yml` - workflow definitions
 
@@ -707,14 +679,14 @@ These are valuable but go beyond the current plan.md scope:
 
 **Core Multi-Tenancy**:
 - `.github/workflows/release.yml` - Add per-repo isolation, secrets mapping, resource limits
-- `config/projects.yaml` - Add schema for per-repo config overrides
+- `config/repositories.yaml` - Add schema for per-repo config overrides
 - `scripts/enforce_concurrency_budget.py` - Implement token-bucket fairness
 
 **Service Mesh**:
 - New: `tools/config_server.py` - Config server client
 - New: `tools/repo_registry.py` - Dynamic repo registration
 - New: `services/api_gateway.py` - HTTP API gateway
-- `scripts/load_projects.py` - Extend to support remote config
+- `scripts/load_repository_matrix.py` - Extend to support remote/validated config sources
 
 **Observability**:
 - `models/marts/repo_analytics.sql` - New mart for cross-repo analytics

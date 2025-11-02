@@ -34,18 +34,34 @@ def filter_enabled_repos(repositories: list) -> list:
 
 
 def parse_timeout_minutes(timeout_str: str) -> int:
-    """Parse timeout string (e.g. '30m', '1h') to minutes."""
+    """Parse timeout string (e.g. '30m', '1h') to minutes (whole numbers only)."""
     if not timeout_str:
         return 30  # default
 
     timeout_str = timeout_str.strip().lower()
-    if timeout_str.endswith('m'):
-        return int(timeout_str[:-1])
-    elif timeout_str.endswith('h'):
-        return int(timeout_str[:-1]) * 60
+
+    # Accept formats like "30", "30m", "1h"
+    if not timeout_str or not timeout_str[0].isdigit():
+        raise ValueError(f"Invalid timeout format '{timeout_str}'; expected e.g. '30m', '1h', or '30'")
+
+    suffix = ''
+    if timeout_str[-1] in {'m', 'h'}:
+        suffix = timeout_str[-1]
+        numeric_part = timeout_str[:-1]
     else:
-        # Assume minutes if no unit
-        return int(timeout_str)
+        numeric_part = timeout_str
+
+    if not numeric_part.isdigit():
+        raise ValueError(f"Invalid timeout format '{timeout_str}'; value must be an integer number of minutes or hours")
+
+    value = int(numeric_part)
+    if value <= 0:
+        raise ValueError(f"Timeout must be a positive integer, got: {value}")
+
+    if suffix == 'h':
+        value *= 60
+
+    return value
 
 
 def format_for_matrix(repositories: list) -> dict:

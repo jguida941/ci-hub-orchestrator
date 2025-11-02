@@ -32,13 +32,13 @@ Priority fixes (blockers) — AUDIT STATUS 2025-11-02
 - [✅] Rekor gate regression coverage: `tools/verify_rekor_proof.py` implemented with tests in `tools/tests/test_verify_rekor_proof.py`. Release workflow enforces inclusion proofs at line 447-460.
 - [⚠️] Schema vs example mismatch: Schema exists at `schema/pipeline_run.v1.2.json` but no canonical example fixture in `schema-ci.yml` yet. Validation script `scripts/validate_schema.py` ready.
 - [✅] Cache Sentinel hardening: Full implementation in `tools/cache_sentinel.py` with cosign signing (line 45-47), BLAKE3 verification (line 78-82), quarantine (line 101-105), fork isolation (line 95), and telemetry recording.
-- [✅] Secretless enforcement at runtime: Both workflow integrity checking (`scripts/check_workflow_integrity.py`) and runtime `/proc/*/environ` scanning (`scripts/scan_runtime_secrets.sh:66-102`) implemented.
-- [✅] Egress control enforcement: iptables-based enforcement now active on GitHub-hosted runners via `scripts/enforce_egress_control.sh` - default-deny with allowlist.
+- [✅] Secretless enforcement at runtime: Workflow integrity checking (`scripts/check_workflow_integrity.py`) and runtime `/proc/*/environ` scanning (`scripts/scan_runtime_secrets.sh:66-102`) implemented.
+- [🟡] Egress control enforcement: Proxy-based allowlists exported via `HTTP(S)_PROXY` (`.github/workflows/release.yml:149-156`); requires CI validation and only covers tools that respect proxy settings.
 - [✅] pull_request_target removed: FIXED - chaos.yml now uses safe `pull_request` trigger. Org-wide Ruleset still needed.
 - [✅] SLSA verification completeness: Full verification with `--source-uri`, `--source-tag`, `--builder-id` in release.yml:978-986.
 - [⚠️] Admission policy depth: Kyverno policies in `Enforce` mode (`policies/kyverno/verify-images.yaml:12`) but NOT deployed to cluster.
-- [✅] Evidence Bundle signing: Complete bundle signed via `scripts/sign_evidence_bundle.sh` called from `.github/workflows/release.yml:1156`. Need to add verification step.
-- [✅] Cross-time determinism: Workflow created and dispatch implemented in `.github/workflows/cross-time-determinism.yml`
+- [✅] Evidence Bundle signing: Complete bundle signed via `scripts/sign_evidence_bundle.sh` and verified in `.github/workflows/release.yml:1208-1239`.
+- [🟡] Cross-time determinism: Workflow created and dispatch implemented in `.github/workflows/cross-time-determinism.yml`, but remains a post-release audit (not a blocking gate).
 - [✅] **FIXED** Command injection in workflows: Input validation and sanitization added to `sign-digest.yml` and token moved to env var in `mutation.yml`
 - [✅] **FIXED** Unverified tool downloads: Checksum verification now mandatory with hard failures in `install_tools.sh` and `rekor_monitor.sh`
 - [✅] **FIXED** Unpinned actions in generated workflows: `validate_cross_time_determinism.sh` now uses pinned SHA digests for all actions
@@ -47,9 +47,9 @@ Priority fixes (blockers) — AUDIT STATUS 2025-11-02
 High-leverage hardening (near-term)
 
 - [✅] **Input validation hardening**: All workflow inputs now sanitized, paths validated, array syntax used
-- [📋] **Multi-repo scalability**: See `MULTI_REPO_SCALABILITY.md` for complete design - dynamic registration, per-repo isolation, fair scheduling
-- [🔴] **Tool download verification**: Enforce mandatory checksum verification for all downloaded binaries (cosign, rekor-cli, oras, etc.)
-- [🔴] **Secret handling**: Never pass secrets as CLI arguments; use environment variables or stdin
+- [📋] **Multi-repo scalability**: See `MULTI_REPO_IMPLEMENTATION_STATUS.md` for current progress (dynamic config, proxy egress) and Phase 2 roadmap
+- [✅] **Tool download verification**: Mandatory checksum verification for cosign, rekor-cli, oras, syft, grype (`scripts/install_tools.sh`, `tools/rekor_monitor.sh`)
+- [🟡] **Secret handling**: CLI arguments scrubbed, but per-repository secret scoping still pending (shared `GITHUB_TOKEN`)
 - [ ] Single source of truth for gap status: replace duplicated tracker text with `docs/gaps.yaml` rendered into README to avoid drift.
 - [ ] Evidence Bundle attestation: sign the bundle itself as an attestation on the release digest and verify during admission.
 - [ ] KEV/EPSS-aware SBOM diff gate: incorporate KEV + EPSS risk scoring, block risk ≥ 7 unless covered by signed VEX (`not_affected` with TTL).
@@ -1238,7 +1238,7 @@ All items must be automated and attached per release before v1.0 sign-off:
 
 1. Keep the Rekor gate enforced, add regression coverage (missing UUID/proof), and surface alerting on gate failure.
 2. Enforce OCI referrer presence + Cosign bundle verification.
-3. Add iptables-based egress allowlist, with audit that fails on unexpected domains.
+3. Validate proxy-based egress allowlist in CI and fail the job when unauthorized domains are contacted.
 4. Sign cache manifests and verify before restore; quarantine mismatches.
 5. Promote Kyverno policies from audit to enforce at deploy target.
 6. Wire cross-time determinism job (24h spaced) and attach diffoscope summary.
