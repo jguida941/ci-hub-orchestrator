@@ -111,18 +111,26 @@ install_cosign() {
       cd "$TMP_DIR"
       # Extract only the checksum for our specific file, ignoring any SBOM or other entries
       if grep -E "^[a-fA-F0-9]{64}\s+${file}\$" "$(basename "$checksum_source")" > "${file}.sha256" 2>/dev/null; then
-        sha256sum -c "${file}.sha256" || log "Warning: checksum verification failed, continuing anyway"
+        if ! sha256sum -c "${file}.sha256"; then
+          log "ERROR: Checksum verification failed for ${file}"
+          exit 1
+        fi
+        log "Checksum verified successfully for ${file}"
       else
-        log "Warning: checksum not found in manifest for ${file}, skipping verification"
+        log "ERROR: Checksum not found in manifest for ${file}"
+        exit 1
       fi
     )
   else
-    log "Warning: Unable to locate cosign checksum manifest, skipping verification"
+    log "ERROR: Unable to locate cosign checksum manifest - this is a security risk"
+    log "Checksums are required for all downloaded binaries"
+    exit 1
   fi
 
   sudo install -m 0755 "$TMP_DIR/${file}" /usr/local/bin/cosign
   if ! cosign version --short 2>/dev/null | tr -d '\n' | grep -q "$(printf '%s' "${COSIGN_VERSION}" | tr -d '\n')"; then
-    log "Warning: cosign version mismatch, but continuing"
+    log "ERROR: cosign version mismatch - expected ${COSIGN_VERSION}"
+    exit 1
   fi
 }
 
@@ -137,15 +145,16 @@ install_rekor() {
     exit 1
   fi
 
-  # Try to download and verify checksum (optional - don't fail build if missing)
+  # Download and verify checksum (MANDATORY for security)
   if curl -fsSL "${url}.sha256" -o "$TMP_DIR/${file}.sha256" 2>/dev/null; then
     (cd "$TMP_DIR" && sha256sum -c "$(basename "${file}.sha256")") || {
-      log "Warning: rekor-cli checksum verification failed"
-      # Checksum exists but doesn't match - this is suspicious, fail hard
+      log "ERROR: rekor-cli checksum verification failed"
       exit 1
     }
   else
-    log "Warning: No checksum file found for rekor-cli ${REKOR_VERSION}, skipping checksum verification"
+    log "ERROR: No checksum file found for rekor-cli ${REKOR_VERSION}"
+    log "Checksums are mandatory for all downloaded binaries"
+    exit 1
   fi
 
   sudo install -m 0755 "$TMP_DIR/${file}" /usr/local/bin/rekor-cli
@@ -172,14 +181,16 @@ install_syft() {
     exit 1
   fi
 
-  # Try to verify checksum (optional)
+  # Download and verify checksum (MANDATORY for security)
   if curl -fsSL "${url}.sha256" -o "$TMP_DIR/${tar}.sha256" 2>/dev/null; then
     (cd "$TMP_DIR" && sha256sum -c "$(basename "${tar}.sha256")") || {
-      log "Warning: syft checksum verification failed"
+      log "ERROR: syft checksum verification failed"
       exit 1
     }
   else
-    log "Warning: No checksum file found for syft ${SYFT_VERSION}, skipping verification"
+    log "ERROR: No checksum file found for syft ${SYFT_VERSION}"
+    log "Checksums are mandatory for all downloaded binaries"
+    exit 1
   fi
 
   tar -xzf "$TMP_DIR/${tar}" -C "$TMP_DIR" syft
@@ -202,14 +213,16 @@ install_grype() {
     exit 1
   fi
 
-  # Try to verify checksum (optional)
+  # Download and verify checksum (MANDATORY for security)
   if curl -fsSL "${url}.sha256" -o "$TMP_DIR/${tar}.sha256" 2>/dev/null; then
     (cd "$TMP_DIR" && sha256sum -c "$(basename "${tar}.sha256")") || {
-      log "Warning: grype checksum verification failed"
+      log "ERROR: grype checksum verification failed"
       exit 1
     }
   else
-    log "Warning: No checksum file found for grype ${GRYPE_VERSION}, skipping verification"
+    log "ERROR: No checksum file found for grype ${GRYPE_VERSION}"
+    log "Checksums are mandatory for all downloaded binaries"
+    exit 1
   fi
 
   tar -xzf "$TMP_DIR/${tar}" -C "$TMP_DIR" grype

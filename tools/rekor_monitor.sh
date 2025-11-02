@@ -43,13 +43,16 @@ ensure_rekor_cli() {
     checksum_url="${url}.sha256"
     if curl -fsSL "$checksum_url" -o "${tmp}.sha256"; then
       if ! (cd "$(dirname "$tmp")" && sha256sum -c "$(basename "${tmp}.sha256")"); then
-        >&2 echo "[rekor_monitor] Checksum verification failed for ${filename}"
+        >&2 echo "[rekor_monitor] ERROR: Checksum verification failed for ${filename}"
         rm -f "$tmp" "${tmp}.sha256"
         return 1
       fi
       rm -f "${tmp}.sha256"
     else
-      >&2 echo "[rekor_monitor] Warning: checksum file not available for ${filename}; proceeding without verification"
+      >&2 echo "[rekor_monitor] ERROR: Checksum file not available for ${filename}"
+      >&2 echo "[rekor_monitor] Checksums are required for all downloaded binaries"
+      rm -f "$tmp"
+      return 1
     fi
     mv "$tmp" "$dest"
     chmod +x "$dest"

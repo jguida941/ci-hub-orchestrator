@@ -51,11 +51,12 @@ EOF
 
   # Create GitHub Actions workflow dispatch event (if in CI)
   if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-    local workflow_file=".github/workflows/determinism-validation.yml"
+    local workflow_file=".github/workflows/cross-time-determinism.yml"
 
-    # Check if workflow exists, if not create it
+    # Verify workflow exists
     if [[ ! -f "$workflow_file" ]]; then
-      create_validation_workflow
+      log "ERROR: Cross-time determinism workflow not found at $workflow_file"
+      exit 1
     fi
 
     # Schedule via GitHub API
@@ -63,7 +64,7 @@ EOF
       -H "Accept: application/vnd.github+json" \
       -H "Authorization: Bearer ${GITHUB_TOKEN}" \
       -H "X-GitHub-Api-Version: 2022-11-28" \
-      "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/determinism-validation.yml/dispatches" \
+      "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/cross-time-determinism.yml/dispatches" \
       -d "{
         \"ref\": \"${GITHUB_REF}\",
         \"inputs\": {
@@ -74,83 +75,18 @@ EOF
       }"
 
     log "Workflow dispatch created for delayed validation"
+
+    # Save dispatch metadata for verification
+    mkdir -p artifacts
+    echo "{\"run_id\": \"${GITHUB_RUN_ID}\", \"scheduled_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\", \"delay_hours\": \"${DELAY_HOURS}\"}" > artifacts/determinism-schedule.json
   fi
 }
 
-# Create validation workflow if it doesn't exist
+# Create validation workflow if it doesn't exist - DEPRECATED
 create_validation_workflow() {
-  cat > .github/workflows/determinism-validation.yml <<'EOF'
-name: determinism-validation
-
-on:
-  workflow_dispatch:
-    inputs:
-      original_ref:
-        description: 'Original build reference'
-        required: true
-        type: string
-      original_run_id:
-        description: 'Original workflow run ID'
-        required: true
-        type: string
-      delay_hours:
-        description: 'Delay in hours'
-        default: '24'
-        type: string
-  schedule:
-    # Run daily at 2 AM UTC for scheduled validations
-    - cron: '0 2 * * *'
-
-jobs:
-  validate-determinism:
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: read
-      packages: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ inputs.original_ref || github.ref }}
-
-      - name: Set deterministic environment
-        run: |
-          # Set SOURCE_DATE_EPOCH to original build time
-          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
-          echo "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" >> $GITHUB_ENV
-
-          # Set deterministic environment variables
-          echo "TZ=UTC" >> $GITHUB_ENV
-          echo "LC_ALL=C" >> $GITHUB_ENV
-          echo "LANG=C" >> $GITHUB_ENV
-
-      - name: Rebuild artifacts
-        run: |
-          # Run the same build process as original
-          make build
-
-      - name: Download original artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: build-artifacts
-          run-id: ${{ inputs.original_run_id }}
-          path: original-artifacts/
-
-      - name: Compare builds
-        run: |
-          ./scripts/validate_cross_time_determinism.sh compare \
-            original-artifacts \
-            24 \
-            artifacts/determinism
-
-      - name: Upload comparison evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: determinism-evidence
-          path: artifacts/determinism
-EOF
-
-  log "Created determinism validation workflow"
+  # This function is deprecated - workflow already exists at .github/workflows/cross-time-determinism.yml
+  log "ERROR: create_validation_workflow should not be called - workflow already exists"
+  exit 1
 }
 
 # Compare two builds for determinism

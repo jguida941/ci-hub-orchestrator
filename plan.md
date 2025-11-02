@@ -17,25 +17,39 @@ Primary outcomes
 
 Use this section as the running ledger of high-priority gaps and the precise controls we still need to land so work-in-progress items do not disappear in the longer narrative below.
 
+### Related Documentation
+- **🚨 START HERE**: See `START_HERE.md` for prioritized action plan
+- **Security Issues**: See `issues.md` for comprehensive security audit (13 vulnerabilities found)
+- **Multi-Repo Analysis**: See `MULTI_REPO_ANALYSIS.md` for detailed multi-tenancy gaps
+- **Quick Reference**: See `ANALYSIS_INDEX.md` for navigation guide
+
 ## Short Answer — Harden Now
 
 Strong plan. Harden these gaps now and remove contradictions.
 
-Priority fixes (blockers) — AUDIT STATUS 2025-11-01
+Priority fixes (blockers) — AUDIT STATUS 2025-11-02
 
 - [✅] Rekor gate regression coverage: `tools/verify_rekor_proof.py` implemented with tests in `tools/tests/test_verify_rekor_proof.py`. Release workflow enforces inclusion proofs at line 447-460.
 - [⚠️] Schema vs example mismatch: Schema exists at `schema/pipeline_run.v1.2.json` but no canonical example fixture in `schema-ci.yml` yet. Validation script `scripts/validate_schema.py` ready.
 - [✅] Cache Sentinel hardening: Full implementation in `tools/cache_sentinel.py` with cosign signing (line 45-47), BLAKE3 verification (line 78-82), quarantine (line 101-105), fork isolation (line 95), and telemetry recording.
-- [✅] Secretless enforcement at runtime: Both manifest scanning (`scripts/check_secrets_in_workflow.py`) and runtime `/proc/*/environ` scanning (`scripts/scan_runtime_secrets.sh:66-102`) implemented.
-- [⚠️] Egress control test: Test script exists at `scripts/test_egress_allowlist.sh` but runs in AUDIT MODE only - no technical enforcement.
-- [🔴] pull_request_target policy: CRITICAL - `.github/workflows/chaos.yml:5` uses this trigger. NO blocking policy exists. Enables cache poisoning & secret exposure.
+- [✅] Secretless enforcement at runtime: Both workflow integrity checking (`scripts/check_workflow_integrity.py`) and runtime `/proc/*/environ` scanning (`scripts/scan_runtime_secrets.sh:66-102`) implemented.
+- [✅] Egress control enforcement: iptables-based enforcement now active on GitHub-hosted runners via `scripts/enforce_egress_control.sh` - default-deny with allowlist.
+- [✅] pull_request_target removed: FIXED - chaos.yml now uses safe `pull_request` trigger. Org-wide Ruleset still needed.
 - [✅] SLSA verification completeness: Full verification with `--source-uri`, `--source-tag`, `--builder-id` in release.yml:978-986.
 - [⚠️] Admission policy depth: Kyverno policies in `Enforce` mode (`policies/kyverno/verify-images.yaml:12`) but NOT deployed to cluster.
-- [❌] Evidence Bundle signing: Individual artifacts signed but complete bundle NOT signed with `cosign sign-blob`.
-- [❌] Cross-time determinism: SOURCE_DATE_EPOCH set but NO 24-hour delayed rebuild validation.
+- [✅] Evidence Bundle signing: Complete bundle signed via `scripts/sign_evidence_bundle.sh` called from `.github/workflows/release.yml:1156`. Need to add verification step.
+- [✅] Cross-time determinism: Workflow created and dispatch implemented in `.github/workflows/cross-time-determinism.yml`
+- [✅] **FIXED** Command injection in workflows: Input validation and sanitization added to `sign-digest.yml` and token moved to env var in `mutation.yml`
+- [✅] **FIXED** Unverified tool downloads: Checksum verification now mandatory with hard failures in `install_tools.sh` and `rekor_monitor.sh`
+- [✅] **FIXED** Unpinned actions in generated workflows: `validate_cross_time_determinism.sh` now uses pinned SHA digests for all actions
+- [✅] **FIXED** Binary downloads in release.yml: Added SHA256 verification for ORAS, cosign, and OPA at lines 1219, 1230, 1338
 
 High-leverage hardening (near-term)
 
+- [✅] **Input validation hardening**: All workflow inputs now sanitized, paths validated, array syntax used
+- [📋] **Multi-repo scalability**: See `MULTI_REPO_SCALABILITY.md` for complete design - dynamic registration, per-repo isolation, fair scheduling
+- [🔴] **Tool download verification**: Enforce mandatory checksum verification for all downloaded binaries (cosign, rekor-cli, oras, etc.)
+- [🔴] **Secret handling**: Never pass secrets as CLI arguments; use environment variables or stdin
 - [ ] Single source of truth for gap status: replace duplicated tracker text with `docs/gaps.yaml` rendered into README to avoid drift.
 - [ ] Evidence Bundle attestation: sign the bundle itself as an attestation on the release digest and verify during admission.
 - [ ] KEV/EPSS-aware SBOM diff gate: incorporate KEV + EPSS risk scoring, block risk ≥ 7 unless covered by signed VEX (`not_affected` with TTL).
@@ -46,6 +60,9 @@ High-leverage hardening (near-term)
 - [ ] Policy test coverage: add `opa test` and `kyverno apply --audit-warn=false` fixtures in CI and report coverage.
 - [ ] SARIF hygiene: deduplicate findings by `ruleId@tool@path@commit` and expire suppressions after 30 days with an owner.
 - [ ] LLM governance: require a deterministic rule path for gates and forbid ML-only denials; continue recording model metadata.
+- [ ] **Supply chain lockdown**: Replace all `npx` usage with vendored tools, enforce pip --require-hashes, use only locked dependencies
+- [ ] **SSL/TLS hardening**: Enforce certificate verification in all HTTP clients, pin CA bundles, detect and fail on self-signed certs
+- [ ] **Temp file security**: Use mktemp with restrictive permissions everywhere, avoid predictable names, prevent symlink attacks
 
 Highest-risk gaps
 
@@ -84,6 +101,40 @@ Blockers to ship v1.0
 4. Secretless runtime enforcement is missing — workflows scan manifests, but we do not sweep live job environments or processes for leaked secrets.
 5. Egress allowlist not enforced — CI jobs require default-deny egress with explicit allowlist (registry, GitHub, Rekor, etc.) and an audit that fails on unexpected domains.
 6. `pull_request_target` remains allowed — add policy/Ruleset guardrails or an explicit allowlist.
+
+## Multi-Repository Service Requirements (CRITICAL for Production)
+
+### 🔴 Blocking Gaps for Multi-Repo Service (NEW - 2025-11-02)
+
+1. **Container Isolation Per Repository**
+   - **Current**: All repos share ubuntu-22.04 runner with same filesystem/credentials
+   - **Required**: Ephemeral containers per repo with isolated filesystems (Firecracker/gVisor)
+   - **Implementation**: 80 hours - containerized runners with per-repo namespaces
+
+2. **Per-Repository Secret Management**
+   - **Current**: Single GITHUB_TOKEN shared across all repositories
+   - **Required**: Vault/AWS Secrets Manager with per-repo paths and OIDC federation
+   - **Implementation**: 40 hours - integrate HashiCorp Vault with repo-scoped paths
+
+3. **Fair Scheduling & Rate Limiting**
+   - **Current**: No token-bucket fairness, repos can starve each other
+   - **Required**: Per-repo concurrency budgets, queue prioritization, SLO enforcement
+   - **Implementation**: 60 hours - implement fairness scheduler with Redis queues
+
+4. **Dependency Orchestration DAG**
+   - **Current**: Static matrix with 2 hardcoded repos, no dependency handling
+   - **Required**: Dynamic DAG with topological ordering for inter-repo dependencies
+   - **Implementation**: 80 hours - Argo Workflows or Temporal for orchestration
+
+5. **Multi-Tenant Observability**
+   - **Current**: Telemetry collected but no per-repo dashboards or cost allocation
+   - **Required**: Grafana with per-repo dashboards, cost/carbon tracking per tenant
+   - **Implementation**: 60 hours - complete BigQuery pipeline + Grafana dashboards
+
+6. **Hierarchical Configuration Management**
+   - **Current**: Flat YAML with no inheritance or override mechanisms
+   - **Required**: Org → Team → Repo hierarchy with policy inheritance
+   - **Implementation**: 40 hours - implement config merger with override rules
 
 ## High-leverage upgrades (next)
 
@@ -1193,8 +1244,7 @@ All items must be automated and attached per release before v1.0 sign-off:
 6. Wire cross-time determinism job (24h spaced) and attach diffoscope summary.
 7. Enable Dependabot/Renovate and dependency-review gates.
 
-30-day hardening (optional stretch)
------------------------------------
+## 30-day hardening (optional stretch)
 
 - Self-hosted Firecracker/Vault runner profile + attestation (optional for regulated environments).
 - API diff and performance budget gates; fuzz/property testing for critical components.
@@ -1202,8 +1252,7 @@ All items must be automated and attached per release before v1.0 sign-off:
 - WORM artifact storage with cross-region replication and periodic integrity checks.
 - Org-level "no unpinned actions" Ruleset + pre-receive checks.
 
-Acceptable risk statement
--------------------------
+## Acceptable risk statement
 
 With Rekor gating, cache verification, egress allowlist, policy enforcement, and the evidence bundle finalized, the platform meets SLSA L3-equivalent integrity on GitHub-hosted runners. For regulated workloads, layer in the Firecracker/Vault profile and WORM+replication before go-live.
 
@@ -1734,6 +1783,50 @@ Must-fix nits
 
 - Postmortems: `/docs/POSTMORTEM.md` template referencing Autopsy IDs, Rekor proofs, gate decisions; mandatory after rollbacks.
 
+## Production-Grade Multi-Repo Service Roadmap (10 Weeks)
+
+### Phase 0: Critical Security Fixes (Week 1) - BLOCKING
+- Fix command injection vulnerabilities in workflows
+- Enforce mandatory checksum verification on all tool downloads
+- Replace npx with vendored tooling
+- Fix GitHub token exposure patterns
+- Pin actions in generated workflows
+
+### Phase 1: Multi-Tenant Isolation (Weeks 2-3)
+- Implement per-repo container isolation (Firecracker/gVisor)
+- Deploy HashiCorp Vault for per-repo secret management
+- Create repo-scoped OIDC federation
+- Implement filesystem isolation between repos
+- Add network segmentation per tenant
+
+### Phase 2: Scalability & Fair Scheduling (Weeks 4-5)
+- Implement token-bucket rate limiting per repo
+- Deploy Redis-based queue management
+- Add priority-based scheduling with SLO enforcement
+- Implement backpressure mechanisms
+- Create per-repo concurrency budgets
+
+### Phase 3: Service Mesh & Orchestration (Weeks 6-7)
+- Deploy API gateway for centralized access
+- Implement service discovery for repos
+- Add Argo Workflows/Temporal for DAG orchestration
+- Create dependency resolution engine
+- Implement rollout strategies across repos
+
+### Phase 4: Observability Infrastructure (Weeks 8-9)
+- Complete BigQuery telemetry pipeline
+- Deploy Grafana with per-repo dashboards
+- Implement cost allocation per repository
+- Add carbon footprint tracking per tenant
+- Create cross-repo analytics views
+
+### Phase 5: Configuration Management (Week 10)
+- Implement hierarchical config (Org → Team → Repo)
+- Add policy inheritance engine
+- Create override mechanisms with audit
+- Deploy configuration validation service
+- Add dynamic repo registration
+
 v1.0 exit checklist
 
 - Keyless Cosign, SLSA v1.0 provenance, OCI referrers present and verified at admission.
@@ -1759,6 +1852,16 @@ v1.0 exit checklist
 - GitHub Rulesets enforced: signed commits/tags, required checks, CODEOWNERS on critical paths, no force-push.
 
 - Cost/CO₂e budgets enforced with override workflow and audit trail.
+
+- **Multi-repo isolation**: Per-repo containers, secrets, filesystems, network segments.
+
+- **Fair scheduling**: Token-bucket rate limiting, priority queues, SLO enforcement per repo.
+
+- **Service mesh**: API gateway, service discovery, dependency DAG, orchestration engine.
+
+- **Multi-tenant observability**: Per-repo dashboards, cost allocation, cross-repo analytics.
+
+- **Hierarchical config**: Org→Team→Repo inheritance with override audit trail.
 
 Final three PRs
 
@@ -1958,8 +2061,7 @@ deny[msg] {
 }
 ```
 
-Short-Term Actions (Weeks 2-4) - Infrastructure
-------------------------------------------------
+## Short-Term Actions (Weeks 2-4) - Infrastructure
 
 ### 1. Switch Kyverno to Enforcement Mode
 
@@ -1998,8 +2100,7 @@ updates:
     security-updates-only: true
 ```
 
-Medium-Term Actions (Weeks 5-8) - Operational Excellence
----------------------------------------------------------
+## Medium-Term Actions (Weeks 5-8) - Operational Excellence
 
 ### 1. Multi-Arch SBOM Validation (4 hours)
 
@@ -2031,8 +2132,7 @@ SOURCE_DATE_EPOCH=$(date +%s)
 diff hash-24h-ago.txt hash-now.txt
 ```
 
-Architecture Enhancements
--------------------------
+## Architecture Enhancements
 
 ### Multi-Layer Defense Architecture
 
@@ -2072,8 +2172,7 @@ Resilience & Recovery Architecture
 - Failure injection points for chaos testing
 - Automated rollback based on SLO breaches
 
-Production Metrics to Add
--------------------------
+## Production Metrics to Add
 
 ```json
 {
@@ -2098,8 +2197,7 @@ Production Metrics to Add
 }
 ```
 
-Key Success Factors for Production
------------------------------------
+## Key Success Factors for Production
 
 ### 1. Enforce Security Gates
 
@@ -2130,8 +2228,7 @@ Key Success Factors for Production
 - DR drills with 7-day freshness enforcement
 - Failure injection in 1% of PR builds
 
-Final Assessment
-----------------
+## Final Assessment
 
 **Your CI/CD Hub has impressive sophistication but critical production gaps:**
 

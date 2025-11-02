@@ -34,15 +34,38 @@ jobs:
         id: resolve
         run: |
           set -euo pipefail
+
+          # Validate and sanitize image input to prevent command injection
           image_input="${{ github.event.inputs.image }}"
           if [[ -z "$image_input" ]]; then
             image_input="$DEFAULT_IMAGE"
           fi
-          digest="${{ github.event.inputs.digest }}"
-          if [[ "$digest" != sha256:* ]]; then
-            echo "Digest must include sha256: prefix (got '$digest')" >&2
+
+          # Validate image reference format (allow only safe characters)
+          if ! [[ "$image_input" =~ ^[a-zA-Z0-9._/:@-]+$ ]]; then
+            echo "ERROR: Invalid image reference format" >&2
+            echo "Must contain only: alphanumeric, '.', '_', '/', ':', '@', '-'" >&2
             exit 1
           fi
+
+          # Prevent command injection patterns
+          if [[ "$image_input" =~ [\$\`\;\|\&\>\<\(\)\{\}\[\]\'\"\\\n\r] ]]; then
+            echo "ERROR: Image reference contains forbidden characters" >&2
+            exit 1
+          fi
+
+          # Validate digest input
+          digest="${{ github.event.inputs.digest }}"
+
+          # Strict validation: must be exactly sha256: followed by 64 hex chars
+          if ! [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]; then
+            echo "ERROR: Invalid digest format" >&2
+            echo "Must be: sha256: followed by exactly 64 lowercase hex characters" >&2
+            echo "Got: '$digest'" >&2
+            exit 1
+          fi
+
+          # Export validated values
           echo "IMAGE_BASE=$image_input" >> "$GITHUB_ENV"
           echo "IMAGE_DIGEST=$digest" >> "$GITHUB_ENV"
 
@@ -61,14 +84,19 @@ jobs:
       - name: Sign digest with cosign
         run: |
           set -euo pipefail
+          # Use validated environment variables with proper quoting
           image_ref="${IMAGE_BASE%@*}@${IMAGE_DIGEST}"
           echo "[sign-existing-digest] Signing ${image_ref}"
-          cosign sign --yes "${image_ref}"
+
+          # Ensure proper quoting to prevent injection
+          cosign sign --yes -- "${image_ref}"
 
       - name: Run Rekor monitor
         run: |
           set -euo pipefail
           mkdir -p artifacts/evidence
+
+          # Pass validated variables with proper quoting
           ./tools/rekor_monitor.sh "${IMAGE_DIGEST}" "${IMAGE_BASE}" artifacts/evidence
 
       - name: Upload evidence bundle

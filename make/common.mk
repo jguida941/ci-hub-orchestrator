@@ -3,7 +3,9 @@
 PYTHON ?= python3
 PIP ?= pip3
 MKDOCS ?= mkdocs
-MARKDOWNLINT ?= npx --yes markdownlint-cli2@0.18.1
+# Use Docker image instead of npx for security (no unverified downloads)
+# Alternative: vendor the tool with checksum verification
+MARKDOWNLINT ?= docker run --rm -v "$(PWD):/workdir" davidanson/markdownlint-cli2:v0.18.1
 
 ARTIFACTS_DIR ?= artifacts
 SBOM_DIR ?= $(ARTIFACTS_DIR)/sbom

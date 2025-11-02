@@ -562,12 +562,15 @@ jobs:
           # Only approved destinations should be reachable
           mkdir -p artifacts/security
 
-          # Use enforcement mode if available (requires sudo on self-hosted runners)
-          if [[ "${RUNNER_TYPE:-github-hosted}" == "self-hosted" ]] && sudo -n true 2>/dev/null; then
+          # Use enforcement mode (GitHub-hosted runners have sudo)
+          if sudo -n true 2>/dev/null; then
             # Apply technical enforcement with iptables
+            # GitHub-hosted runners have sudo, so this will work
             sudo ./scripts/enforce_egress_control.sh enforce artifacts/security/egress-enforcement.json
+            echo "✅ Egress enforcement active with iptables"
           else
-            # Fall back to audit mode for GitHub-hosted runners
+            # Fall back to audit mode only if sudo unavailable (rare)
+            echo "⚠️  WARNING: sudo not available, running in audit mode only"
             ./scripts/test_egress_allowlist.sh artifacts/security/egress-test.json
           fi
 
@@ -601,11 +604,22 @@ jobs:
           ./scripts/validate_cross_time_determinism.sh validate
 
       - name: Schedule cross-time validation
+        id: determinism
         if: startsWith(github.ref, 'refs/tags/')
         run: |
           set -euo pipefail
           # Schedule 24-hour delayed rebuild for determinism validation
-          ./scripts/validate_cross_time_determinism.sh schedule "${{ github.ref }}"
+          ./scripts/validate_cross_time_determinism.sh schedule "${{ github.ref }}" 24
+
+          # Record the dispatch metadata
+          if [[ -f artifacts/determinism-schedule.json ]]; then
+            echo "Cross-time determinism validation scheduled"
+            cat artifacts/determinism-schedule.json
+            echo "determinism_scheduled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Cross-time determinism scheduling may have failed"
+            echo "determinism_scheduled=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install Python deps (cache sentinel)
         run: |
@@ -1165,6 +1179,31 @@ jobs:
           ls -lh artifacts/signed-evidence/evidence-bundle-*.tar.gz
           echo "SHA256: $(cat artifacts/signed-evidence/evidence-bundle-*.sha256)"
 
+      - name: Verify Evidence Bundle Signature
+        run: |
+          set -euo pipefail
+          echo "Verifying evidence bundle signature..."
+
+          # Find the signed bundle and its signature
+          BUNDLE_FILE=$(ls artifacts/signed-evidence/evidence-bundle-*.tar.gz | head -1)
+          SIG_FILE="${BUNDLE_FILE}.sig"
+
+          # Verify the signature bundle using cosign
+          if [[ -f "$SIG_FILE" ]]; then
+            cosign verify-blob \
+              --bundle "$SIG_FILE" \
+              --certificate-identity-regexp "https://github.com/${GITHUB_REPOSITORY}/.*" \
+              --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
+              "$BUNDLE_FILE" || {
+                echo "::error::Evidence bundle signature verification failed"
+                exit 1
+              }
+            echo "✅ Evidence bundle signature verified with proper identity checks"
+          else
+            echo "::error::No signature bundle found for evidence at $SIG_FILE"
+            exit 1
+          fi
+
       - name: Upload Evidence bundle
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -1206,14 +1245,28 @@ jobs:
             tools.tests.test_provenance_io
       - name: Install jq, ORAS, and cosign
         run: |
+          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y jq
-          curl -sL https://github.com/oras-project/oras/releases/download/v1.2.0/oras_1.2.0_linux_amd64.tar.gz \
-            | tar -xz -f -
+
+          # Install ORAS with checksum verification
+          ORAS_VERSION="v1.2.0"
+          ORAS_SHA256="5b3dc03a9233db8e45dc5a979ea98d93e87e946d1ad842de3f4c88b78f699e64"
+
+          curl -sSfL "https://github.com/oras-project/oras/releases/download/${ORAS_VERSION}/oras_1.2.0_linux_amd64.tar.gz" \
+            -o oras.tar.gz
+          echo "${ORAS_SHA256}  oras.tar.gz" | sha256sum --check --strict
+          tar -xzf oras.tar.gz
           sudo mv oras /usr/local/bin/oras
+          rm -f oras.tar.gz LICENSE
+
+          # Install cosign with checksum verification
           COSIGN_VERSION="v2.2.4"
+          COSIGN_SHA256="fe4a77304fccd65bb0f6c4c6b1ffb7e1bc00a0be46e96c18fa4b6e8c387e11e5"
+
           curl -sSfL "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" \
             -o cosign
+          echo "${COSIGN_SHA256}  cosign" | sha256sum --check --strict
           sudo install -m 0755 cosign /usr/local/bin/cosign
           rm -f cosign
       - name: Install grype
@@ -1314,8 +1367,16 @@ jobs:
             --expected-issuer "${EXPECTED_ISSUER}"
       - name: Install OPA
         run: |
-          curl -L -o /usr/local/bin/opa https://github.com/open-policy-agent/opa/releases/download/v0.63.0/opa_linux_amd64_static
-          chmod +x /usr/local/bin/opa
+          set -euo pipefail
+          # Install OPA with checksum verification
+          OPA_VERSION="v0.63.0"
+          OPA_SHA256="c8bb60e0e9933417bc7e957f853b5f3d88a056a018e9bc00063f829cc30e5efd"
+
+          curl -sSfL "https://github.com/open-policy-agent/opa/releases/download/${OPA_VERSION}/opa_linux_amd64_static" \
+            -o opa
+          echo "${OPA_SHA256}  opa" | sha256sum --check --strict
+          sudo install -m 0755 opa /usr/local/bin/opa
+          rm -f opa
       - name: Download SBOM artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:

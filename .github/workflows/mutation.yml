@@ -43,9 +43,12 @@ jobs:
 
       - name: Get default branch for ${{ matrix.repository }}
         id: get_branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          DEFAULT_BRANCH=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          # Use environment variable for token to prevent exposure in process listings
+          DEFAULT_BRANCH=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
             "https://api.github.com/repos/${{ matrix.repository }}" | \
             jq -r '.default_branch')
           if [ -z "$DEFAULT_BRANCH" ] || [ "$DEFAULT_BRANCH" = "null" ]; then

@@ -1,0 +1,179 @@
+name: cross-time-determinism
+
+on:
+  workflow_dispatch:
+    inputs:
+      original_ref:
+        description: "Original Git ref to rebuild"
+        required: true
+      original_run_id:
+        description: "Original workflow run ID for comparison"
+        required: true
+      delay_hours:
+        description: "Hours delayed from original build"
+        default: "24"
+        required: false
+
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
+jobs:
+  delayed-rebuild:
+    runs-on: ubuntu-22.04
+    env:
+      DETERMINISM_DELAY: ${{ inputs.delay_hours }}h
+    steps:
+      - name: Checkout
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          ref: ${{ inputs.original_ref }}
+
+      - name: Set deterministic environment
+        run: |
+          set -euo pipefail
+          # Set SOURCE_DATE_EPOCH to original build time
+          SOURCE_DATE_EPOCH="$(git log -1 --format=%ct)"
+          echo "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" >> $GITHUB_ENV
+
+          # Set deterministic environment variables
+          echo "TZ=UTC" >> $GITHUB_ENV
+          echo "LC_ALL=C" >> $GITHUB_ENV
+          echo "LANG=C" >> $GITHUB_ENV
+
+          # Log environment for audit
+          echo "Delayed rebuild environment:"
+          echo "- Original ref: ${{ inputs.original_ref }}"
+          echo "- Original run: ${{ inputs.original_run_id }}"
+          echo "- Delay: ${DETERMINISM_DELAY}"
+          echo "- SOURCE_DATE_EPOCH: ${SOURCE_DATE_EPOCH}"
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          # Install pinned versions of build tools
+          ./scripts/install_tools.sh
+
+          # Verify tool versions match
+          cosign version
+          syft version
+          grype version
+
+      - name: Rebuild artifacts
+        run: |
+          set -euo pipefail
+          # Run the same build process as original
+          make build
+
+          # Generate checksums of rebuilt artifacts
+          find artifacts/ -type f -exec sha256sum {} \; | sort > artifacts/rebuilt-checksums.txt
+
+      - name: Download original artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: build-artifacts
+          run-id: ${{ inputs.original_run_id }}
+          path: original-artifacts/
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compare builds
+        id: compare
+        run: |
+          set -euo pipefail
+
+          # Generate checksums of original artifacts
+          find original-artifacts/ -type f -exec sha256sum {} \; | sort > original-artifacts/original-checksums.txt
+
+          # Compare checksums
+          if diff -u original-artifacts/original-checksums.txt artifacts/rebuilt-checksums.txt > artifacts/determinism-diff.txt 2>&1; then
+            echo "✅ Build is deterministic - artifacts match after ${DETERMINISM_DELAY} delay"
+            echo "deterministic=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "❌ Build is NOT deterministic - artifacts differ after ${DETERMINISM_DELAY} delay"
+            echo "Differences found:"
+            cat artifacts/determinism-diff.txt
+            echo "deterministic=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate evidence
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/determinism-evidence
+
+          # Create evidence bundle
+          cat > artifacts/determinism-evidence/report.json <<EOF
+          {
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "original_ref": "${{ inputs.original_ref }}",
+            "original_run_id": "${{ inputs.original_run_id }}",
+            "delay_hours": "${{ inputs.delay_hours }}",
+            "deterministic": ${{ steps.compare.outputs.deterministic }},
+            "source_date_epoch": "${SOURCE_DATE_EPOCH}",
+            "environment": {
+              "tz": "${TZ}",
+              "lc_all": "${LC_ALL}",
+              "lang": "${LANG}"
+            }
+          }
+          EOF
+
+          # Include diff if non-deterministic
+          if [[ "${{ steps.compare.outputs.deterministic }}" == "false" ]]; then
+            cp artifacts/determinism-diff.txt artifacts/determinism-evidence/
+          fi
+
+          # Include checksums for audit
+          cp artifacts/rebuilt-checksums.txt artifacts/determinism-evidence/
+          cp original-artifacts/original-checksums.txt artifacts/determinism-evidence/
+
+      - name: Upload determinism evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: determinism-evidence-${{ github.run_id }}
+          path: artifacts/determinism-evidence/
+          retention-days: 90
+
+      - name: Create issue if not deterministic
+        if: steps.compare.outputs.deterministic == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 CRITICAL: Build Non-Deterministic - ${context.payload.inputs.original_ref}`,
+              body: `## Cross-Time Determinism Failure
+
+              **Original Build**: ${{ github.event.inputs.original_ref }}
+              **Original Run**: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.event.inputs.original_run_id }}
+              **Validation Run**: https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
+              **Delay**: ${{ github.event.inputs.delay_hours }} hours
+
+              ### Impact
+              Build artifacts are NOT reproducible across time. This indicates:
+              - Timestamps or randomness in build process
+              - Non-deterministic dependencies
+              - Environmental drift
+
+              ### Required Actions
+              1. Block all future releases until fixed
+              2. Review build process for non-deterministic elements
+              3. Check SOURCE_DATE_EPOCH usage
+              4. Verify dependency pinning
+
+              ### Evidence
+              See attached artifacts in validation run for diff details.
+
+              cc: @security-team`,
+              labels: ['security', 'determinism', 'critical']
+            });
+
+            // Fail the workflow
+            core.setFailed('Build is not deterministic - issue created: #' + issue.data.number);
+
+      - name: Success notification
+        if: steps.compare.outputs.deterministic == 'true'
+        run: |
+          echo "✅ Build IS deterministic after ${DETERMINISM_DELAY} delay"
+          echo "Original and rebuilt artifacts match perfectly"
