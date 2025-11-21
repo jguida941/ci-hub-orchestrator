@@ -36,7 +36,7 @@ jobs:
           - slug: ci-cd-bst-demo-github-actions
             repository: jguida941/ci-cd-bst-demo-github-actions
             path: .
-            language: java
+            language: python
     env:
       MUTATION_CONFIG: config/mutation-observatory.ci.yaml
       RUN_DIR: ${{ github.workspace }}/artifacts/mutation/${{ matrix.slug }}
@@ -165,8 +165,6 @@ jobs:
 
       - name: Run mutation tests (Java with PIT)
         if: matrix.language == 'java'
-        env:
-          MAVEN_OPTS: "-ntp"
         run: |
           set -euo pipefail
           mkdir -p "$RUN_DIR"
@@ -175,7 +173,7 @@ jobs:
             TARGET_DIR="target/${{ matrix.path }}"
           fi
           cd "$TARGET_DIR"
-          mvn -B verify
+          mvn -B -ntp verify
           REPORT_PATH="target/pit-reports/mutations.xml"
           if [ ! -f "$REPORT_PATH" ]; then
             echo "::error::PIT report not found at $REPORT_PATH"

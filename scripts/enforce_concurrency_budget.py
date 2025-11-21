@@ -64,7 +64,7 @@ def _http_get(url: str, token: str) -> dict[str, Any]:
     if host not in ALLOWED_GITHUB_HOSTS or port not in (None, 443):
         raise SystemExit(f"[concurrency-budget] refusing to contact unknown host: {parsed.netloc}")
 
-    request = urllib.request.Request(  # noqa: S310 - scheme/netloc validated above
+    request = urllib.request.Request(  # noqa: S310 - HTTPS + host validated above
         url,
         headers={
             "Authorization": f"Bearer {token}",
@@ -73,7 +73,7 @@ def _http_get(url: str, token: str) -> dict[str, Any]:
         },
     )
     try:
-        with urllib.request.urlopen(request, timeout=20) as response:  # nosec B310 - HTTPS and host validated above
+        with urllib.request.urlopen(request, timeout=20) as response:  # noqa: S310 - HTTPS and host validated above
             payload = response.read()
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", "replace")

@@ -2,7 +2,7 @@
 
 Source of truth: runner/proxy policy that backs `HTTP(S)_PROXY`/`NO_PROXY` in `.github/workflows/release.yml` (`DEFAULT_ALLOWLIST`) and any perimeter firewall rules. Keep this table in sync with the workflow and change-management tickets.
 
-### Current Allowlist (from release workflow)
+## Current Allowlist (from release workflow)
 | Destination | Purpose | Notes |
 |-------------|---------|-------|
 | github.com, api.github.com | GitHub API + actions | Required for workflow/checkout. |
@@ -15,7 +15,7 @@ Source of truth: runner/proxy policy that backs `HTTP(S)_PROXY`/`NO_PROXY` in `.
 | kind.sigs.k8s.io, dl.k8s.io | kind/Kubernetes binaries | Local/CI clusters. |
 | blob.core.windows.net | Action/cache backing store | Runner cache. |
 
-### Environment-specific endpoints (fill these in)
+## Environment-specific endpoints (fill these in)
 | Destination | Purpose | Notes |
 |-------------|---------|-------|
 | `<dns-hostname>:53` | DNS resolution | Prefer org DNS or resolver behind the proxy. |

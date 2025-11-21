@@ -4,33 +4,33 @@ All work items live in GitHub Issues; this file groups the themes and points to 
 
 Add an Issue link for each row (fill in once created).
 
-### Supply-chain enforcement
+## Supply-chain enforcement
 | Item | Issue | Notes |
 | --- | --- | --- |
 | Validate proxy-based egress denial in CI and record evidence under `artifacts/security/` | TBD – create GH Issue | security/egress |
 | Promote Kyverno/OPA policies from audit-only to enforce in the target cluster; include rollout runbook | TBD – create GH Issue | policy/kyverno |
 | Add Dependabot/Renovate and locked dependency policies (pip `--require-hashes`, no `npx`) for reproducibility | TBD – create GH Issue | supply-chain |
 
-### Determinism & evidence
+## Determinism & evidence
 | Item | Issue | Notes |
 | --- | --- | --- |
 | Elevate cross-time determinism from advisory to gating and surface failures as required checks | TBD – create GH Issue | determinism |
 | Sign and publish the evidence bundle as an OCI artifact; verify at admission | TBD – create GH Issue | evidence |
 
-### Multi-repo isolation & fairness
+## Multi-repo isolation & fairness
 | Item | Issue | Notes |
 | --- | --- | --- |
 | Implement per-repo secret brokerage (GitHub App + Vault) replacing shared `GITHUB_TOKEN` | TBD – create GH Issue | multi-repo/secrets |
 | Add token-bucket rate limiting / fairness with Redis-backed queueing for matrix jobs | TBD – create GH Issue | multi-repo/scheduling |
 | Enforce per-repo concurrency/memory budgets on self-hosted runners where feasible | TBD – create GH Issue | multi-repo/isolation |
 
-### Observability & cost
+## Observability & cost
 | Item | Issue | Notes |
 | --- | --- | --- |
 | Wire pipeline telemetry to BigQuery (or chosen warehouse) and publish per-repo dashboards | TBD – create GH Issue | observability/cost |
 | Emit queue-denial and gate outcomes as metrics/NDJSON for SLOs | TBD – create GH Issue | observability |
 
-### Environment-specific wiring
+## Environment-specific wiring
 | Item | Issue | Notes |
 | --- | --- | --- |
 | Release workflow: set real Dockerfile/build context; registry creds; SLSA provenance path; pinned installs; populate `fixtures/supply_chain/vex_exemptions.json` | TBD – create GH Issue | release/supply-chain |
@@ -44,7 +44,7 @@ Add an Issue link for each row (fill in once created).
 | dbt tests: align `models/tests/data_quality.yml` thresholds to your warehouse | TBD – create GH Issue | data/dbt |
 | Docs: fill in real registry/bucket/IAM/SOC2/ISO mappings in `docs/SUPPLY_CHAIN.md`, `docs/SECURITY.md`, `docs/DR_RUNBOOK.md` | TBD – create GH Issue | docs |
 
-### Documentation governance
+## Documentation governance
 | Item | Issue | Notes |
 | --- | --- | --- |
 | Keep README status and `docs/status/honest-status.md` in lockstep; update dates/readiness together | TBD – create GH Issue | docs |
