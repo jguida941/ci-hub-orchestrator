@@ -154,7 +154,7 @@ jobs:
           cd "$TARGET_DIR"
           CMD="${{ matrix.build_cmd && matrix.build_cmd != 'null' && matrix.build_cmd || '' }}"
           if [ -z "$CMD" ]; then
-            CMD="mvn -B -ntp verify"
+            CMD="mvn -B -ntp verify spotbugs:spotbugs"
           fi
           if [ -n "$NVD_API_KEY" ]; then
             CMD="$CMD -Dnvd.api.key=$NVD_API_KEY"
@@ -170,4 +170,6 @@ jobs:
           path: |
             artifacts/python/**/*
             target/**/target/surefire-reports/*.xml
+            target/**/target/spotbugsXml.xml
+            target/**/target/site/jacoco/jacoco.xml
           if-no-files-found: warn
