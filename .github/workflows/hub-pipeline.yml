@@ -33,12 +33,529 @@ jobs:
             echo "No static secrets detected in workflow definitions"
           fi
 
-  project-ci:
+  load-repositories:
     needs: workflow-guard
-    uses: ./.github/workflows/project-ci.yml
-    secrets: inherit
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.load.outputs.matrix }}
+      mutation_matrix: ${{ steps.load_mut.outputs.matrix }}
+    steps:
+      - name: Checkout automation repo
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Load repository configuration (lint/test)
+        id: load
+        run: |
+          set -euo pipefail
+          MATRIX_JSON=$(python3 scripts/load_repository_matrix.py)
+          echo "$MATRIX_JSON" | jq .
+          {
+            echo "matrix<<EOF"
+            echo "$MATRIX_JSON"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Load repository configuration (mutation)
+        id: load_mut
+        run: |
+          set -euo pipefail
+          MATRIX_JSON=$(python3 scripts/load_repository_matrix.py --require-mutation)
+          echo "$MATRIX_JSON" | jq .
+          {
+            echo "matrix<<EOF"
+            echo "$MATRIX_JSON"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+  project-ci:
+    needs: [workflow-guard, load-repositories]
+    runs-on: ubuntu-22.04
+    timeout-minutes: ${{ matrix.timeout_minutes || 60 }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.load-repositories.outputs.matrix) }}
+    steps:
+      - name: Checkout automation repo
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Get default branch for ${{ matrix.repository }}
+        id: get_branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          DEFAULT_BRANCH=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
+            "https://api.github.com/repos/${{ matrix.repository }}" | \
+            jq -r '.default_branch')
+          if [ -z "$DEFAULT_BRANCH" ] || [ "$DEFAULT_BRANCH" = "null" ]; then
+            echo "::error::Failed to detect default branch for ${{ matrix.repository }} (API error, rate limit, or repo not found)"
+            exit 1
+          fi
+          echo "branch=${DEFAULT_BRANCH}" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout ${{ matrix.repository }}
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ steps.get_branch.outputs.branch }}
+          path: target
+          token: ${{ secrets.REPO_READ_TOKEN || github.token }}
+
+      - name: Detect language and target dir
+        id: detect
+        run: |
+          set -euo pipefail
+          TARGET_DIR="target"
+          if [ -n "${{ matrix.path }}" ] && [ "${{ matrix.path }}" != "." ]; then
+            TARGET_DIR="target/${{ matrix.path }}"
+          fi
+          if [ ! -d "$TARGET_DIR" ]; then
+            echo "::error::Target directory not found: $TARGET_DIR"
+            exit 1
+          fi
+
+          LANGUAGE="${{ matrix.language }}"
+          if [ -z "$LANGUAGE" ] || [ "$LANGUAGE" = "null" ]; then
+            if find "$TARGET_DIR" -maxdepth 1 -name "pom.xml" | grep -q .; then
+              LANGUAGE="java"
+            elif [ -f "$TARGET_DIR/pyproject.toml" ] || find "$TARGET_DIR" -maxdepth 1 -name "requirements*.txt" | grep -q .; then
+              LANGUAGE="python"
+            fi
+          fi
+
+          echo "language=$LANGUAGE" >> "$GITHUB_OUTPUT"
+          echo "target_dir=$TARGET_DIR" >> "$GITHUB_OUTPUT"
+          if [ "$LANGUAGE" = "unknown" ] || [ -z "$LANGUAGE" ]; then
+            echo "::error::Could not detect project type in $TARGET_DIR (no pom.xml, pyproject.toml, or requirements*.txt)"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python deps
+        if: steps.detect.outputs.language == 'python'
+        run: |
+          set -euo pipefail
+          TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-cov
+          if [ -f "$TARGET_DIR/pyproject.toml" ]; then
+            (cd "$TARGET_DIR" && python -m pip install -e '.[dev]' || python -m pip install -e .)
+          fi
+          if [ -f "$TARGET_DIR/requirements-dev.txt" ]; then
+            python -m pip install -r "$TARGET_DIR/requirements-dev.txt"
+          fi
+          if [ -f "$TARGET_DIR/requirements.txt" ]; then
+            python -m pip install -r "$TARGET_DIR/requirements.txt"
+          fi
+
+      - name: Lint (ruff, bandit)
+        if: steps.detect.outputs.language == 'python'
+        run: |
+          set -euo pipefail
+          TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}"
+          python -m pip install ruff bandit
+          (cd "$TARGET_DIR" && ruff check . --format json > "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/ruff.json") || true
+          (cd "$TARGET_DIR" && ruff check . > "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/ruff.txt") || true
+          (cd "$TARGET_DIR" && bandit -r . -f json -o "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/bandit.json") || true
+          (cd "$TARGET_DIR" && bandit -r . > "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/bandit.txt") || true
+
+      - name: Dependency audit (pip-audit)
+        if: steps.detect.outputs.language == 'python'
+        env:
+          PIP_AUDIT_PROGRESS_BAR: off
+        run: |
+          set -euo pipefail
+          TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}"
+          (cd "$TARGET_DIR" && pip-audit -r requirements.txt -f json > "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/pip-audit.json") || true
+          (cd "$TARGET_DIR" && pip-audit -r requirements.txt > "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/pip-audit.txt") || true
+
+      - name: Test (pytest)
+        if: steps.detect.outputs.language == 'python'
+        run: |
+          set -euo pipefail
+          TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
+          mkdir -p artifacts/python/${{ matrix.name }}
+          PYTEST_ARGS="--junitxml=$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/junit.xml --cov=. --cov-report=xml:$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/coverage.xml"
+          if ! (cd "$TARGET_DIR" && pytest $PYTEST_ARGS); then
+            echo "::error::pytest failed for $TARGET_DIR"
+            exit 1
+          fi
+
+      - name: Set up Java
+        if: steps.detect.outputs.language == 'java'
+        uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk_version || '21' }}
+          cache: maven
+
+      - name: Build/Test (maven)
+        if: steps.detect.outputs.language == 'java'
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY || '' }}
+        run: |
+          set -euo pipefail
+          TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
+          cd "$TARGET_DIR"
+          CMD="${{ matrix.build_cmd && matrix.build_cmd != 'null' && matrix.build_cmd || '' }}"
+          if [ -z "$CMD" ]; then
+            CMD="mvn -B -ntp verify spotbugs:spotbugs"
+          fi
+          if [ -n "$NVD_API_KEY" ]; then
+            CMD="$CMD -Dnvd.api.key=$NVD_API_KEY"
+          fi
+          echo "::notice::Running: $CMD"
+          sh -c "$CMD"
+
+      - name: Dependency check (warn-only)
+        if: steps.detect.outputs.language == 'java' && (matrix.enable_depcheck != false)
+        env:
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY || '' }}
+        run: |
+          set -euo pipefail
+          TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/java/${{ matrix.name }}"
+          cd "$TARGET_DIR"
+          dc_cmd="mvn -B -ntp org.owasp:dependency-check-maven:check -Dformat=XML -DfailOnError=false -DfailBuildOnCVSS=0"
+          if [ -n "$NVD_API_KEY" ]; then
+            dc_cmd="$dc_cmd -Dnvd.api.key=$NVD_API_KEY"
+          fi
+          echo "::notice::Running: $dc_cmd (warn-only)"
+          sh -c "$dc_cmd" || true
+          find target -name \"dependency-check-report.xml\" -print -quit | head -n1 | xargs -I{} cp {} \"$GITHUB_WORKSPACE/artifacts/java/${{ matrix.name }}/dependency-check-report.xml\" || true
+
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: project-ci-${{ matrix.name }}
+          path: |
+            artifacts/python/**/*
+            artifacts/java/**/*
+            target/**/target/surefire-reports/*.xml
+            target/**/target/spotbugsXml.xml
+            target/**/target/site/jacoco/jacoco.xml
+          if-no-files-found: warn
+
+      - name: Record summary entry
+        if: always()
+        id: summarize
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/summary
+          SUMMARY_ENTRY=$(cat <<'JSON'
+          {
+            "name": "${{ matrix.name }}",
+            "repo": "${{ matrix.repository }}",
+            "path": "${{ matrix.path }}",
+            "language": "${{ steps.detect.outputs.language }}",
+            "status": "${{ job.status }}",
+            "junit": "artifacts/python/${{ matrix.name }}/junit.xml",
+            "coverage_py": "artifacts/python/${{ matrix.name }}/coverage.xml",
+            "jacoco": "target/**/target/site/jacoco/jacoco.xml",
+            "spotbugs": "target/**/target/spotbugsXml.xml",
+            "bandit": "artifacts/python/${{ matrix.name }}/bandit.json",
+            "ruff": "artifacts/python/${{ matrix.name }}/ruff.json",
+            "pip_audit": "artifacts/python/${{ matrix.name }}/pip-audit.json",
+            "depcheck": "artifacts/java/${{ matrix.name }}/dependency-check-report.xml",
+            "artifact": "project-ci-${{ matrix.name }}"
+          }
+          JSON
+          )
+          echo "$SUMMARY_ENTRY" > "artifacts/summary/${{ matrix.name }}.json"
+
+  summarize:
+    needs: project-ci
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout automation repo
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Download per-repo artifacts
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts
+          pattern: project-ci-*
+          merge-multiple: true
+
+      - name: Download project-ci summary artifact
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts
+          name: project-ci-summary
+
+      - name: Install summary dependencies
+        run: pip install defusedxml
+
+      - name: Build summary
+        run: |
+          set -euo pipefail
+          if [ ! -d artifacts ]; then
+            echo "No artifacts downloaded; skipping summary build."
+            exit 0
+          fi
+          python scripts/build_project_ci_summary.py \
+            --summary-dir artifacts/summary \
+            --artifacts-root artifacts \
+            --json-output artifacts/project-ci-summary.json \
+            --markdown-output artifacts/project-ci-summary.md
+          cat artifacts/project-ci-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload combined summary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: project-ci-summary
+          path: artifacts/project-ci-summary.json
+          if-no-files-found: error
 
   mutation:
-    needs: [workflow-guard, project-ci]
-    uses: ./.github/workflows/mutation.yml
-    secrets: inherit
+    needs: [workflow-guard, load-repositories]
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout_minutes || 60 }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.load-repositories.outputs.mutation_matrix) }}
+    env:
+      MUTATION_CONFIG: config/mutation-observatory.ci.yaml
+      RUN_DIR: ${{ github.workspace }}/artifacts/mutation/${{ matrix.slug || matrix.name }}
+      TARGET_REPO: ${{ matrix.repository }}
+      MUTATION_ARTIFACT_NAME: mutation-observatory-${{ matrix.slug || matrix.name }}
+      MATRIX_SLUG: ${{ matrix.slug || matrix.name }}
+      TARGET_PATH: ${{ matrix.path }}
+    steps:
+      - name: Checkout automation repo
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Get default branch for ${{ matrix.repository }}
+        id: get_branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          DEFAULT_BRANCH=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
+            "https://api.github.com/repos/${{ matrix.repository }}" | \
+            jq -r '.default_branch')
+          if [ -z "$DEFAULT_BRANCH" ] || [ "$DEFAULT_BRANCH" = "null" ]; then
+            echo "::error::Failed to detect default branch for ${{ matrix.repository }} (API error, rate limit, or repo not found)"
+            exit 1
+          fi
+          echo "branch=${DEFAULT_BRANCH}" >> "$GITHUB_OUTPUT"
+          echo "::notice::Auto-detected default branch for ${{ matrix.repository }}: ${DEFAULT_BRANCH}"
+
+      - name: Checkout ${{ matrix.repository }}
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+        with:
+          repository: ${{ matrix.repository }}
+          ref: ${{ steps.get_branch.outputs.branch }}
+          path: target
+          token: ${{ secrets.REPO_READ_TOKEN || github.token }}
+
+      - name: Detect project language and paths
+        id: detect
+        run: |
+          set -euo pipefail
+          TARGET_DIR="target"
+          if [ -n "${{ matrix.path }}" ] && [ "${{ matrix.path }}" != "." ]; then
+            TARGET_DIR="target/${{ matrix.path }}"
+          fi
+          if [ ! -d "$TARGET_DIR" ]; then
+            echo "::error::Target directory not found: $TARGET_DIR"
+            exit 1
+          fi
+
+          LANGUAGE="${{ matrix.language }}"
+          if [ -z "$LANGUAGE" ] || [ "$LANGUAGE" = "null" ]; then
+            if find "$TARGET_DIR" -maxdepth 1 -name "pom.xml" | grep -q .; then
+              LANGUAGE="java"
+            elif [ -f "$TARGET_DIR/pyproject.toml" ] || find "$TARGET_DIR" -maxdepth 1 -name "requirements*.txt" | grep -q .; then
+              LANGUAGE="python"
+            fi
+          fi
+
+          echo "language=$LANGUAGE" >> "$GITHUB_OUTPUT"
+          echo "target_dir=$TARGET_DIR" >> "$GITHUB_OUTPUT"
+          echo "::notice::Detected language=$LANGUAGE for $TARGET_DIR"
+          if [ "$LANGUAGE" = "unknown" ] || [ -z "$LANGUAGE" ]; then
+            echo "::error::Could not detect project type in $TARGET_DIR (no pom.xml, pyproject.toml, or requirements*.txt)"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.12'
+
+      - name: Install shared Python deps
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml defusedxml
+
+      - name: Install Python dependencies (if applicable)
+        if: steps.detect.outputs.language == 'python'
+        run: |
+          set -euo pipefail
+          TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
+          python -m pip install --upgrade pip
+          if [ -f "$TARGET_DIR/pyproject.toml" ]; then
+            (cd "$TARGET_DIR" && python -m pip install -e '.[dev]' || python -m pip install -e .)
+          fi
+          if [ -f "$TARGET_DIR/requirements-dev.txt" ]; then
+            python -m pip install -r "$TARGET_DIR/requirements-dev.txt"
+          fi
+          if [ -f "$TARGET_DIR/requirements.txt" ]; then
+            python -m pip install -r "$TARGET_DIR/requirements.txt"
+          fi
+          python -m pip install pytest
+
+      - name: Set up Java
+        if: steps.detect.outputs.language == 'java'
+        uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.jdk_version || '21' }}
+          cache: maven
+
+      - name: Run mutation tests (Python)
+        if: steps.detect.outputs.language == 'python'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUN_DIR"
+          PYTEST_TARGET="${{ steps.detect.outputs.target_dir }}"
+          python tools/scripts/generate_mutation_reports.py \
+            --stryker "$RUN_DIR/stryker-report.json" \
+            --mutmut "$RUN_DIR/mutmut-report.json" \
+            --allow-fail \
+            --pytest-args "$PYTEST_TARGET"
+
+      - name: Run mutation tests (Java with PIT)
+        if: steps.detect.outputs.language == 'java'
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUN_DIR"
+          TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
+          cd "$TARGET_DIR"
+          if [ -n "${{ matrix.build_cmd || '' }}" ] && [ "${{ matrix.build_cmd }}" != "null" ]; then
+            echo "::notice::Using matrix build_cmd: ${{ matrix.build_cmd }}"
+            sh -c "${{ matrix.build_cmd }}"
+          else
+            mvn -B -ntp verify
+          fi
+
+          if [ -n "${{ matrix.pit_report || '' }}" ] && [ "${{ matrix.pit_report }}" != "null" ]; then
+            REPORT_PATH="${{ matrix.pit_report }}"
+          else
+            REPORT_PATH=$(find target pit-reports -maxdepth 3 -name "mutations.xml" 2>/dev/null | head -n1 || true)
+          fi
+          if [ -z "$REPORT_PATH" ]; then
+            echo "::error::PIT report not found. Searched default locations or matrix.pit_report."
+            exit 1
+          fi
+          python "$GITHUB_WORKSPACE/tools/scripts/pitest_to_json.py" \
+            --input "$REPORT_PATH" \
+            --stryker "$RUN_DIR/stryker-report.json" \
+            --mutmut "$RUN_DIR/mutmut-report.json"
+
+      - name: Sync reports for observatory
+        run: |
+          set -euo pipefail
+          mkdir -p "config/artifacts/mutation/${{ env.MATRIX_SLUG }}"
+          cp "$RUN_DIR/stryker-report.json" "config/artifacts/mutation/${{ env.MATRIX_SLUG }}/stryker-report.json"
+          cp "$RUN_DIR/mutmut-report.json" "config/artifacts/mutation/${{ env.MATRIX_SLUG }}/mutmut-report.json"
+
+      - name: Run Mutation Observatory
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
+          mkdir -p "$RUN_DIR"
+          python tools/mutation_observatory.py \
+            --config "$MUTATION_CONFIG" \
+            --output "$RUN_DIR/run.json" \
+            --ndjson "$RUN_DIR/run.ndjson" \
+            --markdown "$RUN_DIR/summary.md" \
+            --html "$RUN_DIR/summary.html" \
+            --repo "${TARGET_REPO}" \
+            --branch "${{ steps.get_branch.outputs.branch }}" \
+            --commit-sha "${{ steps.target_meta.outputs.commit }}" \
+            --run-id "${{ github.run_id }}-${{ github.run_attempt }}"
+
+      - name: Annotate summary with repository
+        run: |
+          set -euo pipefail
+          printf '## Repository: %s (%s)\\n\\n' "$TARGET_REPO" "${{ steps.get_branch.outputs.branch }}" | cat - "$RUN_DIR/summary.md" > "$RUN_DIR/summary.tmp"
+          mv "$RUN_DIR/summary.tmp" "$RUN_DIR/summary.md"
+
+      - name: Print summary
+        run: cat "$RUN_DIR/summary.md"
+
+      - name: Upload Mutation Observatory artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ env.MUTATION_ARTIFACT_NAME }}
+          path: ${{ env.RUN_DIR }}
+          if-no-files-found: error
+
+      - name: Comment Mutation Observatory summary
+        if: github.event_name == 'pull_request' && matrix.repository == github.repository
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            if (!context.payload.pull_request) {
+              core.info('No pull_request payload, skipping comment.');
+              return;
+            }
+            const workspace = process.env.GITHUB_WORKSPACE || '.';
+            const runDir = process.env.RUN_DIR || 'artifacts/mutation';
+            const summaryPath = path.join(workspace, runDir, 'summary.md');
+            if (!fs.existsSync(summaryPath)) {
+              core.warning(`Summary file not found at ${summaryPath}`);
+              return;
+            }
+            const summaryMarkdown = fs.readFileSync(summaryPath, 'utf8').trim();
+            const { owner, repo } = context.repo;
+            const runId = context.runId;
+            const artifactsResponse = await github.rest.actions.listWorkflowRunArtifacts({
+              owner,
+              repo,
+              run_id: runId,
+            });
+            const expectedName = process.env.MUTATION_ARTIFACT_NAME || 'mutation-observatory';
+            const artifact = artifactsResponse.data.artifacts.find(
+              (a) => a.name === expectedName && !a.expired
+            );
+            let htmlLink = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
+            if (artifact) {
+              htmlLink = htmlLink + `/artifacts/${artifact.id}`;
+            }
+            const slug = process.env.MATRIX_SLUG || process.env.TARGET_REPO || 'primary';
+            const header = `🧪 **Mutation Observatory Report (${slug})**`;
+            const body = [
+              header,
+              '',
+              summaryMarkdown,
+              '',
+              `Artifacts: [link](${htmlLink})`
+            ].join('\\n');
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: context.payload.pull_request.number,
+              body,
+            });
