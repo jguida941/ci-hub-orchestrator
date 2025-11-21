@@ -55,6 +55,7 @@ class RepoSummary:
     line_coverage: Optional[float] = None
     spotbugs: Optional[int] = None
     bandit: Optional[Dict[str, int]] = None
+    ruff_issues: Optional[int] = None
     notes: List[str] = field(default_factory=list)
 
     def as_dict(self) -> Dict[str, object]:
@@ -68,6 +69,7 @@ class RepoSummary:
             "line_coverage": self.line_coverage,
             "spotbugs": self.spotbugs,
             "bandit": self.bandit,
+            "ruff_issues": self.ruff_issues,
             "notes": self.notes,
         }
 
@@ -155,6 +157,18 @@ def parse_bandit(files: List[Path]) -> Optional[Dict[str, int]]:
     return None
 
 
+def parse_ruff(files: List[Path]) -> Optional[int]:
+    """Return total ruff issues from JSON output."""
+    for file in files:
+        try:
+            data = json.loads(file.read_text())
+        except (json.JSONDecodeError, OSError):
+            continue
+        if isinstance(data, list):
+            return len(data)
+    return None
+
+
 def load_repo_entries(summary_dir: Path) -> List[Dict[str, object]]:
     entries = []
     for file in sorted(summary_dir.glob("*.json")):
@@ -174,11 +188,13 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
         jacoco_files = _glob_files(base, "**/jacoco.xml")
         spotbugs_files = _glob_files(base, "**/spotbugsXml.xml")
         bandit_files = _glob_files(base, "**/bandit.json")
+        ruff_files = _glob_files(base, "**/ruff.json")
 
         junit_stats = parse_junit(junit_files)
         line_cov = parse_jacoco(jacoco_files) if jacoco_files else None
         spotbugs = parse_spotbugs(spotbugs_files)
         bandit = parse_bandit(bandit_files)
+        ruff_issues = parse_ruff(ruff_files)
 
         summary = RepoSummary(
             name=name,
@@ -190,6 +206,7 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
             line_coverage=line_cov,
             spotbugs=spotbugs,
             bandit=bandit,
+            ruff_issues=ruff_issues,
         )
 
         if not junit_files:
@@ -200,6 +217,8 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
             summary.notes.append("SpotBugs XML missing")
         if entry.get("language") == "python" and not bandit_files:
             summary.notes.append("Bandit report missing")
+        if entry.get("language") == "python" and not ruff_files:
+            summary.notes.append("Ruff report missing")
 
         summaries.append(summary)
     return summaries
@@ -207,8 +226,8 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
 
 def render_markdown(summaries: List[RepoSummary]) -> str:
     lines = ["## Project CI Summary", ""]
-    lines.append("| Repo | Lang | Status | Tests (pass/fail/error/skip) | Line Cov | SpotBugs | Bandit | Notes |")
-    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- |")
+    lines.append("| Repo | Lang | Status | Tests (pass/fail/error/skip) | Line Cov | SpotBugs | Bandit | Ruff | Notes |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for s in summaries:
         if s.junit:
             tests_str = f"{s.junit.passed}/{s.junit.failures}/{s.junit.errors}/{s.junit.skipped} (total {s.junit.tests})"
@@ -220,9 +239,10 @@ def render_markdown(summaries: List[RepoSummary]) -> str:
             bandit_str = f"L{s.bandit.get('LOW', 0)}/M{s.bandit.get('MEDIUM', 0)}/H{s.bandit.get('HIGH', 0)}"
         else:
             bandit_str = "n/a"
+        ruff_str = str(s.ruff_issues) if s.ruff_issues is not None else "n/a"
         notes = "; ".join(s.notes) if s.notes else ""
         lines.append(
-            f"| {s.repo} | {s.language} | {s.status} | {tests_str} | {cov_str} | {spotbugs_str} | {bandit_str} | {notes} |"
+            f"| {s.repo} | {s.language} | {s.status} | {tests_str} | {cov_str} | {spotbugs_str} | {bandit_str} | {ruff_str} | {notes} |"
         )
     return "\n".join(lines)
 

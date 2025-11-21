@@ -121,9 +121,11 @@ jobs:
         run: |
           set -euo pipefail
           TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
-          python -m pip install ruff bandit
-          (cd "$TARGET_DIR" && ruff check .)
           mkdir -p "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}"
+          python -m pip install ruff bandit
+          # Run ruff and bandit; capture results but do not fail the job on findings.
+          (cd "$TARGET_DIR" && ruff check . --format json > "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/ruff.json") || true
+          (cd "$TARGET_DIR" && ruff check . > "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/ruff.txt") || true
           # Run bandit and capture JSON/text; do not fail the job on findings.
           (cd "$TARGET_DIR" && bandit -r . -f json -o "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/bandit.json") || true
           (cd "$TARGET_DIR" && bandit -r . > "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/bandit.txt") || true
@@ -194,6 +196,7 @@ jobs:
             "jacoco": "target/**/target/site/jacoco/jacoco.xml",
             "spotbugs": "target/**/target/spotbugsXml.xml",
             "bandit": "artifacts/python/${{ matrix.name }}/bandit.json",
+            "ruff": "artifacts/python/${{ matrix.name }}/ruff.json",
             "artifact": "project-ci-${{ matrix.name }}"
           }
           JSON
