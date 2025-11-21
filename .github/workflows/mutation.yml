@@ -1,11 +1,6 @@
 name: mutation-observatory
 
 on:
-  push:
-    branches:
-      - master
-      - main
-  pull_request:
   workflow_dispatch:
   workflow_call:
 
