@@ -189,6 +189,8 @@ jobs:
       - name: Run Mutation Observatory
         run: |
           set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install pyyaml
           mkdir -p "$RUN_DIR"
           python tools/mutation_observatory.py \
             --config "$MUTATION_CONFIG" \
