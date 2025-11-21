@@ -17,7 +17,7 @@ ensure_rekor_cli() {
   if command -v rekor-cli >/dev/null 2>&1; then
     return 0
   fi
-  local version="${REKOR_CLI_VERSION:-v1.4.0}"
+  local version="${REKOR_CLI_VERSION:-v1.5.0}"
   local os
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   local arch
