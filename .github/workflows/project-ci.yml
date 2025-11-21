@@ -36,6 +36,8 @@ jobs:
   project-ci:
     needs: load-repositories
     runs-on: ubuntu-22.04
+    outputs:
+      summary: ${{ steps.summarize.outputs.summary_json }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.load-repositories.outputs.matrix) }}
@@ -173,3 +175,59 @@ jobs:
             target/**/target/spotbugsXml.xml
             target/**/target/site/jacoco/jacoco.xml
           if-no-files-found: warn
+
+      - name: Record summary entry
+        if: always()
+        id: summarize
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/summary
+          SUMMARY_ENTRY=$(cat <<'JSON'
+          {
+            "repo": "${{ matrix.repository }}",
+            "path": "${{ matrix.path }}",
+            "language": "${{ steps.detect.outputs.language }}",
+            "status": "${{ job.status }}"
+          }
+          JSON
+          )
+          echo "$SUMMARY_ENTRY" > "artifacts/summary/${{ matrix.name }}.json"
+
+  summarize:
+    needs: project-ci
+    if: always()
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout automation repo
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Download summaries
+        uses: actions/download-artifact@9ba4a2f843d1fd9f8a7c6d7f75c58d448e3c7470 # v4
+        with:
+          path: artifacts
+          name: '**'
+
+      - name: Build summary
+        run: |
+          set -euo pipefail
+          SUMMARY_DIR="artifacts/summary"
+          if [ ! -d "$SUMMARY_DIR" ]; then
+            echo "No summary artifacts found"
+            exit 0
+          fi
+          SUMMARY_JSON=$(jq -s '.' "$SUMMARY_DIR"/*.json)
+          echo "$SUMMARY_JSON" > artifacts/project-ci-summary.json
+          {
+            echo "## Project CI Summary"
+            echo ""
+            echo "| Repo | Language | Status |"
+            echo "| --- | --- | --- |"
+            echo "$SUMMARY_JSON" | jq -r '.[] | "| \(.repo) | \(.language) | \(.status) |"'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload combined summary
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: project-ci-summary
+          path: artifacts/project-ci-summary.json
+          if-no-files-found: error

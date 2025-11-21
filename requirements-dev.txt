@@ -11,4 +11,5 @@ bandit==1.7.0
 pip-audit==2.7.0
 dbt-core==1.10.13
 dbt-duckdb==1.9.6
+defusedxml==0.7.1
 # For locked versions see requirements-dev.lock

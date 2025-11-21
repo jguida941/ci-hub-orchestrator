@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import xml.etree.ElementTree as ET  # noqa: S314 - parsing trusted local PIT report
+from defusedxml import ElementTree as ET  # safe XML parsing
 from pathlib import Path
 from typing import Any, Dict, List
 
