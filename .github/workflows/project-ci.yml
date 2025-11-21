@@ -187,7 +187,6 @@ jobs:
         run: |
           set -euo pipefail
           TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
-          mkdir -p "$GITHUB_WORKSPACE/artifacts/java/${{ matrix.name }}"
           cd "$TARGET_DIR"
           dc_cmd="mvn -B -ntp org.owasp:dependency-check-maven:check -Dformat=XML -DfailOnError=false -DfailBuildOnCVSS=0"
           if [ -n "$NVD_API_KEY" ]; then
@@ -195,7 +194,17 @@ jobs:
           fi
           echo "::notice::Running: $dc_cmd (warn-only)"
           sh -c "$dc_cmd" || true
-          find target -name \"dependency-check-report.xml\" -print -quit | head -n1 | xargs -I{} cp {} \"$GITHUB_WORKSPACE/artifacts/java/${{ matrix.name }}/dependency-check-report.xml\" || true
+          report_dir="$GITHUB_WORKSPACE/artifacts/java/${{ matrix.name }}"
+          mkdir -p "$report_dir"
+          report_matches=$(find target -name "dependency-check-report.*" -print || true)
+          if [ -z "$report_matches" ]; then
+            echo "::warning::Dependency-Check report not found under $TARGET_DIR/target"
+          else
+            while IFS= read -r report_path; do
+              [ -z "$report_path" ] && continue
+              cp "$report_path" "$report_dir/$(basename "$report_path")" || true
+            done <<< "$report_matches"
+          fi
 
       - name: Upload test artifacts
         if: always()
