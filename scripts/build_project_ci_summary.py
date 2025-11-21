@@ -123,7 +123,7 @@ def _collect_artifact_files(
     key: str,
     artifacts_root: Path,
     artifact_dir: Optional[Path],
-    fallback_pattern: Optional[str] = None,
+    fallback_pattern: Optional[object] = None,
 ) -> tuple[List[Path], bool]:
     matches: List[Path] = []
     roots: List[Path] = []
@@ -139,10 +139,10 @@ def _collect_artifact_files(
         for pattern in patterns:
             matches.extend(_glob_files(root, pattern))
 
-    if fallback_pattern and artifact_dir_exists:
-        matches.extend(_glob_files(artifact_dir, fallback_pattern))
-
-    if fallback_pattern and artifact_dir_exists:
+    fallback_patterns = _ensure_str_list(fallback_pattern)
+    if fallback_patterns and artifact_dir_exists:
+        for pattern in fallback_patterns:
+            matches.extend(_glob_files(artifact_dir, pattern))
         expected = True
 
     return _dedupe_paths(matches), expected
@@ -280,15 +280,91 @@ def parse_pip_audit(files: List[Path]) -> Optional[int]:
 def parse_depcheck(files: List[Path]) -> Optional[Dict[str, int]]:
     """Return severity counts from OWASP Dependency-Check XML."""
     for file in files:
-        try:
-            root = ET.parse(file).getroot()
-        except ET.ParseError:
+        suffix = file.suffix.lower()
+        if suffix == ".xml":
+            try:
+                root = ET.parse(file).getroot()
+            except ET.ParseError:
+                continue
+            counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+            for vuln in root.findall(".//vulnerability"):
+                sev = (vuln.findtext("severity") or "").upper()
+                if sev in counts:
+                    counts[sev] += 1
+            return counts
+        if suffix in {".html", ".htm"}:
+            counts = _parse_depcheck_html(file)
+            if counts:
+                return counts
+    return None
+
+
+def _parse_depcheck_html(file: Path) -> Optional[Dict[str, int]]:
+    """Parse severity counts from the HTML summary table."""
+    try:
+        text = file.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+
+    from html.parser import HTMLParser
+    from html import unescape
+
+    class _SummaryParser(HTMLParser):
+        def __init__(self) -> None:
+            super().__init__()
+            self.in_table = False
+            self.in_td_stack: List[str] = []
+            self.current_row: List[str] = []
+            self.rows: List[List[str]] = []
+
+        def handle_starttag(self, tag: str, attrs: List[tuple[str, str]]) -> None:
+            if tag == "table":
+                for key, value in attrs:
+                    if key == "id" and value == "summaryTable":
+                        self.in_table = True
+            if self.in_table and tag == "tr":
+                self.current_row = []
+            if self.in_table and tag == "td":
+                self.in_td_stack.append("")
+
+        def handle_data(self, data: str) -> None:
+            if not self.in_td_stack:
+                return
+            self.in_td_stack[-1] += data
+
+        def handle_endtag(self, tag: str) -> None:
+            if tag == "td" and self.in_td_stack:
+                data = unescape(self.in_td_stack.pop()).strip()
+                self.current_row.append(data)
+            if tag == "tr" and self.in_table:
+                if self.current_row:
+                    self.rows.append(self.current_row)
+                self.current_row = []
+            if tag == "table" and self.in_table:
+                self.in_table = False
+
+    parser = _SummaryParser()
+    try:
+        parser.feed(text)
+    except Exception:
+        return None
+
+    if not parser.rows:
+        return None
+
+    counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    for row in parser.rows:
+        if len(row) < 4:
             continue
-        counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
-        for vuln in root.findall(".//vulnerability"):
-            sev = (vuln.findtext("severity") or "").upper()
-            if sev in counts:
-                counts[sev] += 1
+        severity_text = row[3].upper()
+        matched = None
+        for key in counts:
+            if key in severity_text:
+                matched = key
+                break
+        if matched:
+            counts[matched] += 1
+    if any(counts.values()):
         return counts
     return None
 
@@ -316,15 +392,67 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
         name = entry.get("name") or entry.get("repo", "").split("/")[-1]
         artifact_name = entry.get("artifact") or f"project-ci-{name}"
         artifact_dir = artifacts_root / artifact_name if artifact_name else None
+        language = entry.get("language", "unknown")
+        language_lower = language.lower() if isinstance(language, str) else "unknown"
+        python_repo = language_lower == "python"
+        java_repo = language_lower == "java"
 
-        junit_files, junit_expected = _collect_artifact_files(entry, "junit", artifacts_root, artifact_dir, "**/junit.xml")
-        jacoco_files, jacoco_expected = _collect_artifact_files(entry, "jacoco", artifacts_root, artifact_dir, "**/jacoco.xml")
-        coverage_py_files, coverage_expected = _collect_artifact_files(entry, "coverage_py", artifacts_root, artifact_dir, "**/coverage.xml")
-        spotbugs_files, spotbugs_expected = _collect_artifact_files(entry, "spotbugs", artifacts_root, artifact_dir, "**/spotbugsXml.xml")
-        bandit_files, bandit_expected = _collect_artifact_files(entry, "bandit", artifacts_root, artifact_dir, "**/bandit.json")
-        ruff_files, ruff_expected = _collect_artifact_files(entry, "ruff", artifacts_root, artifact_dir, "**/ruff.json")
-        pip_audit_files, pip_audit_expected = _collect_artifact_files(entry, "pip_audit", artifacts_root, artifact_dir, "**/pip-audit.json")
-        depcheck_files, depcheck_expected = _collect_artifact_files(entry, "depcheck", artifacts_root, artifact_dir, "**/dependency-check-report.xml")
+        junit_files, junit_expected = _collect_artifact_files(
+            entry,
+            "junit",
+            artifacts_root,
+            artifact_dir,
+            ["**/junit.xml", "**/TEST-*.xml"],
+        )
+        jacoco_files, jacoco_expected = _collect_artifact_files(
+            entry,
+            "jacoco",
+            artifacts_root,
+            artifact_dir,
+            ["**/jacoco.xml", "**/jacoco*.xml"] if java_repo else None,
+        )
+        coverage_py_files, coverage_expected = _collect_artifact_files(
+            entry,
+            "coverage_py",
+            artifacts_root,
+            artifact_dir,
+            ["**/coverage.xml"] if python_repo else None,
+        )
+        spotbugs_files, spotbugs_expected = _collect_artifact_files(
+            entry,
+            "spotbugs",
+            artifacts_root,
+            artifact_dir,
+            ["**/spotbugsXml.xml"] if java_repo else None,
+        )
+        bandit_files, bandit_expected = _collect_artifact_files(
+            entry,
+            "bandit",
+            artifacts_root,
+            artifact_dir,
+            ["**/bandit*.json"] if python_repo else None,
+        )
+        ruff_files, ruff_expected = _collect_artifact_files(
+            entry,
+            "ruff",
+            artifacts_root,
+            artifact_dir,
+            ["**/ruff*.json"] if python_repo else None,
+        )
+        pip_audit_files, pip_audit_expected = _collect_artifact_files(
+            entry,
+            "pip_audit",
+            artifacts_root,
+            artifact_dir,
+            ["**/pip-audit*.json"] if python_repo else None,
+        )
+        depcheck_files, depcheck_expected = _collect_artifact_files(
+            entry,
+            "depcheck",
+            artifacts_root,
+            artifact_dir,
+            ["**/dependency-check-report.xml", "**/dependency-check-report.html"] if java_repo else None,
+        )
 
         junit_stats = parse_junit(junit_files)
         line_cov = parse_jacoco(jacoco_files) if jacoco_files else None
@@ -334,9 +462,6 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
         ruff_issues = parse_ruff(ruff_files)
         pip_audit = parse_pip_audit(pip_audit_files)
         depcheck = parse_depcheck(depcheck_files)
-
-        language = entry.get("language", "unknown")
-        language_lower = language.lower() if isinstance(language, str) else "unknown"
 
         summary = RepoSummary(
             name=name,
