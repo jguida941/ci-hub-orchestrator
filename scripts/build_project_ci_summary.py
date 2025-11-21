@@ -58,6 +58,7 @@ class RepoSummary:
     bandit: Optional[Dict[str, int]] = None
     ruff_issues: Optional[int] = None
     pip_audit: Optional[int] = None
+    depcheck: Optional[Dict[str, int]] = None
     notes: List[str] = field(default_factory=list)
 
     def as_dict(self) -> Dict[str, object]:
@@ -74,6 +75,7 @@ class RepoSummary:
             "bandit": self.bandit,
             "ruff_issues": self.ruff_issues,
             "pip_audit": self.pip_audit,
+            "depcheck": self.depcheck,
             "notes": self.notes,
         }
 
@@ -211,6 +213,22 @@ def parse_pip_audit(files: List[Path]) -> Optional[int]:
     return None
 
 
+def parse_depcheck(files: List[Path]) -> Optional[Dict[str, int]]:
+    """Return severity counts from OWASP Dependency-Check XML."""
+    for file in files:
+        try:
+            root = ET.parse(file).getroot()
+        except ET.ParseError:
+            continue
+        counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+        for vuln in root.findall(".//vulnerability"):
+            sev = (vuln.findtext("severity") or "").upper()
+            if sev in counts:
+                counts[sev] += 1
+        return counts
+    return None
+
+
 def load_repo_entries(summary_dir: Path) -> List[Dict[str, object]]:
     entries = []
     for file in sorted(summary_dir.glob("*.json")):
@@ -233,6 +251,7 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
         bandit_files = _glob_files(base, "**/bandit.json")
         ruff_files = _glob_files(base, "**/ruff.json")
         pip_audit_files = _glob_files(base, "**/pip-audit.json")
+        depcheck_files = _glob_files(base, "**/dependency-check-report.xml")
 
         junit_stats = parse_junit(junit_files)
         line_cov = parse_jacoco(jacoco_files) if jacoco_files else None
@@ -241,6 +260,7 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
         bandit = parse_bandit(bandit_files)
         ruff_issues = parse_ruff(ruff_files)
         pip_audit = parse_pip_audit(pip_audit_files)
+        depcheck = parse_depcheck(depcheck_files)
 
         summary = RepoSummary(
             name=name,
@@ -255,6 +275,7 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
             bandit=bandit,
             ruff_issues=ruff_issues,
             pip_audit=pip_audit,
+            depcheck=depcheck,
         )
 
         if not junit_files:
@@ -271,6 +292,8 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
             summary.notes.append("Coverage (coverage.py) missing")
         if entry.get("language") == "python" and not pip_audit_files:
             summary.notes.append("pip-audit report missing")
+        if entry.get("language") == "java" and not depcheck_files:
+            summary.notes.append("Dependency-Check report missing")
 
         summaries.append(summary)
     return summaries
@@ -278,8 +301,8 @@ def build_summaries(entries: List[Dict[str, object]], artifacts_root: Path) -> L
 
 def render_markdown(summaries: List[RepoSummary]) -> str:
     lines = ["## Project CI Summary", ""]
-    lines.append("| Repo | Lang | Status | Tests (pass/fail/error/skip) | Line Cov (Java) | Line Cov (Py) | SpotBugs | Bandit | Ruff | pip-audit | Notes |")
-    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    lines.append("| Repo | Lang | Status | Tests (pass/fail/error/skip) | Line Cov (Java) | Line Cov (Py) | SpotBugs | Bandit | Ruff | pip-audit | DepCheck | Notes |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |")
     for s in summaries:
         if s.junit:
             tests_str = f"{s.junit.passed}/{s.junit.failures}/{s.junit.errors}/{s.junit.skipped} (total {s.junit.tests})"
@@ -294,9 +317,13 @@ def render_markdown(summaries: List[RepoSummary]) -> str:
             bandit_str = "n/a"
         ruff_str = str(s.ruff_issues) if s.ruff_issues is not None else "n/a"
         pip_audit_str = str(s.pip_audit) if s.pip_audit is not None else "n/a"
+        if s.depcheck:
+            dep_str = f"C{s.depcheck.get('CRITICAL',0)}/H{s.depcheck.get('HIGH',0)}/M{s.depcheck.get('MEDIUM',0)}/L{s.depcheck.get('LOW',0)}"
+        else:
+            dep_str = "n/a"
         notes = "; ".join(s.notes) if s.notes else ""
         lines.append(
-            f"| {s.repo} | {s.language} | {s.status} | {tests_str} | {cov_str} | {cov_py_str} | {spotbugs_str} | {bandit_str} | {ruff_str} | {pip_audit_str} | {notes} |"
+            f"| {s.repo} | {s.language} | {s.status} | {tests_str} | {cov_str} | {cov_py_str} | {spotbugs_str} | {bandit_str} | {ruff_str} | {pip_audit_str} | {dep_str} | {notes} |"
         )
     return "\n".join(lines)
 

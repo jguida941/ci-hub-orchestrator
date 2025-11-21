@@ -15,8 +15,6 @@ workflows:
         runs_on: ubuntu-latest
   security-lint.yml:
     jobs:
-      python-security:
-        runs_on: ubuntu-22.04
       workflow-guard:
         runs_on: ubuntu-22.04
   release.yml:
