@@ -247,11 +247,20 @@ jobs:
       - name: Checkout automation repo
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
-      - name: Download summaries
+      - name: Download per-repo artifacts
+        continue-on-error: true
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: artifacts
-          name: '**'
+          pattern: project-ci-*
+          merge-multiple: true
+
+      - name: Download project-ci summary artifact
+        continue-on-error: true
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: artifacts
+          name: project-ci-summary
 
       - name: Install summary dependencies
         run: pip install defusedxml
@@ -259,6 +268,10 @@ jobs:
       - name: Build summary
         run: |
           set -euo pipefail
+          if [ ! -d artifacts ]; then
+            echo "No artifacts downloaded; skipping summary build."
+            exit 0
+          fi
           python scripts/build_project_ci_summary.py \
             --summary-dir artifacts/summary \
             --artifacts-root artifacts \
