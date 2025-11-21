@@ -255,6 +255,11 @@ def parse_ruff(files: List[Path]) -> Optional[int]:
         try:
             data = json.loads(file.read_text())
         except (json.JSONDecodeError, OSError):
+            try:
+                if file.stat().st_size == 0:
+                    return 0
+            except OSError:
+                pass
             continue
         if isinstance(data, list):
             return len(data)
@@ -268,10 +273,13 @@ def parse_pip_audit(files: List[Path]) -> Optional[int]:
             data = json.loads(file.read_text())
         except (json.JSONDecodeError, OSError):
             continue
-        # pip-audit JSON is a list of packages with vulnerabilities array
+        vulns = 0
         if isinstance(data, list):
-            vulns = 0
             for pkg in data:
+                vulns += len(pkg.get("vulns", []))
+            return vulns
+        if isinstance(data, dict) and "dependencies" in data:
+            for pkg in data.get("dependencies", []):
                 vulns += len(pkg.get("vulns", []))
             return vulns
     return None
