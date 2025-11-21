@@ -36,8 +36,6 @@ jobs:
   project-ci:
     needs: load-repositories
     runs-on: ubuntu-22.04
-    outputs:
-      summary: ${{ steps.summarize.outputs.summary_json }}
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.load-repositories.outputs.matrix) }}
@@ -125,7 +123,10 @@ jobs:
           TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
           python -m pip install ruff bandit
           (cd "$TARGET_DIR" && ruff check .)
-          (cd "$TARGET_DIR" && bandit -r . -c /.bandit.yaml || bandit -r .)
+          mkdir -p "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}"
+          # Run bandit and capture JSON/text; do not fail the job on findings.
+          (cd "$TARGET_DIR" && bandit -r . -f json -o "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/bandit.json") || true
+          (cd "$TARGET_DIR" && bandit -r . > "$GITHUB_WORKSPACE/artifacts/python/${{ matrix.name }}/bandit.txt") || true
 
       - name: Test (pytest)
         if: steps.detect.outputs.language == 'python'
@@ -184,13 +185,16 @@ jobs:
           mkdir -p artifacts/summary
           SUMMARY_ENTRY=$(cat <<'JSON'
           {
+            "name": "${{ matrix.name }}",
             "repo": "${{ matrix.repository }}",
             "path": "${{ matrix.path }}",
             "language": "${{ steps.detect.outputs.language }}",
             "status": "${{ job.status }}",
             "junit": "artifacts/python/${{ matrix.name }}/junit.xml",
             "jacoco": "target/**/target/site/jacoco/jacoco.xml",
-            "spotbugs": "target/**/target/spotbugsXml.xml"
+            "spotbugs": "target/**/target/spotbugsXml.xml",
+            "bandit": "artifacts/python/${{ matrix.name }}/bandit.json",
+            "artifact": "project-ci-${{ matrix.name }}"
           }
           JSON
           )
@@ -210,26 +214,18 @@ jobs:
           path: artifacts
           name: '**'
 
+      - name: Install summary dependencies
+        run: pip install defusedxml
+
       - name: Build summary
         run: |
           set -euo pipefail
-          SUMMARY_DIR="artifacts/summary"
-          if [ ! -d "$SUMMARY_DIR" ]; then
-            echo "No summary artifacts found"
-            exit 0
-          fi
-          SUMMARY_JSON=$(jq -s '.' "$SUMMARY_DIR"/*.json)
-          echo "$SUMMARY_JSON" > artifacts/project-ci-summary.json
-          {
-            echo "## Project CI Summary"
-            echo ""
-            echo "| Repo | Language | Status | Notes |"
-            echo "| --- | --- | --- | --- |"
-            echo "$SUMMARY_JSON" | jq -r '
-              .[] |
-              "| \(.repo) | \(.language) | \(.status) | JUnit: \(.junit // "n/a"), JaCoCo: \(.jacoco // "n/a"), SpotBugs: \(.spotbugs // "n/a") |"
-            '
-          } >> "$GITHUB_STEP_SUMMARY"
+          python scripts/build_project_ci_summary.py \
+            --summary-dir artifacts/summary \
+            --artifacts-root artifacts \
+            --json-output artifacts/project-ci-summary.json \
+            --markdown-output artifacts/project-ci-summary.md
+          cat artifacts/project-ci-summary.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload combined summary
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

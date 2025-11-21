@@ -1,12 +1,12 @@
 # Documentation & Process Audit
 
-Snapshot: repository state inspected in this session (root README/plan plus docs/*). Objective: consolidate documentation into authoritative sources (ADRs, changelog, backlog), remove drift, and enforce governance around Markdown assets.
+Snapshot: repository state inspected in this session (root README/plan plus docs/*). Objective: consolidate documentation into authoritative sources (ADRs, changelog, backlog), remove drift, and enforce governance around Markdown assets and pipelines.
 
 ## Updates this run (2025-11-21)
-- Rebuilt `audit-index.md` (timestamped 2025-11-21T02:59:03Z) with vendor/generated tagging; covers 100 % of files, including new `deploy/kyverno/install.yaml`, and drops the stale `tmp/vector_space/README.md`.
-- Ran `scripts/docs/check_orphan_docs.py` → ✅ no orphan docs.
-- Rescanned non-doc Markdown: `data/README.md` ignores the `data/dr/*` and `data/artifacts/*` fixtures; `data-quality-and-dr/README.md` calls `dr_recall.sh` a placeholder even though it restores and hashes backups; `policies/egress-allowlist.md` still uses example.com endpoints; `docs/analysis/index.md` continues to claim 35 % readiness and references work estimates that diverge from the honest status.
-- Cleaned `docs/index.md` review dates (placeholders removed) and aligned `docs/analysis/index.md` with the honest status SoT.
+- Project CI workflow now builds a consolidated summary (tests, JaCoCo line coverage, SpotBugs counts) via `scripts/build_project_ci_summary.py` and publishes it to the run summary + `project-ci-summary` artifact.
+- Per-repo summary records now include stable artifact names and matrix identifiers so aggregation works across all repos in `config/repositories.yaml`.
+- Mutation/CI matrices remain manifest-driven (`config/repositories.yaml`), keeping python/java repos in lockstep; PyYAML/defusedxml are installed where needed to unblock runs.
+- Remaining gaps are documented below (e.g., richer metrics parsing, unifying security/workflow lint runners, and moving more jobs to the manifest).
 
 ## Key Findings
 - Readiness/confidence signals now align between `README.md`, `docs/status/honest-status.md`, and `docs/analysis/index.md`; keep them in lockstep when numbers change.
@@ -14,6 +14,13 @@ Snapshot: repository state inspected in this session (root README/plan plus docs
 - Non-doc Markdown drift: `data/README.md` omits the DR/provenance fixtures actually present; `data-quality-and-dr/README.md` understates `dr_recall.sh`; `policies/egress-allowlist.md` contains placeholder hosts/ports and needs real allowlist entries.
 - Generated + vendor assets need clear non-SoT markings: `artifacts/**`, `models/target/**`, `tmp/**` are now tagged “generated” in `audit-index.md` but still appear under the repo tree; vendor dbt packages are tagged “yes”. Treat them as read-only when consolidating.
 - Backlog/changelog exist now, but `docs/backlog.md` uses placeholder Issue URLs (1–23). Replace with real GitHub Issue links or IDs when available and keep the root `CHANGELOG.md` as the only changelog.
+
+## CI/CD workflow audit (python + java focus)
+- Manifest-driven workflows: `project-ci.yml` (lint/test per repo + aggregated summary) and `mutation.yml` (pytest or PIT via manifest; installs PyYAML/defusedxml). Repos tracked in `config/repositories.yaml`.
+- Single-repo workflows still scoped to this hub: `unit.yml`, `security-lint.yml`, `tools-ci.yml`, `chaos.yml`, `dr-drill.yml`, `schema-ci.yml`, `kyverno-e2e.yml`, `rekor-monitor.yml`, `sign-digest.yml`, `update-action-pins.yml`, `cross-time-determinism.yml`. Decide which should become manifest-driven versus remain hub-only.
+- Gaps: project summary does not yet parse coverage/mutation/SpotBugs severities per repo; Python coverage is not captured; Java dep-check relies on `NVD_API_KEY` secret; CodeQL is hub-only.
+- Duplication risk: multiple workflows run overlapping lint/test steps; need a single promotion path (lint → unit → mutation) with fan-out per repo + a shared summary artifact.
+- Artifact hygiene: summaries now publish to `project-ci-summary` but mutation summaries stay per-repo; add a roll-up once mutation + project-ci are green to show tests/coverage/mutation in one table.
 
 ## Source-of-Truth Map (proposed)
 - Strategy/roadmap: `plan.md` (trim to controls + phased outcomes; demote gap tracker to backlog source).
