@@ -13,35 +13,46 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  load-repositories:
+    runs-on: ubuntu-22.04
+    outputs:
+      matrix: ${{ steps.load.outputs.matrix }}
+    steps:
+      - name: Checkout automation repo
+        uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Load repository configuration
+        id: load
+        run: |
+          set -euo pipefail
+          MATRIX_JSON=$(python3 scripts/load_repository_matrix.py)
+          echo "$MATRIX_JSON" | jq .
+          {
+            echo "matrix<<EOF"
+            echo "$MATRIX_JSON"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
   observatory:
+    needs: load-repositories
     permissions:
       contents: read
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - slug: ci-cd-hub
-            repository: jguida941/ci-cd-hub
-            path: .
-          - slug: learn-caesar-cipher
-            repository: jguida941/learn-caesar-cipher
-            path: caesar_cli
-          - slug: contact-service-junit
-            repository: jguida941/contact-service-junit
-            path: .
-          - slug: ci-cd-bst-demo-github-actions
-            repository: jguida941/ci-cd-bst-demo-github-actions
-            path: .
+      matrix: ${{ fromJson(needs.load-repositories.outputs.matrix) }}
     env:
       MUTATION_CONFIG: config/mutation-observatory.ci.yaml
-      RUN_DIR: ${{ github.workspace }}/artifacts/mutation/${{ matrix.slug }}
+      RUN_DIR: ${{ github.workspace }}/artifacts/mutation/${{ matrix.slug || matrix.name }}
       TARGET_REPO: ${{ matrix.repository }}
-      MUTATION_ARTIFACT_NAME: mutation-observatory-${{ matrix.slug }}
-      MATRIX_SLUG: ${{ matrix.slug }}
+      MUTATION_ARTIFACT_NAME: mutation-observatory-${{ matrix.slug || matrix.name }}
+      MATRIX_SLUG: ${{ matrix.slug || matrix.name }}
       TARGET_PATH: ${{ matrix.path }}
     steps:
-      - name: Checkout
+      - name: Checkout automation repo
         uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
       - name: Get default branch for ${{ matrix.repository }}
@@ -50,7 +61,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          # Use environment variable for token to prevent exposure in process listings
           DEFAULT_BRANCH=$(curl -s -H "Authorization: token ${GH_TOKEN}" \
             "https://api.github.com/repos/${{ matrix.repository }}" | \
             jq -r '.default_branch')
@@ -69,13 +79,6 @@ jobs:
           path: target
           token: ${{ secrets.REPO_READ_TOKEN || github.token }}
 
-      - name: Capture target metadata
-        id: target_meta
-        run: |
-          set -euo pipefail
-          COMMIT=$(git -C target rev-parse HEAD)
-          echo "commit=$COMMIT" >> "$GITHUB_OUTPUT"
-
       - name: Detect project language and paths
         id: detect
         run: |
@@ -89,17 +92,19 @@ jobs:
             exit 1
           fi
 
-          LANGUAGE="unknown"
-          if find "$TARGET_DIR" -maxdepth 1 -name "pom.xml" | grep -q .; then
-            LANGUAGE="java"
-          elif [ -f "$TARGET_DIR/pyproject.toml" ] || find "$TARGET_DIR" -maxdepth 1 -name "requirements*.txt" | grep -q .; then
-            LANGUAGE="python"
+          LANGUAGE="${{ matrix.language }}"
+          if [ -z "$LANGUAGE" ] || [ "$LANGUAGE" = "null" ]; then
+            if find "$TARGET_DIR" -maxdepth 1 -name "pom.xml" | grep -q .; then
+              LANGUAGE="java"
+            elif [ -f "$TARGET_DIR/pyproject.toml" ] || find "$TARGET_DIR" -maxdepth 1 -name "requirements*.txt" | grep -q .; then
+              LANGUAGE="python"
+            fi
           fi
 
           echo "language=$LANGUAGE" >> "$GITHUB_OUTPUT"
           echo "target_dir=$TARGET_DIR" >> "$GITHUB_OUTPUT"
           echo "::notice::Detected language=$LANGUAGE for $TARGET_DIR"
-          if [ "$LANGUAGE" = "unknown" ]; then
+          if [ "$LANGUAGE" = "unknown" ] || [ -z "$LANGUAGE" ]; then
             echo "::error::Could not detect project type in $TARGET_DIR (no pom.xml, pyproject.toml, or requirements*.txt)"
             exit 1
           fi
@@ -113,61 +118,25 @@ jobs:
         if: steps.detect.outputs.language == 'python'
         run: |
           set -euo pipefail
+          TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
           python -m pip install --upgrade pip
-          python -m pip install -r requirements-dev.txt
-
-      - name: Install target dependencies
-        run: |
-          set -euo pipefail
-          TARGET_SUBDIR="${{ matrix.path }}"
-          if [ -z "$TARGET_SUBDIR" ] || [ "$TARGET_SUBDIR" = "." ]; then
-            TARGET_DIR="target"
-          else
-            TARGET_DIR="target/${TARGET_SUBDIR}"
+          if [ -f "$TARGET_DIR/pyproject.toml" ]; then
+            (cd "$TARGET_DIR" && python -m pip install -e '.[dev]' || python -m pip install -e .)
           fi
-          cd "$TARGET_DIR"
-          # Install target repo dependencies - try multiple sources
-          INSTALLED=0
-
-          # Try pyproject.toml first (most comprehensive)
-          if [ -f pyproject.toml ]; then
-            echo "::notice::Found pyproject.toml, attempting installation"
-            if python -m pip install -e '.[dev]' 2>/dev/null; then
-              INSTALLED=1
-              echo "::notice::Installed via pyproject.toml[dev]"
-            elif python -m pip install -e . 2>/dev/null; then
-              INSTALLED=1
-              echo "::notice::Installed via pyproject.toml"
-            fi
+          if [ -f "$TARGET_DIR/requirements-dev.txt" ]; then
+            python -m pip install -r "$TARGET_DIR/requirements-dev.txt"
           fi
-
-          # Try requirements-dev.txt (includes test dependencies)
-          if [ $INSTALLED -eq 0 ] && [ -f requirements-dev.txt ]; then
-            echo "::notice::Found requirements-dev.txt"
-            python -m pip install -r requirements-dev.txt
-            INSTALLED=1
+          if [ -f "$TARGET_DIR/requirements.txt" ]; then
+            python -m pip install -r "$TARGET_DIR/requirements.txt"
           fi
-
-          # Try requirements.txt (production dependencies)
-          if [ $INSTALLED -eq 0 ] && [ -f requirements.txt ]; then
-            echo "::notice::Found requirements.txt"
-            python -m pip install -r requirements.txt
-            INSTALLED=1
-          fi
-
-          # Always ensure pytest is available
           python -m pip install pytest
-
-          if [ $INSTALLED -eq 0 ]; then
-            echo "::warning::No dependency files found (pyproject.toml, requirements*.txt)"
-          fi
 
       - name: Set up Java
         if: steps.detect.outputs.language == 'java'
         uses: actions/setup-java@8df1039502a15bceb9433410b1a100fbe190c53b # v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: ${{ matrix.jdk_version || '21' }}
           cache: maven
 
       - name: Run mutation tests (Python)
@@ -176,7 +145,6 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUN_DIR"
           PYTEST_TARGET="${{ steps.detect.outputs.target_dir }}"
-          # Run pytest against the target repo, not the hub's tests
           python tools/scripts/generate_mutation_reports.py \
             --stryker "$RUN_DIR/stryker-report.json" \
             --mutmut "$RUN_DIR/mutmut-report.json" \
@@ -190,23 +158,33 @@ jobs:
           mkdir -p "$RUN_DIR"
           TARGET_DIR="${{ steps.detect.outputs.target_dir }}"
           cd "$TARGET_DIR"
-          mvn -B -ntp verify
+          if [ -n "${{ matrix.build_cmd || '' }}" ] && [ "${{ matrix.build_cmd }}" != "null" ]; then
+            echo "::notice::Using matrix build_cmd: ${{ matrix.build_cmd }}"
+            sh -c "${{ matrix.build_cmd }}"
+          else
+            mvn -B -ntp verify
+          fi
 
-          REPORT_PATH=$(find target pit-reports -maxdepth 3 -name "mutations.xml" 2>/dev/null | head -n1 || true)
+          if [ -n "${{ matrix.pit_report || '' }}" ] && [ "${{ matrix.pit_report }}" != "null" ]; then
+            REPORT_PATH="${{ matrix.pit_report }}"
+          else
+            REPORT_PATH=$(find target pit-reports -maxdepth 3 -name "mutations.xml" 2>/dev/null | head -n1 || true)
+          fi
           if [ -z "$REPORT_PATH" ]; then
-            echo "::error::PIT report not found. Searched: target/**/pit-reports/mutations.xml and pit-reports/**/mutations.xml"
+            echo "::error::PIT report not found. Searched default locations or matrix.pit_report."
             exit 1
           fi
           python "$GITHUB_WORKSPACE/tools/scripts/pitest_to_json.py" \
             --input "$REPORT_PATH" \
             --stryker "$RUN_DIR/stryker-report.json" \
             --mutmut "$RUN_DIR/mutmut-report.json"
+
       - name: Sync reports for observatory
         run: |
           set -euo pipefail
-          mkdir -p "config/artifacts/mutation/${{ matrix.slug }}"
-          cp "$RUN_DIR/stryker-report.json" "config/artifacts/mutation/${{ matrix.slug }}/stryker-report.json"
-          cp "$RUN_DIR/mutmut-report.json" "config/artifacts/mutation/${{ matrix.slug }}/mutmut-report.json"
+          mkdir -p "config/artifacts/mutation/${{ env.MATRIX_SLUG }}"
+          cp "$RUN_DIR/stryker-report.json" "config/artifacts/mutation/${{ env.MATRIX_SLUG }}/stryker-report.json"
+          cp "$RUN_DIR/mutmut-report.json" "config/artifacts/mutation/${{ env.MATRIX_SLUG }}/mutmut-report.json"
 
       - name: Run Mutation Observatory
         run: |
@@ -278,39 +256,13 @@ jobs:
             const body = [
               header,
               '',
-              `[Download HTML report (artifact)](${htmlLink})`,
-              '',
-              '<details>',
-              '<summary>Markdown summary</summary>',
-              '',
               summaryMarkdown,
               '',
-              '</details>',
+              `Artifacts: [link](${htmlLink})`
             ].join('\n');
-            const issue_number = context.payload.pull_request.number;
-            const existing = await github.rest.issues.listComments({
+            await github.rest.issues.createComment({
               owner,
               repo,
-              issue_number,
-              per_page: 100,
+              issue_number: context.payload.pull_request.number,
+              body,
             });
-            const botComment = existing.data.find(
-              (comment) =>
-                comment.user?.login === 'github-actions[bot]' &&
-                comment.body?.includes(header)
-            );
-            if (botComment) {
-              await github.rest.issues.updateComment({
-                owner,
-                repo,
-                comment_id: botComment.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner,
-                repo,
-                issue_number,
-                body,
-              });
-            }

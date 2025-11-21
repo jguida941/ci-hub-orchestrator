@@ -70,6 +70,8 @@ def format_for_matrix(repositories: list) -> dict:
 
     for repo in repositories:
         settings = repo.get('settings', {})
+        if settings.get('enable_mutation') is False:
+            continue
         # Parse timeout to minutes for GitHub Actions
         timeout_minutes = parse_timeout_minutes(settings.get('build_timeout', '30m'))
 
@@ -80,6 +82,14 @@ def format_for_matrix(repositories: list) -> dict:
             'path': settings.get('path', '.'),
             'package': settings.get('package', False),
             'timeout_minutes': timeout_minutes,
+            'language': settings.get('language', ''),
+            'build_cmd': settings.get('build_cmd', ''),
+            'test_cmd': settings.get('test_cmd', ''),
+            'pit_report': settings.get('pit_report', ''),
+            'jdk_version': settings.get('jdk_version', '21'),
+            'enable_mutation': settings.get('enable_mutation', True),
+            'enable_codeql': settings.get('enable_codeql', False),
+            'enable_depcheck': settings.get('enable_depcheck', False),
             'settings': settings
         }
         matrix_entries.append(entry)

@@ -9,6 +9,21 @@
 # - Concurrency limits
 
 repositories:
+  - name: ci-cd-hub
+    owner: jguida941
+    enabled: true
+    settings:
+      build_timeout: 45m
+      path: .
+      language: python
+      enable_mutation: true
+      enable_codeql: true
+      enable_depcheck: false
+      allowed_egress:
+        - github.com
+        - api.github.com
+        - ghcr.io
+
   - name: learn-caesar-cipher
     owner: jguida941
     enabled: true
@@ -24,23 +39,46 @@ repositories:
       secret_scope: caesar-cipher
       package: true
       path: caesar_cli
+      language: python
+      enable_mutation: true
+      enable_codeql: false
+      enable_depcheck: false
 
-  - name: vector-space
+  - name: contact-service-junit
     owner: jguida941
     enabled: true
     settings:
       build_timeout: 45m
-      resource_limit_mb: 4096
-      max_parallel_jobs: 2
+      path: .
+      language: java
+      jdk_version: '21'
+      enable_mutation: true
+      enable_codeql: false
+      enable_depcheck: true
+      allowed_egress:
+        - github.com
+        - api.github.com
+        - objects.githubusercontent.com
+      secret_scope: contact-service
+      package: false
+
+  - name: ci-cd-bst-demo-github-actions
+    owner: jguida941
+    enabled: true
+    settings:
+      build_timeout: 30m
+      path: .
+      language: python
+      enable_mutation: true
+      enable_codeql: false
+      enable_depcheck: false
       allowed_egress:
         - github.com
         - api.github.com
         - pypi.org
         - files.pythonhosted.org
-        - objects.githubusercontent.com
-      secret_scope: vector-space
+      secret_scope: bst-demo
       package: false
-      path: .
 
 # Template for adding new repositories:
 #  - name: my-project
