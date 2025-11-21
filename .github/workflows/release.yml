@@ -135,7 +135,7 @@ jobs:
           # Get repo-specific egress allowlist from matrix
           REPO_ALLOWLIST="${{ join(matrix.settings.allowed_egress, ',') }}"
 
-          DEFAULT_ALLOWLIST="github.com,api.github.com,ghcr.io,registry.npmjs.org,pypi.org,files.pythonhosted.org,objects.githubusercontent.com,raw.githubusercontent.com,sigstore.dev,storage.googleapis.com,kind.sigs.k8s.io,dl.k8s.io,githubusercontent.com"
+          DEFAULT_ALLOWLIST="github.com,api.github.com,ghcr.io,registry.npmjs.org,pypi.org,files.pythonhosted.org,objects.githubusercontent.com,raw.githubusercontent.com,sigstore.dev,storage.googleapis.com,kind.sigs.k8s.io,dl.k8s.io,githubusercontent.com,actions.githubusercontent.com,pipelines.actions.githubusercontent.com,release-assets.githubusercontent.com,blob.core.windows.net"
           if [[ -n "$REPO_ALLOWLIST" ]]; then
             echo "✅ Per-repo egress allowlist: $REPO_ALLOWLIST"
             REPO_ALLOWLIST="$REPO_ALLOWLIST,$DEFAULT_ALLOWLIST"
@@ -367,6 +367,18 @@ jobs:
             --status "$STATUS" \
             --junit "${BASE_PATH}.junit.xml" \
             --coverage "${BASE_PATH}.coverage.xml"
+
+      - name: Disable proxy for GitHub artifact uploads
+        if: always()
+        run: |
+          set -euo pipefail
+          echo "::notice::Clearing proxy environment variables before GitHub service calls"
+          {
+            echo "HTTP_PROXY="
+            echo "HTTPS_PROXY="
+            echo "http_proxy="
+            echo "https_proxy="
+          } >> "$GITHUB_ENV"
 
       - name: Upload project test logs
         if: always() && steps.run_project_tests.conclusion != 'skipped' && steps.run_project_tests.conclusion != 'cancelled'
