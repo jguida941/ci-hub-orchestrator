@@ -2,16 +2,16 @@
 
 [LICENSE](LICENSE) · [Security](docs/SECURITY.md)
 
-**Work in progress, not stable or secure at the moment**
+> **Status:** Experimental, work in progress. CI runs may fail and controls are not yet wired end to end.  
+> **Do not use in production.** Documentation and workflows are currently being updated; some details may change.
+>
+> Production-grade CI/CD intelligence platform that hardens the software supply chain, proves determinism, and converts pipeline telemetry into executive-grade analytics, implemented according to the blueprint in `plan.md`.
+>
+> **Current status (2025-11-02):** ~85% ready for trusted single-repository use on GitHub-hosted runners. Multi-repository hub features (per-repo secrets, rate limiting, cost tracking) remain in progress. Proxy-based egress controls need validation in CI, and cross-time determinism is a post-release audit, not a merge gate.
+>
+> **Use in production only after:** confirming egress enforcement in real runs, deploying Kyverno policies to the target cluster, and implementing the Phase 2 roadmap in `MULTI_REPO_IMPLEMENTATION_STATUS.md`. Track real-time readiness in [`HONEST_STATUS.md`](docs/status/honest-status.md).
 
-> Production-grade CI/CD intelligence platform that hardens the software supply chain, proves determinism, and converts pipeline telemetry into executive-grade analytics—implemented according to the blueprint in `plan.md`.
->
-> **Current status (2025-11-02)**: ~85 % ready for trusted single-repository use on GitHub-hosted runners. Multi-repository hub features (per-repo secrets, rate limiting, cost tracking) remain in progress. Proxy-based egress controls need validation in CI, and cross-time determinism is a post-release audit, not a merge gate.
->
-> **Use in production only after**: confirming egress enforcement in real runs, deploying Kyverno policies to the target cluster, and implementing the Phase 2 roadmap in `MULTI_REPO_IMPLEMENTATION_STATUS.md`. Track real-time readiness in [`HONEST_STATUS.md`](docs/status/honest-status.md).
 This README gives engineers, auditors, and downstream repos an actionable entry point: how to run the core checks, what the platform guarantees, which components are stable, and where to find every artifact referenced in the plan.
-
-## Quick start
 
 ```bash
 # 1) Setup
