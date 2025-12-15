@@ -56,7 +56,7 @@ echo "----------------------"
 check "SMOKE_TEST.md exists" "[ -f '$REPO_ROOT/docs/development/SMOKE_TEST.md' ]"
 check "SMOKE_TEST_REPOS.md exists" "[ -f '$REPO_ROOT/docs/development/SMOKE_TEST_REPOS.md' ]"
 check "README.md index exists" "[ -f '$REPO_ROOT/docs/README.md' ]"
-check "WORKFLOWS.md updated" "grep -q 'Smoke Test' '$REPO_ROOT/docs/WORKFLOWS.md'"
+check "WORKFLOWS.md updated" "grep -q 'Smoke Test' '$REPO_ROOT/docs/guides/WORKFLOWS.md'"
 
 echo ""
 

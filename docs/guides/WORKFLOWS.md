@@ -118,6 +118,8 @@ Validates all hub repo configs against the JSON schema on config/schema/script c
 
 **File:** `.github/workflows/smoke-test.yml`
 
+Docs: see `docs/development/SMOKE_TEST.md` and `docs/development/SMOKE_TEST_REPOS.md`
+
 Quick validation test using minimal Java and Python repos to verify hub functionality before release. Runs core tools only (heavy tools like mutation testing and OWASP disabled for speed).
 
 ### Triggers
