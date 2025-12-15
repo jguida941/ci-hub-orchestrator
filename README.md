@@ -18,7 +18,7 @@ The CI/CD Hub provides a single place to run builds, tests, code quality, and se
 - **14 pre-built profiles** — Fast, quality, security, minimal, coverage-gate, compliance
 - **Monorepo support** — Target subdirectories within repos via `repo.subdir`
 - **Schema-validated configs** — JSON Schema validation with clear error messages
-- **Comprehensive tooling** — 10 Java tools, 13 Python tools
+- **Comprehensive tooling** — 11 Java tools, 13 Python tools (+7 planned)
 
 ---
 
@@ -69,6 +69,7 @@ flowchart TB
 
 | Category | Tool | Purpose | Default |
 |----------|------|---------|---------|
+| **Testing** | JUnit | Unit test framework | Built-in |
 | **Coverage** | JaCoCo | Line/branch coverage | Enabled |
 | **Style** | Checkstyle | Code style enforcement | Enabled |
 | **Bugs** | SpotBugs | Static bug detection | Enabled |
@@ -99,6 +100,18 @@ flowchart TB
 | **Build** | Docker | Container build/test | Disabled |
 
 > *Disabled by default due to longer execution time. Enable in config when needed.
+
+### Planned Tools (Future Releases)
+
+| Category | Tool | Language | Status |
+|----------|------|----------|--------|
+| **Property Testing** | jqwik | Java | Planned |
+| **Mutation** | cosmic-ray | Python | Planned |
+| **DAST** | OWASP ZAP | All | Planned |
+| **Load Testing** | k6 | All | Planned |
+| **Load Testing** | Gatling | Java | Planned |
+| **Load Testing** | JMeter | Java | Planned |
+| **Load Testing** | Locust | Python | Planned |
 
 ---
 
