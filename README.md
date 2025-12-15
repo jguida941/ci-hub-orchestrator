@@ -32,38 +32,74 @@ The CI/CD Hub provides a single place to run builds, tests, code quality, and se
 
 ```mermaid
 flowchart TB
-    subgraph Hub[CI/CD Hub]
-        Config[config/repos/*.yaml]
-        Defaults[config/defaults.yaml]
-        Schema[schema/ci-hub-config.schema.json]
+    subgraph Config[Configuration Layer]
+        Defaults[defaults.yaml]
+        RepoConfigs[config/repos/*.yaml]
+        Schema[JSON Schema]
+        Profiles[12 Profiles]
     end
 
-    subgraph Workflows[GitHub Actions]
+    subgraph Workflows[7 GitHub Actions Workflows]
+        direction TB
         RunAll[hub-run-all.yml]
         Orchestrator[hub-orchestrator.yml]
+        Security[hub-security.yml]
+        Smoke[smoke-test.yml]
+        Validate[config-validate.yml]
         JavaCI[java-ci.yml]
         PythonCI[python-ci.yml]
     end
 
-    subgraph Tools[Quality Tools]
-        Coverage[JaCoCo / pytest-cov]
-        Lint[Checkstyle / Ruff]
-        Security[OWASP / Bandit / Trivy]
-        Mutation[PITest / mutmut]
+    subgraph Scripts[5 Python Scripts]
+        ApplyProfile[apply_profile.py]
+        ValidateConfig[validate_config.py]
+        LoadConfig[load_config.py]
+        Aggregate[aggregate_reports.py]
     end
 
-    Config --> RunAll
-    Config --> Orchestrator
-    Defaults -.-> Config
-    Schema -.-> Config
+    subgraph JavaTools[Java Tools - 11]
+        JUnit[JUnit]
+        JaCoCo[JaCoCo]
+        Checkstyle[Checkstyle]
+        SpotBugs[SpotBugs]
+        PMD[PMD]
+        OWASP[OWASP DC]
+        PITest[PITest]
+    end
+
+    subgraph PythonTools[Python Tools - 13]
+        Pytest[pytest-cov]
+        Hypothesis[Hypothesis]
+        Ruff[Ruff]
+        Black[Black]
+        Bandit[Bandit]
+        PipAudit[pip-audit]
+        Mypy[mypy]
+        Mutmut[mutmut]
+    end
+
+    subgraph Universal[Universal Tools]
+        Semgrep[Semgrep]
+        Trivy[Trivy]
+        CodeQL[CodeQL]
+        Docker[Docker]
+    end
+
+    Profiles --> RepoConfigs
+    Defaults --> RepoConfigs
+    Schema --> ValidateConfig
+    RepoConfigs --> RunAll
+    RepoConfigs --> Orchestrator
 
     RunAll --> JavaCI
     RunAll --> PythonCI
     Orchestrator --> JavaCI
     Orchestrator --> PythonCI
 
-    JavaCI --> Tools
-    PythonCI --> Tools
+    JavaCI --> JavaTools
+    JavaCI --> Universal
+    PythonCI --> PythonTools
+    PythonCI --> Universal
 ```
 
 ---
