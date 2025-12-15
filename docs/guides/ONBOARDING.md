@@ -209,8 +209,8 @@ For more issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ## See Also
 
-- [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md) - All config options
-- [TOOLS.md](TOOLS.md) - What tools are available
+- [CONFIG_REFERENCE.md](../reference/CONFIG_REFERENCE.md) - All config options
+- [TOOLS.md](../reference/TOOLS.md) - What tools are available
 - [MODES.md](MODES.md) - Central vs Distributed explained
-- [templates/profiles/](../templates/profiles/) - Pre-built profiles
+- [templates/profiles/](../../templates/profiles/) - Pre-built profiles
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Fix common issues

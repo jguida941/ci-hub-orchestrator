@@ -100,6 +100,10 @@ on:
         description: 'Artifact retention days'
         type: number
         default: 30
+      workdir:
+        description: 'Working directory (monorepo subfolder, default repo root)'
+        type: string
+        default: '.'
 
     secrets:
       NVD_API_KEY:
@@ -125,6 +129,9 @@ jobs:
   build-test:
     name: Build & Test
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
     outputs:
       status: ${{ steps.build.outcome }}
       coverage: ${{ steps.coverage.outputs.percentage }}
@@ -295,6 +302,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     if: inputs.run_pmd
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -354,6 +364,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     if: inputs.run_semgrep
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -405,6 +418,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     if: inputs.run_trivy
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -469,6 +485,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     if: inputs.run_pitest
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
     outputs:
       score: ${{ steps.pitest.outputs.score }}
 

@@ -112,6 +112,7 @@ jobs:
                           "owner": repo_info.get("owner", "jguida941"),
                           "language": repo_info.get("language", "java"),
                           "default_branch": repo_info.get("default_branch", "main"),
+                          "subdir": repo_info.get("subdir", ""),
                           "config_file": str(config_file),
                       })
 
@@ -170,6 +171,7 @@ jobs:
         env:
           MATRIX_CONFIG_FILE: ${{ matrix.config_file }}
           MATRIX_LANGUAGE: ${{ matrix.language }}
+          MATRIX_SUBDIR: ${{ matrix.subdir }}
         run: |
           python << 'EOF'
           import json
@@ -206,6 +208,11 @@ jobs:
 
           # Extract workflow inputs based on language
           inputs = {"language": language}
+
+          # Optional subdir for monorepos
+          subdir = os.environ.get("MATRIX_SUBDIR", "").strip()
+          if subdir:
+              inputs["workdir"] = subdir
 
           if language == "java":
               java = merged.get("java", {})
@@ -273,6 +280,7 @@ jobs:
             const repo = '${{ matrix.name }}';
             const language = '${{ matrix.language }}';
             const branch = '${{ matrix.default_branch }}';
+            const subdir = '${{ matrix.subdir || '' }}';
 
             const asBool = (val) => String(val || '').toLowerCase() === 'true';
             const asNumber = (val, fallback) => {
@@ -282,6 +290,11 @@ jobs:
 
             const inputs = {};
             const MAX_POLL_MS = 30 * 60 * 1000; // 30 minutes
+
+            if (!['java', 'python'].includes(language)) {
+              core.setFailed(`Unsupported language '${language}' in config for ${owner}/${repo}`);
+              return;
+            }
 
             if (language === 'java') {
               inputs.java_version = '${{ steps.repo-config.outputs.java_version }}' || '21';
@@ -302,6 +315,7 @@ jobs:
               inputs.run_semgrep = asBool('${{ steps.repo-config.outputs.run_semgrep }}');
               inputs.run_trivy = asBool('${{ steps.repo-config.outputs.run_trivy }}');
               inputs.retention_days = asNumber('${{ steps.repo-config.outputs.retention_days }}', 30);
+              inputs.workdir = subdir || '';
             } else {
               inputs.python_version = '${{ steps.repo-config.outputs.python_version }}' || '3.12';
               inputs.run_pytest = asBool('${{ steps.repo-config.outputs.run_pytest }}');
@@ -318,6 +332,7 @@ jobs:
               inputs.run_docker = asBool('${{ steps.repo-config.outputs.run_docker }}');
               inputs.coverage_min = asNumber('${{ steps.repo-config.outputs.coverage_min }}', 70);
               inputs.retention_days = asNumber('${{ steps.repo-config.outputs.retention_days }}', 30);
+              inputs.workdir = subdir || '';
             }
 
             const workflowId = language === 'java' ? 'java-ci.yml' : 'python-ci.yml';

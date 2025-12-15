@@ -61,7 +61,7 @@ Central mode runs MORE tools than distributed mode:
 **Java:** JaCoCo, Checkstyle, SpotBugs, PMD, OWASP DC, PITest, Semgrep, Trivy
 **Python:** pytest, Ruff, Bandit, pip-audit, Black, isort, mypy, mutmut, Hypothesis, Semgrep, Trivy
 
-See [TOOLS.md](TOOLS.md) for the full availability matrix.
+See [TOOLS.md](../reference/TOOLS.md) for the full availability matrix.
 
 ### When to Use
 
@@ -286,7 +286,7 @@ repo:
 
 ## Related Documentation
 
-- [ADR-0001: Central vs Distributed](adr/0001-central-vs-distributed.md) - Decision rationale
+- [ADR-0001: Central vs Distributed](../adr/0001-central-vs-distributed.md) - Decision rationale
 - [WORKFLOWS.md](WORKFLOWS.md) - Workflow details
-- [TOOLS.md](TOOLS.md) - Tool availability by mode
-- [CONFIG_REFERENCE.md](CONFIG_REFERENCE.md) - Config options
+- [TOOLS.md](../reference/TOOLS.md) - Tool availability by mode
+- [CONFIG_REFERENCE.md](../reference/CONFIG_REFERENCE.md) - Config options

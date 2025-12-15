@@ -68,6 +68,7 @@ jobs:
               OWNER=$(grep -E "^\s+owner:" "$config" | head -1 | sed 's/.*owner:\s*//' | tr -d '"' | tr -d "'")
               LANG=$(grep -E "^\s+language:" "$config" | head -1 | sed 's/.*language:\s*//' | tr -d '"' | tr -d "'")
               BRANCH=$(grep -E "^\s+default_branch:" "$config" | head -1 | sed 's/.*default_branch:\s*//' | tr -d '"' | tr -d "'" || echo "main")
+              SUBDIR=$(grep -E "^\s+subdir:" "$config" | head -1 | sed 's/.*subdir:\s*//' | tr -d '"' | tr -d "'" || echo "")
 
               if [ -n "$NAME" ] && [ -n "$OWNER" ]; then
                 # Filter if specific repos requested
@@ -82,7 +83,7 @@ jobs:
                 else
                   REPOS+=','
                 fi
-                REPOS+="{\"name\":\"$NAME\",\"owner\":\"$OWNER\",\"language\":\"${LANG:-java}\",\"branch\":\"${BRANCH:-main}\"}"
+                REPOS+="{\"name\":\"$NAME\",\"owner\":\"$OWNER\",\"language\":\"${LANG:-java}\",\"branch\":\"${BRANCH:-main}\",\"subdir\":\"${SUBDIR:-}\"}"
                 COUNT=$((COUNT + 1))
               fi
             fi
@@ -105,6 +106,8 @@ jobs:
       fail-fast: false
       max-parallel: 3
       matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    env:
+      WORKDIR: ${{ matrix.subdir && format('repo/{0}', matrix.subdir) || 'repo' }}
 
     steps:
       - name: Checkout Hub (for scripts)
@@ -118,6 +121,17 @@ jobs:
           repository: ${{ matrix.owner }}/${{ matrix.name }}
           ref: ${{ matrix.branch }}
           path: repo
+
+      - name: Use subdirectory if provided
+        if: matrix.subdir != ''
+        run: |
+          if [ ! -d "repo/${{ matrix.subdir }}" ]; then
+            echo "Subdir repo/${{ matrix.subdir }} not found" >&2
+            exit 1
+          fi
+          mv "repo/${{ matrix.subdir }}" repo_subdir
+          rm -rf repo
+          mv repo_subdir repo
           fetch-depth: 0
 
       - name: Create Reports Directory

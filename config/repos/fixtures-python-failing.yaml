@@ -1,8 +1,9 @@
 repo:
   owner: jguida941
-  name: python-failing
+  name: ci-cd-hub-fixtures
   language: python
   default_branch: main
+  subdir: python-failing  # project lives in this subfolder
 
 python:
   version: "3.12"

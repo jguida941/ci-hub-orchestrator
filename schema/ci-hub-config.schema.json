@@ -10,6 +10,17 @@
       "description": "Config schema version",
       "default": "1.0"
     },
+    "repo": {
+      "type": "object",
+      "properties": {
+        "owner": { "type": "string" },
+        "name": { "type": "string" },
+        "language": { "type": "string" },
+        "default_branch": { "type": "string", "default": "main" },
+        "subdir": { "type": "string", "description": "Optional subdirectory within the repo" }
+      },
+      "required": ["owner", "name"]
+    },
     "language": {
       "type": "string",
       "enum": ["java", "python", "node", "go"],

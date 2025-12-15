@@ -392,5 +392,5 @@ pytest
 ## References
 
 - [Smoke Test Guide](SMOKE_TEST.md) - How to run smoke tests
-- [Config Reference](CONFIG_REFERENCE.md) - Configuration options
-- [Workflows Reference](WORKFLOWS.md) - Workflow documentation
+- [Config Reference](../reference/CONFIG_REFERENCE.md) - Configuration options
+- [Workflows Reference](../guides/WORKFLOWS.md) - Workflow documentation

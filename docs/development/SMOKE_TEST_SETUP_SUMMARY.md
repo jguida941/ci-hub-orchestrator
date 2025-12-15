@@ -9,7 +9,7 @@ This document summarizes the smoke test setup completed on 2025-12-14.
 ### 1. Documentation
 
 #### Primary Smoke Test Guide
-**File:** `/hub-release/docs/SMOKE_TEST.md`
+**File:** `/hub-release/docs/development/SMOKE_TEST.md`
 
 Comprehensive guide covering:
 - Overview of smoke test purpose and scope
@@ -22,7 +22,7 @@ Comprehensive guide covering:
 - Configuration file references
 
 #### Smoke Test Repository Requirements
-**File:** `/hub-release/docs/SMOKE_TEST_REPOS.md`
+**File:** `/hub-release/docs/development/SMOKE_TEST_REPOS.md`
 
 Detailed documentation about:
 - Current smoke test repositories (Java and Python)
@@ -78,7 +78,7 @@ Both repositories verified as:
 
 ### 4. Updated Documentation
 
-**Updated:** `/hub-release/docs/WORKFLOWS.md`
+**Updated:** `/hub-release/docs/guides/WORKFLOWS.md`
 - Added smoke test workflow section
 - Documented triggers, inputs, outputs, and notes
 
@@ -168,20 +168,20 @@ hub-release/
 │   ├── smoke-test-java.yaml (EXISTING - verified)
 │   └── smoke-test-python.yaml (EXISTING - verified)
 └── docs/
-    ├── README.md (NEW)
-    ├── SMOKE_TEST.md (NEW)
-    ├── SMOKE_TEST_REPOS.md (NEW)
-    └── WORKFLOWS.md (UPDATED)
+    ├── README.md (index)
+    ├── guides/WORKFLOWS.md (UPDATED)
+    ├── development/SMOKE_TEST.md
+    └── development/SMOKE_TEST_REPOS.md
 ```
 
 ---
 
 ## Documentation References
 
-- **Primary Guide:** [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md)
-- **Repository Info:** [docs/SMOKE_TEST_REPOS.md](docs/SMOKE_TEST_REPOS.md)
-- **Workflow Reference:** [docs/WORKFLOWS.md](docs/WORKFLOWS.md#smoke-test)
-- **All Docs:** [docs/README.md](docs/README.md)
+- **Primary Guide:** [SMOKE_TEST.md](SMOKE_TEST.md)
+- **Repository Info:** [SMOKE_TEST_REPOS.md](SMOKE_TEST_REPOS.md)
+- **Workflow Reference:** [../guides/WORKFLOWS.md](../guides/WORKFLOWS.md#smoke-test)
+- **All Docs:** [../README.md](../README.md)
 
 ---
 
@@ -209,6 +209,6 @@ From `requirements/P0.md`:
 ## Contact & Support
 
 For issues or questions:
-1. Check [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)
-2. Review [docs/SMOKE_TEST.md](docs/SMOKE_TEST.md)
+1. Check [../guides/TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md)
+2. Review [SMOKE_TEST.md](SMOKE_TEST.md)
 3. Check workflow logs in GitHub Actions

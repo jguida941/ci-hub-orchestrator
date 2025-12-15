@@ -73,6 +73,10 @@ on:
         description: 'Run CodeQL analysis (expensive)'
         type: boolean
         default: false
+      workdir:
+        description: 'Working directory (monorepo subfolder, default repo root)'
+        type: string
+        default: '.'
 
       # ---- Thresholds ----
       coverage_min:
@@ -171,6 +175,9 @@ jobs:
     outputs:
       status: ${{ steps.test.outcome }}
       coverage: ${{ steps.coverage.outputs.percentage }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -253,6 +260,9 @@ jobs:
     name: Security Scan
     runs-on: ubuntu-latest
     if: inputs.run_pip_audit
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -286,6 +296,9 @@ jobs:
     name: Type Check
     runs-on: ubuntu-latest
     if: inputs.run_mypy
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -314,6 +327,9 @@ jobs:
     if: inputs.run_mutmut
     outputs:
       score: ${{ steps.mutmut.outputs.score }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -381,6 +397,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: inputs.run_semgrep
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -432,6 +451,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: inputs.run_trivy
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout

@@ -1,6 +1,6 @@
 # AGENTS.md - CI/CD Hub Release
 
-> AI agent context for the hub-release project. See also: `docs/RESEARCH.md`, `docs/ROADMAP.md`
+> AI agent context for the hub-release project. See also: `docs/development/RESEARCH.md`, `docs/development/ROADMAP.md`
 
 ## Project Overview
 
@@ -48,9 +48,9 @@ hub-release/
 │   ├── repos/             # Per-repo overrides
 │   └── optional/          # Optional feature configs
 ├── docs/
-│   ├── RESEARCH.md        # Research findings (1700+ lines)
-│   ├── ROADMAP.md         # Phased implementation plan
-│   ├── ONBOARDING.md      # User guide
+│   ├── guides/            # User guides (ONBOARDING, WORKFLOWS, etc.)
+│   ├── reference/         # Reference docs (CONFIG_REFERENCE, TOOLS)
+│   ├── development/       # Internal docs (RESEARCH, ROADMAP, SMOKE_TEST)
 │   └── adr/               # Architecture Decision Records
 ├── templates/             # Copy-paste templates for users (see templates/README.md)
 ├── scripts/               # Python utilities
@@ -62,13 +62,14 @@ hub-release/
 
 | File | Purpose | Read First? |
 |------|---------|-------------|
-| `docs/ROADMAP.md` | Phased implementation plan | YES |
-| `docs/RESEARCH.md` | Research and best practices | YES |
+| `docs/development/ROADMAP.md` | Phased implementation plan | YES |
+| `docs/development/RESEARCH.md` | Research and best practices | YES |
 | `requirements/` | P0/P1/nonfunctional checklists | YES |
 | `plan.md` | Execution checklist (links to requirements) | YES |
 | `config/defaults.yaml` | Global config with all toggles | For config changes |
 | `.github/workflows/hub-run-all.yml` | Main workflow | For workflow changes |
-| `docs/SMOKE_TEST_REPOS.md` | Smoke/fixtures repo mapping (`ci-cd-hub-fixtures`) | For testing |
+| `docs/development/SMOKE_TEST_REPOS.md` | Smoke/fixtures repo mapping (`ci-cd-hub-fixtures`) | For testing |
+| `docs/guides/MONOREPOS.md` | How to use repo.subdir for monorepos | For subdir setups |
 
 ## Config Hierarchy (Highest Wins)
 
@@ -175,7 +176,7 @@ Currently no automated tests. When adding:
 - Commit secrets, tokens, or API keys
 - Force push to master
 - Remove or rename `config/defaults.yaml`
-- Delete `docs/RESEARCH.md` or `docs/ROADMAP.md`
+- Delete `docs/development/RESEARCH.md` or `docs/development/ROADMAP.md`
 - Modify files outside `hub-release/` directory
 - Create `.env` files with real credentials
 - Push directly to master without review
@@ -186,7 +187,7 @@ Currently no automated tests. When adding:
 **Python Tools:** pytest, Ruff, Black, Bandit, pip-audit, mypy, mutmut
 **Universal:** Semgrep, Trivy, CodeQL
 
-See `docs/RESEARCH.md` sections 9-12 for full tool details.
+See `docs/development/RESEARCH.md` sections 9-12 for full tool details.
 
 ## Common Tasks
 
@@ -207,12 +208,13 @@ python:
 
 **Add documentation:**
 1. Follow Diátaxis framework (Tutorial, How-To, Reference, Explanation)
-2. Link from ONBOARDING.md
-3. Update table of contents if needed
+2. Link from `docs/guides/ONBOARDING.md`
+3. Update `docs/README.md` index if needed
 
 ## Related Files
 
 - `CLAUDE.md` - Points to this file for Claude Code compatibility
-- `docs/RESEARCH.md` - Comprehensive research (31 sections)
-- `docs/ROADMAP.md` - 9-phase implementation plan
+- `docs/README.md` - Documentation index
+- `docs/development/RESEARCH.md` - Comprehensive research (31 sections)
+- `docs/development/ROADMAP.md` - 9-phase implementation plan
 - `plan.md` - Original planning document

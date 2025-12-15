@@ -141,7 +141,7 @@ Quick validation test using minimal Java and Python repos to verify hub function
 - Requires at least 2 smoke test repos (Java + Python)
 - Uses relaxed thresholds (50% coverage vs 70% default)
 - Validates repository discovery, tool execution, artifact generation, and summary creation
-- See [docs/SMOKE_TEST.md](SMOKE_TEST.md) for detailed guide
+- See [docs/development/SMOKE_TEST.md](../development/SMOKE_TEST.md) for detailed guide
 
 ---
 

@@ -1,0 +1,44 @@
+# ============================================================================
+# Monorepo Config Template
+# ============================================================================
+# Use this when your project lives in a subdirectory of a repo.
+# Set repo.subdir to the folder containing the project root (pom.xml/pyproject.toml).
+# ============================================================================
+
+repo:
+  owner: your-github-handle
+  name: your-monorepo
+  language: java          # java | python
+  default_branch: main
+  subdir: services/service-a  # REQUIRED: path to project root inside the repo
+
+# Language-specific settings (example: Java)
+java:
+  version: "21"
+  build_tool: maven
+  tools:
+    jacoco:
+      enabled: true
+      min_coverage: 80
+    checkstyle:
+      enabled: true
+    spotbugs:
+      enabled: true
+    owasp:
+      enabled: false
+    pitest:
+      enabled: false
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+    docker:
+      enabled: false
+
+thresholds:
+  coverage_min: 80
+  mutation_score_min: 70
+  max_critical_vulns: 0
+  max_high_vulns: 0
