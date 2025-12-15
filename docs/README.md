@@ -26,6 +26,7 @@ docs/
 │   ├── TEMPLATES.md
 │   ├── TROUBLESHOOTING.md
 │   ├── MONOREPOS.md
+│   ├── DISPATCH_SETUP.md
 │   └── KYVERNO.md
 ├── reference/       # Reference documentation
 │   ├── CONFIG_REFERENCE.md
@@ -33,11 +34,12 @@ docs/
 │   └── example.ci-hub.yml
 ├── development/     # Internal/development docs
 │   ├── ROADMAP.md
+│   ├── OUTSTANDING.md
 │   ├── RESEARCH.md
 │   ├── SMOKE_TEST.md
 │   ├── SMOKE_TEST_REPOS.md
 │   ├── SMOKE_TEST_SETUP_SUMMARY.md
-│   └── audit.md
+│   └── plan.md
 ├── adr/             # Architecture Decision Records
 └── README.md        # This file
 ```
@@ -57,9 +59,7 @@ User-facing tutorials and how-to guides:
 | [TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) | Common issues and solutions |
 | [MONOREPOS.md](guides/MONOREPOS.md) | Monorepo support guide |
 | [DISPATCH_SETUP.md](guides/DISPATCH_SETUP.md) | How to set up tokens and dispatchable repos |
-| [KYVERNO.md](guides/KYVERNO.md) | Kyverno policies for Kubernetes admission control |
-| run_group filter | Use `run_group` to include only `full`, `fixtures`, or `smoke` configs when running the hub |
-| Job naming | Matrix jobs and artifacts include config basename/subdir to avoid collisions |
+| [KYVERNO.md](guides/KYVERNO.md) | Optional Kubernetes admission control with Kyverno |
 
 ---
 
@@ -82,10 +82,12 @@ Internal documentation for hub maintainers:
 | Document | Description |
 |----------|-------------|
 | [ROADMAP.md](development/ROADMAP.md) | Project roadmap and phases |
+| [OUTSTANDING.md](development/OUTSTANDING.md) | Outstanding issues and pending work |
 | [RESEARCH.md](development/RESEARCH.md) | Design decisions and research |
 | [SMOKE_TEST.md](development/SMOKE_TEST.md) | How to run smoke tests |
 | [SMOKE_TEST_REPOS.md](development/SMOKE_TEST_REPOS.md) | Smoke test repository requirements |
-| [audit.md](development/audit.md) | Audit findings and status |
+| [SMOKE_TEST_SETUP_SUMMARY.md](development/SMOKE_TEST_SETUP_SUMMARY.md) | Smoke test setup summary |
+| [plan.md](development/plan.md) | Current execution plan |
 | [adr/](adr/) | Architecture Decision Records |
 
 ---
@@ -105,8 +107,7 @@ Internal documentation for hub maintainers:
 | Create a custom config | [guides/TEMPLATES.md](guides/TEMPLATES.md) |
 | Understand workflow inputs | [guides/WORKFLOWS.md](guides/WORKFLOWS.md) |
 | Set up a monorepo | [guides/MONOREPOS.md](guides/MONOREPOS.md) |
-| Add Kubernetes admission control | [guides/KYVERNO.md](guides/KYVERNO.md) |
-| Treat Kyverno as optional | [guides/KYVERNO.md](guides/KYVERNO.md) documents optional cluster policy usage |
+| Add Kubernetes admission control (optional) | [guides/KYVERNO.md](guides/KYVERNO.md) |
 
 ---
 
