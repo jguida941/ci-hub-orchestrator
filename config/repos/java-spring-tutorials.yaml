@@ -20,4 +20,8 @@ java:
     docker:
       enabled: false
 
+    # Enable mutation testing
+    pitest:
+      enabled: true
+
     # All other tools use defaults (enabled)
