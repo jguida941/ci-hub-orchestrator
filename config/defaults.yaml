@@ -1,0 +1,254 @@
+# ============================================================================
+# CI/CD Hub - Global Defaults
+# ============================================================================
+# These settings apply to ALL repos unless overridden in the repo's .ci-hub.yml
+# or in config/repos/<repo-name>.yaml
+#
+# Hierarchy (highest wins):
+#   1. Repo's own .ci-hub.yml (if exists)
+#   2. Hub's config/repos/<repo-name>.yaml (if exists)
+#   3. This file (defaults.yaml)
+# ============================================================================
+
+# ------------------------------------------------------------------------------
+# Java Defaults
+# ------------------------------------------------------------------------------
+java:
+  version: "21"
+  distribution: "temurin"
+  build_tool: "maven"  # maven | gradle
+
+  # Quality Tools - set to true/false to enable/disable
+  tools:
+    # Code Coverage
+    jacoco:
+      enabled: true
+      min_coverage: 70  # fail if below this %
+
+    # Code Style
+    checkstyle:
+      enabled: true
+      fail_on_violation: true
+      config_file: null  # use repo default or specify path
+
+    # Static Analysis
+    spotbugs:
+      enabled: true
+      fail_on_error: true
+      effort: "max"  # min | default | max
+      threshold: "medium"  # low | medium | high
+
+    # Dependency Vulnerabilities
+    owasp:
+      enabled: true
+      fail_on_cvss: 7  # fail if any vuln >= this score
+      nvd_api_key_required: true
+
+    # Mutation Testing (expensive - disabled by default)
+    pitest:
+      enabled: false  # Enable via config when needed - slow for large codebases
+      min_mutation_score: 70  # fail if below this %
+      threads: 4
+      timeout_multiplier: 2
+
+    # Static Analysis - PMD
+    pmd:
+      enabled: true
+      fail_on_violation: false
+
+    # SAST - Semgrep (expensive - disabled by default)
+    semgrep:
+      enabled: false  # Enable via config when needed - requires network/time
+      fail_on_findings: false
+
+    # Container/Filesystem Scan - Trivy (expensive - disabled by default)
+    trivy:
+      enabled: false  # Enable via config when needed - only useful if Dockerfile exists
+      fail_on_critical: false
+      fail_on_high: false
+
+    # Security Analysis (expensive - disabled by default)
+    codeql:
+      enabled: false  # Enable via config when needed - slow SAST analysis
+      languages: ["java"]
+
+    # Docker
+    docker:
+      enabled: false  # must explicitly enable per repo
+      compose_file: "docker-compose.yml"
+      health_endpoint: "/actuator/health"
+      health_timeout: 300  # seconds
+
+# ------------------------------------------------------------------------------
+# Python Defaults
+# ------------------------------------------------------------------------------
+python:
+  version: "3.12"
+
+  tools:
+    # Testing
+    pytest:
+      enabled: true
+      min_coverage: 70
+      fail_fast: false
+
+    # Linting
+    ruff:
+      enabled: true
+      fail_on_error: true
+
+    # Security
+    bandit:
+      enabled: true
+      fail_on_high: true
+
+    # Dependency Audit
+    pip_audit:
+      enabled: true
+      fail_on_vuln: true
+
+    # Type Checking
+    mypy:
+      enabled: false  # opt-in
+
+    # Code Formatting
+    black:
+      enabled: true
+      fail_on_format_issues: false
+
+    # Import Sorting
+    isort:
+      enabled: true
+      fail_on_issues: false
+
+    # Mutation Testing (expensive - disabled by default)
+    mutmut:
+      enabled: false  # Enable via config when needed - very slow for large codebases
+      min_mutation_score: 70
+      timeout_minutes: 15
+
+    # Property-Based Testing
+    # Note: Hypothesis runs automatically with pytest if tests use @given decorators
+    # No separate step needed - it's part of the pytest execution
+    hypothesis:
+      enabled: true  # Informational only - runs with pytest
+
+    # SAST - Semgrep (expensive - disabled by default)
+    semgrep:
+      enabled: false  # Enable via config when needed - requires network/time
+      fail_on_findings: false
+
+    # Container/Filesystem Scan - Trivy (expensive - disabled by default)
+    trivy:
+      enabled: false  # Enable via config when needed - only useful if Dockerfile exists
+      fail_on_critical: false
+      fail_on_high: false
+
+    # Security Analysis (expensive - disabled by default)
+    codeql:
+      enabled: false  # Enable via config when needed - slow SAST analysis
+      languages: ["python"]
+
+    # Docker
+    docker:
+      enabled: false
+
+# ------------------------------------------------------------------------------
+# Report Settings
+# ------------------------------------------------------------------------------
+reports:
+  # Artifact retention
+  retention_days: 30
+
+  # Generate badges
+  badges:
+    enabled: true
+    branch: "main"  # branch to commit badges to
+
+  # Codecov integration
+  codecov:
+    enabled: true
+    fail_ci_on_error: false
+
+  # Summary in PR/commit
+  github_summary:
+    enabled: true
+    include_metrics: true
+
+# ------------------------------------------------------------------------------
+# Notifications (optional)
+# ------------------------------------------------------------------------------
+notifications:
+  slack:
+    enabled: false
+    on_failure: true
+    on_success: false
+    # webhook: ${{ secrets.SLACK_WEBHOOK }}
+
+  email:
+    enabled: false
+
+# ------------------------------------------------------------------------------
+# Thresholds (global quality gates)
+# ------------------------------------------------------------------------------
+thresholds:
+  # Build must pass these to be considered "green"
+  coverage_min: 70
+  mutation_score_min: 70
+  max_critical_vulns: 0
+  max_high_vulns: 0
+
+# ==============================================================================
+# OPTIONAL FEATURES (all disabled by default)
+# ==============================================================================
+# See config/optional/*.yaml for full configuration options.
+# Enable per-repo by setting <feature>.enabled = true
+# ------------------------------------------------------------------------------
+
+# Chaos Testing - Inject failures to test resilience
+# Full config: config/optional/chaos.yaml
+chaos:
+  enabled: false
+
+# Disaster Recovery Drills - Automated backup/restore testing
+# Full config: config/optional/dr-drill.yaml
+dr_drill:
+  enabled: false
+
+# Cache Sentinel - Detect cache tampering
+# Full config: config/optional/cache-sentinel.yaml
+cache_sentinel:
+  enabled: false
+
+# Runner Isolation - Concurrency limits and resource controls
+# Full config: config/optional/runner-isolation.yaml
+runner_isolation:
+  enabled: false
+
+# Supply Chain Security - SBOM, VEX, provenance, signing
+# Full config: config/optional/supply-chain.yaml
+supply_chain:
+  enabled: false
+
+# Egress Control - Network allowlists
+# Full config: config/optional/egress-control.yaml
+egress_control:
+  enabled: false
+
+# Canary Deployments - Gradual rollout with auto-rollback
+# Full config: config/optional/canary.yaml
+canary:
+  enabled: false
+
+# Telemetry - Pipeline run data collection
+# Schema: schema/pipeline-run.v1.json
+telemetry:
+  enabled: false
+  output_format: ndjson  # ndjson | json
+  output_path: artifacts/telemetry/
+
+# Kyverno Policies - Kubernetes admission control
+# Policies: policies/kyverno/*.yaml
+kyverno:
+  enabled: false
+  enforcement_mode: audit  # audit | enforce

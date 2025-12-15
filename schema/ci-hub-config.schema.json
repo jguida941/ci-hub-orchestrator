@@ -1,0 +1,182 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/jguida941/ci-cd-hub/schema/ci-hub-config.schema.json",
+  "title": "CI/CD Hub Repository Configuration",
+  "description": "Schema for .ci-hub.yml files in connected repositories",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Config schema version",
+      "default": "1.0"
+    },
+    "language": {
+      "type": "string",
+      "enum": ["java", "python", "node", "go"],
+      "description": "Primary language of the repository"
+    },
+    "java": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "default": "21"
+        },
+        "distribution": {
+          "type": "string",
+          "enum": ["temurin", "corretto", "zulu", "microsoft"],
+          "default": "temurin"
+        },
+        "build_tool": {
+          "type": "string",
+          "enum": ["maven", "gradle"],
+          "default": "maven"
+        },
+        "tools": {
+          "$ref": "#/definitions/javaTools"
+        }
+      }
+    },
+    "python": {
+      "type": "object",
+      "properties": {
+        "version": {
+          "type": "string",
+          "default": "3.12"
+        },
+        "tools": {
+          "$ref": "#/definitions/pythonTools"
+        }
+      }
+    },
+    "thresholds": {
+      "$ref": "#/definitions/thresholds"
+    },
+    "reports": {
+      "$ref": "#/definitions/reports"
+    }
+  },
+  "definitions": {
+    "javaTools": {
+      "type": "object",
+      "properties": {
+        "jacoco": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "min_coverage": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 }
+          }
+        },
+        "checkstyle": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "fail_on_violation": { "type": "boolean", "default": true },
+            "config_file": { "type": ["string", "null"] }
+          }
+        },
+        "spotbugs": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "fail_on_error": { "type": "boolean", "default": true },
+            "effort": { "type": "string", "enum": ["min", "default", "max"], "default": "max" },
+            "threshold": { "type": "string", "enum": ["low", "medium", "high"], "default": "medium" }
+          }
+        },
+        "owasp": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "fail_on_cvss": { "type": "integer", "minimum": 0, "maximum": 10, "default": 7 }
+          }
+        },
+        "pitest": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "min_mutation_score": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 },
+            "threads": { "type": "integer", "default": 4 }
+          }
+        },
+        "codeql": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "languages": { "type": "array", "items": { "type": "string" }, "default": ["java"] }
+          }
+        },
+        "docker": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "compose_file": { "type": "string", "default": "docker-compose.yml" },
+            "dockerfile": { "type": "string", "default": "Dockerfile" },
+            "health_endpoint": { "type": "string", "default": "/actuator/health" },
+            "health_timeout": { "type": "integer", "default": 300 }
+          }
+        }
+      }
+    },
+    "pythonTools": {
+      "type": "object",
+      "properties": {
+        "pytest": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "min_coverage": { "type": "integer", "default": 70 }
+          }
+        },
+        "ruff": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "fail_on_error": { "type": "boolean", "default": true }
+          }
+        },
+        "bandit": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "fail_on_high": { "type": "boolean", "default": true }
+          }
+        },
+        "pip_audit": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "fail_on_vuln": { "type": "boolean", "default": true }
+          }
+        }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "properties": {
+        "coverage_min": { "type": "integer", "default": 70 },
+        "mutation_score_min": { "type": "integer", "default": 70 },
+        "max_critical_vulns": { "type": "integer", "default": 0 },
+        "max_high_vulns": { "type": "integer", "default": 0 }
+      }
+    },
+    "reports": {
+      "type": "object",
+      "properties": {
+        "retention_days": { "type": "integer", "default": 30 },
+        "badges": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true }
+          }
+        },
+        "codecov": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean", "default": true }
+          }
+        }
+      }
+    }
+  }
+}

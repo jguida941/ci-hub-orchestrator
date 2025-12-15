@@ -1,0 +1,44 @@
+# ============================================================================
+# Java Compliance Profile - Security + supply chain focus
+# ============================================================================
+# Use for audits/compliance gates where security takes priority over speed.
+# Enables dependency/SAST/container scans with stricter thresholds.
+# Expected runtime: ~20-40 minutes
+# ============================================================================
+
+java:
+  tools:
+    jacoco:
+      enabled: false    # Coverage not required for compliance
+    checkstyle:
+      enabled: false
+    pmd:
+      enabled: false
+    pitest:
+      enabled: false
+
+    # Security-focused
+    spotbugs:
+      enabled: true
+      fail_on_error: true
+      effort: max
+      threshold: low
+    owasp:
+      enabled: true
+      fail_on_cvss: 4     # Stricter bar
+    semgrep:
+      enabled: true
+      fail_on_findings: false  # Advisory; review manually
+    trivy:
+      enabled: true
+      fail_on_critical: true
+      fail_on_high: true
+    codeql:
+      enabled: true
+      languages: ["java"]
+    docker:
+      enabled: false       # Enable if container build is required
+
+thresholds:
+  max_critical_vulns: 0
+  max_high_vulns: 0

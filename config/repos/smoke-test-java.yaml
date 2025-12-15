@@ -1,0 +1,49 @@
+# ============================================================================
+# Repo Config: smoke-test-java
+# ============================================================================
+# Minimal Java smoke test config - for testing hub functionality
+# This can point to any simple Java repo with Maven and tests
+# ============================================================================
+
+repo:
+  owner: jguida941
+  name: java-spring-tutorials  # Using existing repo
+  language: java
+  default_branch: main
+
+java:
+  version: "21"
+
+  tools:
+    # Core tools only for smoke test (faster execution)
+    jacoco:
+      enabled: true
+      min_coverage: 50  # Lower threshold for smoke test
+
+    checkstyle:
+      enabled: true
+      fail_on_violation: false  # Don't fail smoke test on style
+
+    spotbugs:
+      enabled: true
+      fail_on_error: false  # Don't fail smoke test
+
+    # Disable heavy tools for smoke test
+    owasp:
+      enabled: false  # Skip for speed
+
+    pitest:
+      enabled: false  # Skip mutation for speed
+
+    codeql:
+      enabled: false  # Skip for speed
+
+    docker:
+      enabled: false
+
+# Lower thresholds for smoke test
+thresholds:
+  coverage_min: 50
+  mutation_score_min: 0  # Disabled
+  max_critical_vulns: 100  # Relaxed
+  max_high_vulns: 100  # Relaxed

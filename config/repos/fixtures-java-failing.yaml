@@ -1,0 +1,34 @@
+repo:
+  owner: jguida941
+  name: java-failing
+  language: java
+  default_branch: main
+
+java:
+  version: "21"
+  tools:
+    jacoco:
+      enabled: true
+      min_coverage: 50
+    checkstyle:
+      enabled: false
+    spotbugs:
+      enabled: false
+    owasp:
+      enabled: false
+    pmd:
+      enabled: false
+    pitest:
+      enabled: false
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+
+thresholds:
+  coverage_min: 50
+  mutation_score_min: 0
+  max_critical_vulns: 100
+  max_high_vulns: 100

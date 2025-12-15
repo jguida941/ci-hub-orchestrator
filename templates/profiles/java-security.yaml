@@ -1,0 +1,56 @@
+# ============================================================================
+# Java Security Profile - Full security scanning
+# ============================================================================
+# Use this profile for comprehensive security analysis.
+# Best for: Security audits, compliance checks, release gates
+#
+# Tools enabled:  SpotBugs, OWASP, Semgrep, Trivy, CodeQL
+# Tools disabled: JaCoCo, Checkstyle, PMD, PITest (not security-focused)
+# Expected runtime: ~20-40 minutes
+# ============================================================================
+
+java:
+  tools:
+    # Skip quality-focused tools
+    jacoco:
+      enabled: false  # Coverage not security-relevant
+    checkstyle:
+      enabled: false  # Style not security-relevant
+    pmd:
+      enabled: false  # General analysis not security-focused
+    pitest:
+      enabled: false  # Mutation not security-relevant
+
+    # Bug detection - can find security issues
+    spotbugs:
+      enabled: true
+      fail_on_error: true
+      effort: max
+      threshold: low  # Catch all potential issues
+
+    # Dependency vulnerabilities - critical for security
+    owasp:
+      enabled: true
+      fail_on_cvss: 4  # Stricter threshold
+
+    # SAST - comprehensive security analysis
+    semgrep:
+      enabled: true
+      fail_on_findings: false  # Advisory, review manually
+    codeql:
+      enabled: true
+      languages: ["java"]
+
+    # Container security - if you have Dockerfiles
+    trivy:
+      enabled: true
+      fail_on_critical: true
+      fail_on_high: false
+
+    # Docker build - enable if testing container
+    docker:
+      enabled: false  # Enable if needed
+
+thresholds:
+  max_critical_vulns: 0  # Zero tolerance for CRITICAL
+  max_high_vulns: 5      # Review HIGHs but don't block

@@ -1,0 +1,91 @@
+# ============================================================================
+# Hub-Side Repo Config Template
+# ============================================================================
+# Copy to config/repos/<repo>.yaml and edit. Only include keys you need to
+# override from config/defaults.yaml.
+# ============================================================================
+
+repo:
+  owner: your-github-handle      # REQUIRED
+  name: your-repo-name           # REQUIRED
+  language: java                 # java | python
+  default_branch: main
+
+# Central vs distributed execution
+mode:
+  distributed: false             # false = hub runs workflows centrally
+  workflow: java-ci.yml          # java-ci.yml | python-ci.yml when distributed
+
+java:
+  version: "21"
+  build_tool: maven              # maven | gradle
+  tools:
+    jacoco:
+      enabled: true
+      min_coverage: 80
+    checkstyle:
+      enabled: true
+    spotbugs:
+      enabled: true
+    pmd:
+      enabled: true
+    owasp:
+      enabled: true
+      fail_on_cvss: 7
+    pitest:
+      enabled: true
+      min_mutation_score: 70
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+    docker:
+      enabled: false
+      compose_file: docker-compose.yml
+      health_endpoint: /actuator/health
+
+python:
+  version: "3.12"
+  tools:
+    pytest:
+      enabled: true
+      min_coverage: 80
+    ruff:
+      enabled: true
+    black:
+      enabled: true
+    isort:
+      enabled: true
+    bandit:
+      enabled: true
+      fail_on_high: true
+    pip_audit:
+      enabled: true
+      fail_on_vuln: true
+    mypy:
+      enabled: false
+    mutmut:
+      enabled: false
+      min_mutation_score: 70
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+    docker:
+      enabled: false
+
+reports:
+  retention_days: 30
+  badges:
+    enabled: true
+    branch: main
+
+thresholds:
+  coverage_min: 80
+  mutation_score_min: 70
+  max_critical_vulns: 0
+  max_high_vulns: 5

@@ -1,0 +1,101 @@
+{
+  "title": "Repository Detail",
+  "description": "Detailed metrics for a single repository",
+  "variables": [
+    {
+      "name": "repo",
+      "type": "query",
+      "query": "SELECT DISTINCT repo FROM runs",
+      "default": null
+    }
+  ],
+  "refresh_interval_seconds": 60,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Latest Build Status",
+      "type": "stat",
+      "query": "SELECT status FROM runs WHERE repo = '${repo}' ORDER BY ended_at DESC LIMIT 1",
+      "color_map": {
+        "success": "green",
+        "failure": "red",
+        "cancelled": "yellow"
+      },
+      "position": { "x": 0, "y": 0, "w": 3, "h": 2 }
+    },
+    {
+      "id": 2,
+      "title": "Current Coverage",
+      "type": "gauge",
+      "query": "SELECT coverage.line_percent FROM runs WHERE repo = '${repo}' ORDER BY ended_at DESC LIMIT 1",
+      "min": 0,
+      "max": 100,
+      "thresholds": [
+        { "value": 0, "color": "red" },
+        { "value": 60, "color": "yellow" },
+        { "value": 80, "color": "green" }
+      ],
+      "position": { "x": 3, "y": 0, "w": 3, "h": 2 }
+    },
+    {
+      "id": 3,
+      "title": "Mutation Score",
+      "type": "gauge",
+      "query": "SELECT coverage.mutation_score FROM runs WHERE repo = '${repo}' ORDER BY ended_at DESC LIMIT 1",
+      "min": 0,
+      "max": 100,
+      "thresholds": [
+        { "value": 0, "color": "red" },
+        { "value": 60, "color": "yellow" },
+        { "value": 80, "color": "green" }
+      ],
+      "position": { "x": 6, "y": 0, "w": 3, "h": 2 }
+    },
+    {
+      "id": 4,
+      "title": "Open Vulnerabilities",
+      "type": "stat",
+      "query": "SELECT security.vulnerabilities.critical + security.vulnerabilities.high as critical_high FROM runs WHERE repo = '${repo}' ORDER BY ended_at DESC LIMIT 1",
+      "thresholds": [
+        { "value": 0, "color": "green" },
+        { "value": 1, "color": "red" }
+      ],
+      "position": { "x": 9, "y": 0, "w": 3, "h": 2 }
+    },
+    {
+      "id": 5,
+      "title": "Build History",
+      "type": "table",
+      "query": "SELECT run_id, branch, status, duration_ms/1000 as duration_sec, coverage.line_percent as coverage, started_at FROM runs WHERE repo = '${repo}' ORDER BY started_at DESC LIMIT 20",
+      "position": { "x": 0, "y": 2, "w": 12, "h": 4 }
+    },
+    {
+      "id": 6,
+      "title": "Coverage Trend",
+      "type": "line",
+      "query": "SELECT started_at, coverage.line_percent as line, coverage.branch_percent as branch, coverage.mutation_score as mutation FROM runs WHERE repo = '${repo}' ORDER BY started_at",
+      "x_axis": "started_at",
+      "series": ["line", "branch", "mutation"],
+      "position": { "x": 0, "y": 6, "w": 6, "h": 3 }
+    },
+    {
+      "id": 7,
+      "title": "Test Results",
+      "type": "stacked_area",
+      "query": "SELECT started_at, tests.passed, tests.failed, tests.skipped FROM runs WHERE repo = '${repo}' ORDER BY started_at",
+      "x_axis": "started_at",
+      "series": ["passed", "failed", "skipped"],
+      "position": { "x": 6, "y": 6, "w": 6, "h": 3 }
+    },
+    {
+      "id": 8,
+      "title": "Job Durations",
+      "type": "heatmap",
+      "query": "SELECT jobs.name, DATE(started_at) as date, AVG(jobs.duration_ms)/1000 as avg_sec FROM runs WHERE repo = '${repo}' GROUP BY jobs.name, date",
+      "x_axis": "date",
+      "y_axis": "name",
+      "value": "avg_sec",
+      "position": { "x": 0, "y": 9, "w": 12, "h": 3 }
+    }
+  ]
+}

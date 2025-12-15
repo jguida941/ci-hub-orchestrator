@@ -1,0 +1,59 @@
+# ============================================================================
+# Python Quality Profile - Thorough analysis for releases
+# ============================================================================
+# Use this profile when you want comprehensive quality analysis.
+# Best for: Pre-merge checks, release candidates, nightly builds
+#
+# Tools enabled:  pytest, ruff, black, isort, bandit, pip-audit, mypy, mutmut
+# Tools disabled: semgrep, trivy, codeql (use security profile)
+# Expected runtime: ~15-30 minutes
+# ============================================================================
+
+python:
+  tools:
+    # Core testing and coverage - stricter
+    pytest:
+      enabled: true
+      min_coverage: 80  # Higher bar for quality
+      fail_fast: false
+
+    # Linting
+    ruff:
+      enabled: true
+      fail_on_error: true
+
+    # Formatting checks
+    black:
+      enabled: true
+      fail_on_format_issues: true  # Enforce formatting
+    isort:
+      enabled: true
+      fail_on_issues: true  # Enforce import order
+
+    # Security scanning
+    bandit:
+      enabled: true
+      fail_on_high: true
+    pip_audit:
+      enabled: true
+      fail_on_vuln: true
+
+    # Type checking - important for quality
+    mypy:
+      enabled: true
+
+    # Mutation testing - slow but valuable
+    mutmut:
+      enabled: true
+      min_mutation_score: 70
+      timeout_minutes: 15
+
+    # Security tools - disabled (use security profile)
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+    docker:
+      enabled: false

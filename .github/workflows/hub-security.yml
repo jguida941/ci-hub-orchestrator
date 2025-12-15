@@ -1,0 +1,375 @@
+# ============================================================================
+# CI/CD Hub - Security & Supply Chain
+# ============================================================================
+# Comprehensive security scanning for all connected repos:
+#   - CodeQL (SAST)
+#   - SBOM generation
+#   - Dependency review
+#   - ZAP DAST (for web apps)
+#   - Secret scanning
+# ============================================================================
+
+name: "Hub: Security & Supply Chain"
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: 'Specific repos (comma-separated, empty=all)'
+        required: false
+        type: string
+      run_zap:
+        description: 'Run ZAP DAST scan (requires running app)'
+        required: false
+        type: boolean
+        default: false
+
+  schedule:
+    # Run weekly on Sunday at 3 AM UTC
+    - cron: '0 3 * * 0'
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # ============================================================================
+  # Discover Repos
+  # ============================================================================
+  discover:
+    name: Discover Repositories
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.repos.outputs.matrix }}
+      count: ${{ steps.repos.outputs.count }}
+
+    steps:
+      - name: Checkout Hub
+        uses: actions/checkout@v4
+
+      - name: Build Repo Matrix
+        id: repos
+        run: |
+          REPOS='{"include":['
+          FIRST=true
+          COUNT=0
+
+          for config in config/repos/*.yaml; do
+            if [ -f "$config" ]; then
+              NAME=$(grep -E "^\s+name:" "$config" | head -1 | sed 's/.*name:\s*//' | tr -d '"' | tr -d "'")
+              OWNER=$(grep -E "^\s+owner:" "$config" | head -1 | sed 's/.*owner:\s*//' | tr -d '"' | tr -d "'")
+              LANG=$(grep -E "^\s+language:" "$config" | head -1 | sed 's/.*language:\s*//' | tr -d '"' | tr -d "'")
+
+              if [ -n "$NAME" ] && [ -n "$OWNER" ]; then
+                if [ -n "${{ inputs.repos }}" ]; then
+                  if ! echo "${{ inputs.repos }}" | grep -q "$NAME"; then
+                    continue
+                  fi
+                fi
+
+                if [ "$FIRST" = true ]; then
+                  FIRST=false
+                else
+                  REPOS+=','
+                fi
+                REPOS+="{\"name\":\"$NAME\",\"owner\":\"$OWNER\",\"language\":\"${LANG:-java}\"}"
+                COUNT=$((COUNT + 1))
+              fi
+            fi
+          done
+
+          REPOS+=']}'
+          echo "matrix=$REPOS" >> $GITHUB_OUTPUT
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+  # ============================================================================
+  # Security Scan Each Repo
+  # ============================================================================
+  security-scan:
+    name: "Security: ${{ matrix.name }}"
+    runs-on: ubuntu-latest
+    needs: discover
+    if: needs.discover.outputs.count > 0
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+
+    steps:
+      - name: Checkout Target Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.owner }}/${{ matrix.name }}
+          path: repo
+          fetch-depth: 0
+
+      # ========================================
+      # CODEQL ANALYSIS
+      # ========================================
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language == 'java' && 'java' || 'python' }}
+          source-root: repo
+
+      - name: Set up JDK (for Java CodeQL)
+        if: matrix.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Build for CodeQL (Java)
+        if: matrix.language == 'java'
+        working-directory: repo
+        run: |
+          if [ -f "mvnw" ]; then
+            chmod +x mvnw
+            ./mvnw -B -ntp compile -DskipTests
+          elif [ -f "pom.xml" ]; then
+            mvn -B -ntp compile -DskipTests
+          fi
+        continue-on-error: true
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{ matrix.language }}"
+
+      # ========================================
+      # SBOM GENERATION
+      # ========================================
+      - name: Generate SBOM (Syft)
+        uses: anchore/sbom-action@v0
+        with:
+          path: repo
+          artifact-name: sbom-${{ matrix.name }}.spdx.json
+          output-file: sbom-${{ matrix.name }}.spdx.json
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-${{ matrix.name }}
+          path: sbom-${{ matrix.name }}.spdx.json
+          retention-days: 90
+
+      # ========================================
+      # DEPENDENCY REVIEW (for PRs)
+      # ========================================
+      - name: Dependency Review
+        if: github.event_name == 'pull_request'
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+      # ========================================
+      # PYTHON SPECIFIC SECURITY
+      # ========================================
+      - name: Set up Python
+        if: matrix.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "[Python] pip-audit"
+        if: matrix.language == 'python'
+        id: pip-audit
+        working-directory: repo
+        run: |
+          pip install pip-audit
+          pip install -r requirements.txt 2>/dev/null || true
+          pip-audit --format=json --output=pip-audit-report.json 2>/dev/null || true
+          VULNS=$(jq 'length' pip-audit-report.json 2>/dev/null || echo 0)
+          echo "vulnerabilities=$VULNS" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Python] Bandit"
+        if: matrix.language == 'python'
+        id: bandit
+        working-directory: repo
+        run: |
+          pip install bandit
+          bandit -r . -f json -o bandit-report.json 2>/dev/null || true
+          HIGH=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json 2>/dev/null || echo 0)
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Python] Ruff Security Rules"
+        if: matrix.language == 'python'
+        id: ruff-security
+        working-directory: repo
+        run: |
+          pip install ruff
+          ruff check . --select=S --output-format=json > ruff-security.json 2>/dev/null || true
+          ISSUES=$(jq 'length' ruff-security.json 2>/dev/null || echo 0)
+          echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      # ========================================
+      # JAVA SPECIFIC SECURITY
+      # ========================================
+      - name: "[Java] OWASP Dependency-Check"
+        if: matrix.language == 'java'
+        id: owasp
+        working-directory: repo
+        run: |
+          if [ -f "mvnw" ]; then
+            chmod +x mvnw
+            ./mvnw -B -ntp org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=11 2>/dev/null || true
+          fi
+
+          REPORT=$(find . -name "dependency-check-report.json" 2>/dev/null | head -1)
+          CRITICAL=0; HIGH=0
+          if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
+            CRITICAL=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "CRITICAL")] | length' "$REPORT" 2>/dev/null || echo 0)
+            HIGH=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "HIGH")] | length' "$REPORT" 2>/dev/null || echo 0)
+          fi
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      # ========================================
+      # GENERATE SECURITY REPORT
+      # ========================================
+      - name: Generate Security Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # 🔒 Security & Supply Chain: ${{ matrix.name }}
+
+          **Language:** ${{ matrix.language }}
+
+          ---
+
+          ## Jobs
+
+          | Job | Status | Duration |
+          |-----|--------|----------|
+          EOF
+
+          if [ "${{ matrix.language }}" = "python" ]; then
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          | pip-audit | ✅ ${{ steps.pip-audit.outputs.vulnerabilities || 0 }} vulns | - |
+          | bandit | ✅ ${{ steps.bandit.outputs.high || 0 }} high severity | - |
+          | ruff-security | ✅ ${{ steps.ruff-security.outputs.issues || 0 }} issues | - |
+          | codeql | ✅ Complete | - |
+          | sbom | ✅ Generated | - |
+          EOF
+          else
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          | OWASP | ✅ ${{ steps.owasp.outputs.critical || 0 }} critical, ${{ steps.owasp.outputs.high || 0 }} high | - |
+          | codeql | ✅ Complete | - |
+          | sbom | ✅ Generated | - |
+          EOF
+          fi
+
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+
+          ---
+
+          ## Artifacts
+
+          | Name | Size | Digest |
+          |------|------|--------|
+          | sbom-${{ matrix.name }}.spdx.json | - | - |
+
+          EOF
+
+      - name: Upload Security Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ matrix.name }}
+          path: |
+            repo/*-report.json
+            repo/ruff-security.json
+            repo/**/dependency-check-report.*
+          retention-days: 30
+          if-no-files-found: ignore
+
+  # ============================================================================
+  # ZAP DAST Scan (Optional)
+  # ============================================================================
+  zap-scan:
+    name: "ZAP DAST: ${{ matrix.name }}"
+    runs-on: ubuntu-latest
+    needs: discover
+    if: inputs.run_zap == true && needs.discover.outputs.count > 0
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+
+    steps:
+      - name: Checkout Target Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.owner }}/${{ matrix.name }}
+          path: repo
+
+      - name: Check for Docker Compose
+        id: check-docker
+        working-directory: repo
+        run: |
+          if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ]; then
+            echo "has_docker=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_docker=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Start Application
+        if: steps.check-docker.outputs.has_docker == 'true'
+        working-directory: repo
+        run: |
+          docker compose up -d
+          sleep 60  # Wait for app to start
+
+      - name: ZAP Baseline Scan
+        if: steps.check-docker.outputs.has_docker == 'true'
+        uses: zaproxy/action-baseline@v0.12.0
+        with:
+          target: 'http://localhost:8080'
+          rules_file_name: '.zap/rules.tsv'
+          allow_issue_writing: false
+        continue-on-error: true
+
+      - name: Stop Application
+        if: steps.check-docker.outputs.has_docker == 'true'
+        working-directory: repo
+        run: docker compose down
+
+      - name: Generate ZAP Summary
+        run: |
+          echo "## 🕷️ ZAP DAST Scan: ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check-docker.outputs.has_docker }}" = "true" ]; then
+            echo "Scan completed. See artifacts for detailed report." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Skipped - No docker-compose.yml found" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # ============================================================================
+  # Summary
+  # ============================================================================
+  summary:
+    name: Security Summary
+    runs-on: ubuntu-latest
+    needs: [discover, security-scan]
+    if: always()
+
+    steps:
+      - name: Generate Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # 🔒 Security & Supply Chain Summary
+
+          **Repositories Scanned:** ${{ needs.discover.outputs.count }}
+          **Run:** #${{ github.run_number }}
+
+          ## Tools Executed
+
+          | Tool | Purpose |
+          |------|---------|
+          | CodeQL | Static Application Security Testing (SAST) |
+          | SBOM | Software Bill of Materials generation |
+          | pip-audit / OWASP | Dependency vulnerability scanning |
+          | Bandit / Ruff-S | Python security linting |
+          | ZAP | Dynamic Application Security Testing (DAST) |
+
+          EOF

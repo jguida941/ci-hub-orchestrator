@@ -1,0 +1,33 @@
+python:
+  tools:
+    pytest:
+      enabled: true
+      min_coverage: 70
+      fail_fast: false
+    ruff:
+      enabled: true
+      fail_on_error: true
+    black:
+      enabled: true
+      fail_on_format_issues: false
+    isort:
+      enabled: true
+      fail_on_issues: false
+    bandit:
+      enabled: true
+      fail_on_high: true
+    pip_audit:
+      enabled: true
+      fail_on_vuln: true
+    mypy:
+      enabled: false
+    mutmut:
+      enabled: false
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+    docker:
+      enabled: false

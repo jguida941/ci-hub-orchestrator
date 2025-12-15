@@ -1,0 +1,54 @@
+# ============================================================================
+# Chaos Testing Configuration (Optional)
+# ============================================================================
+# Injects controlled failures to test pipeline resilience.
+# Enable per-repo or globally to run chaos scenarios.
+#
+# To enable: Set chaos.enabled = true in your repo config
+# ============================================================================
+
+chaos:
+  # Master toggle - disabled by default
+  enabled: false
+
+  # Kill switch - emergency disable via GitHub variable
+  kill_switch_var: CHAOS_KILL_SWITCH
+
+  # Only run on PRs with this label
+  require_label: chaos-opt-in
+
+  # Schedule (cron) - empty = manual only
+  schedule: ""  # e.g., "0 6 * * *" for daily at 6 AM UTC
+
+  # Scenarios to run
+  scenarios:
+    - name: network-delay
+      enabled: true
+      description: "Simulate network latency"
+      delay_ms: 500
+      duration_seconds: 30
+
+    - name: dependency-failure
+      enabled: true
+      description: "Simulate external dependency failure"
+      failure_rate: 0.1  # 10% of requests fail
+
+    - name: resource-exhaustion
+      enabled: false
+      description: "Simulate memory pressure"
+      memory_limit_mb: 512
+
+    - name: random-process-kill
+      enabled: false
+      description: "Randomly kill processes"
+      kill_probability: 0.05
+
+  # Output settings
+  output:
+    report_path: artifacts/chaos/report.json
+    events_ndjson: artifacts/chaos/events.ndjson
+
+  # Thresholds - fail if resilience drops below
+  thresholds:
+    min_success_rate: 0.9  # 90% of operations must succeed
+    max_latency_p99_ms: 5000  # 99th percentile latency

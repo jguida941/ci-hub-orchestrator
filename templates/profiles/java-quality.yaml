@@ -1,0 +1,49 @@
+# ============================================================================
+# Java Quality Profile - Thorough analysis for releases
+# ============================================================================
+# Use this profile when you want comprehensive quality analysis.
+# Best for: Pre-merge checks, release candidates, nightly builds
+#
+# Tools enabled:  JaCoCo, Checkstyle, SpotBugs, PMD, PITest, OWASP
+# Tools disabled: Semgrep, Trivy, CodeQL (use security profile)
+# Expected runtime: ~15-30 minutes
+# ============================================================================
+
+java:
+  tools:
+    # Core quality tools
+    jacoco:
+      enabled: true
+      min_coverage: 80  # Higher bar for quality
+    checkstyle:
+      enabled: true
+      fail_on_violation: true
+    spotbugs:
+      enabled: true
+      fail_on_error: true
+      effort: max
+      threshold: medium
+    pmd:
+      enabled: true
+      fail_on_violation: false  # Advisory for now
+
+    # Mutation testing - slow but valuable
+    pitest:
+      enabled: true
+      min_mutation_score: 70
+      threads: 4
+
+    # Dependency vulnerabilities
+    owasp:
+      enabled: true
+      fail_on_cvss: 7
+
+    # Security tools - disabled (use security profile)
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+    docker:
+      enabled: false

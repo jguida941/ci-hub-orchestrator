@@ -1,0 +1,46 @@
+# ============================================================================
+# Python Compliance Profile - Security + supply chain focus
+# ============================================================================
+# Use for audits/compliance gates where security takes priority over speed.
+# Enables dependency/SAST/container scans with stricter thresholds.
+# Expected runtime: ~15-30 minutes
+# ============================================================================
+
+python:
+  tools:
+    pytest:
+      enabled: false    # Skip quality-focused tests
+    ruff:
+      enabled: false
+    black:
+      enabled: false
+    isort:
+      enabled: false
+    mypy:
+      enabled: false
+    mutmut:
+      enabled: false
+
+    # Security-focused
+    bandit:
+      enabled: true
+      fail_on_high: true
+    pip_audit:
+      enabled: true
+      fail_on_vuln: true
+    semgrep:
+      enabled: true
+      fail_on_findings: false  # Advisory; review manually
+    trivy:
+      enabled: true
+      fail_on_critical: true
+      fail_on_high: true
+    codeql:
+      enabled: true
+      languages: ["python"]
+    docker:
+      enabled: false       # Enable if container build is required
+
+thresholds:
+  max_critical_vulns: 0
+  max_high_vulns: 0

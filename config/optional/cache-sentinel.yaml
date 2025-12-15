@@ -1,0 +1,49 @@
+# ============================================================================
+# Cache Sentinel Configuration (Optional)
+# ============================================================================
+# Detects cache tampering by recording and verifying content hashes.
+# Quarantines suspicious files automatically.
+#
+# To enable: Set cache_sentinel.enabled = true in your repo config
+# ============================================================================
+
+cache_sentinel:
+  # Master toggle - disabled by default
+  enabled: false
+
+  # Hash algorithms to use
+  algorithms:
+    primary: blake3    # Fast, secure
+    secondary: sha256  # Fallback/verification
+
+  # Paths to monitor (relative to workspace)
+  watch_paths:
+    - "~/.m2/repository"      # Maven cache
+    - "~/.gradle/caches"      # Gradle cache
+    - "~/.cache/pip"          # Pip cache
+    - "node_modules"          # npm cache
+    - ".npm"                  # npm cache
+    - "~/.cargo/registry"     # Cargo cache
+
+  # Files to always ignore
+  ignore_patterns:
+    - "*.log"
+    - "*.tmp"
+    - ".DS_Store"
+    - "*.lock"  # Lock files change legitimately
+
+  # Manifest settings
+  manifest:
+    path: ".cache-manifest.json"
+    sign: true  # Sign manifest with workflow identity
+
+  # What to do when tampering detected
+  on_tampering:
+    action: quarantine  # quarantine | warn | fail
+    quarantine_path: ".quarantine/"
+    emit_event: true
+
+  # Fork isolation - prevent cache poisoning from forks
+  fork_isolation:
+    enabled: true
+    separate_cache_key: true

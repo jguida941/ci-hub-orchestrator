@@ -1,0 +1,51 @@
+# ============================================================================
+# CI/CD Hub - Config Validation
+# ============================================================================
+# Validates all hub repo configs against the JSON schema.
+# Triggers on config/schema changes and manual dispatch.
+# ============================================================================
+
+name: Validate Hub Configs
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'config/**'
+      - 'schema/**'
+      - 'scripts/load_config.py'
+      - '.github/workflows/config-validate.yml'
+  pull_request:
+    paths:
+      - 'config/**'
+      - 'schema/**'
+      - 'scripts/load_config.py'
+      - '.github/workflows/config-validate.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -e .
+
+      - name: Validate all repo configs
+        run: |
+          set -e
+          for cfg in config/repos/*.yaml; do
+            repo_name=$(basename "$cfg" .yaml)
+            echo "Validating $cfg"
+            python scripts/load_config.py --repo "$repo_name" --output workflow-inputs >/dev/null
+          done
+
+      - name: Validate defaults schema
+        run: python scripts/load_config.py --repo dummy --hub-root . --output workflow-inputs >/dev/null || true

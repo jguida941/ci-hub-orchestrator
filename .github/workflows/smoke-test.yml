@@ -1,0 +1,485 @@
+# ============================================================================
+# CI/CD Hub - Smoke Test
+# ============================================================================
+# Quick validation test using minimal Java and Python repos.
+# Runs core tools only (heavy tools like mutation/OWASP disabled for speed).
+#
+# Purpose:
+#   - Verify hub can discover and test repositories
+#   - Validate tool execution and metric collection
+#   - Ensure artifacts and summaries are generated
+#   - Quick feedback before full hub runs
+#
+# See: docs/SMOKE_TEST.md for detailed documentation
+# ============================================================================
+
+name: "Smoke Test"
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_mutation:
+        description: 'Skip mutation testing (faster - recommended)'
+        required: false
+        type: boolean
+        default: true
+
+  # Allow running smoke test on config changes
+  pull_request:
+    paths:
+      - 'config/repos/smoke-test-*.yaml'
+      - '.github/workflows/smoke-test.yml'
+
+env:
+  REPORTS_DIR: ${{ github.workspace }}/smoke-test-reports
+
+jobs:
+  # ============================================================================
+  # Discover Smoke Test Repos
+  # ============================================================================
+  discover:
+    name: Discover Smoke Test Repos
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.repos.outputs.matrix }}
+      count: ${{ steps.repos.outputs.count }}
+
+    steps:
+      - name: Checkout Hub
+        uses: actions/checkout@v4
+
+      - name: Build Smoke Test Matrix
+        id: repos
+        run: |
+          REPOS='{"include":['
+          FIRST=true
+          COUNT=0
+
+          # Only include smoke-test-*.yaml configs
+          for config in config/repos/smoke-test-*.yaml; do
+            if [ -f "$config" ]; then
+              NAME=$(grep -E "^\s+name:" "$config" | head -1 | sed 's/.*name:\s*//' | tr -d '"' | tr -d "'")
+              OWNER=$(grep -E "^\s+owner:" "$config" | head -1 | sed 's/.*owner:\s*//' | tr -d '"' | tr -d "'")
+              LANG=$(grep -E "^\s+language:" "$config" | head -1 | sed 's/.*language:\s*//' | tr -d '"' | tr -d "'")
+              BRANCH=$(grep -E "^\s+default_branch:" "$config" | head -1 | sed 's/.*default_branch:\s*//' | tr -d '"' | tr -d "'" || echo "main")
+
+              if [ -n "$NAME" ] && [ -n "$OWNER" ]; then
+                if [ "$FIRST" = true ]; then
+                  FIRST=false
+                else
+                  REPOS+=','
+                fi
+                REPOS+="{\"name\":\"$NAME\",\"owner\":\"$OWNER\",\"language\":\"${LANG:-java}\",\"branch\":\"${BRANCH:-main}\",\"config\":\"$config\"}"
+                COUNT=$((COUNT + 1))
+              fi
+            fi
+          done
+
+          REPOS+=']}'
+          echo "matrix=$REPOS" >> $GITHUB_OUTPUT
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+
+          echo "Found $COUNT smoke test repositories:"
+          echo "$REPOS" | jq -r '.include[] | "  - \(.language): \(.owner)/\(.name)"' || echo "$REPOS"
+
+      - name: Validate Smoke Test Setup
+        run: |
+          if [ "${{ steps.repos.outputs.count }}" -lt 2 ]; then
+            echo "::error::Expected at least 2 smoke test repos (Java + Python), found ${{ steps.repos.outputs.count }}"
+            echo "::error::Ensure config/repos/smoke-test-java.yaml and smoke-test-python.yaml exist"
+            exit 1
+          fi
+
+          echo "✅ Smoke test setup valid: ${{ steps.repos.outputs.count }} repositories configured"
+
+  # ============================================================================
+  # Run Smoke Tests
+  # ============================================================================
+  test-repo:
+    name: "Smoke Test: ${{ matrix.language }} (${{ matrix.name }})"
+    runs-on: ubuntu-latest
+    needs: discover
+    if: needs.discover.outputs.count > 0
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+
+    steps:
+      - name: Checkout Hub (for scripts)
+        uses: actions/checkout@v4
+        with:
+          path: hub
+
+      - name: Checkout Target Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.owner }}/${{ matrix.name }}
+          ref: ${{ matrix.branch }}
+          path: repo
+          fetch-depth: 0
+
+      - name: Create Reports Directory
+        run: mkdir -p reports
+
+      # ========================================
+      # JAVA SETUP & CORE TOOLS
+      # ========================================
+      - name: Set up JDK 21
+        if: matrix.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: "[Java] Build & Test"
+        if: matrix.language == 'java'
+        working-directory: repo
+        run: |
+          echo "::group::Maven Build & Test"
+          if [ -f "mvnw" ]; then
+            chmod +x mvnw
+            ./mvnw -B -ntp verify -Dmaven.test.failure.ignore=true
+          elif [ -f "pom.xml" ]; then
+            mvn -B -ntp verify -Dmaven.test.failure.ignore=true
+          else
+            echo "::warning::No Maven project found"
+          fi
+          echo "::endgroup::"
+        continue-on-error: true
+
+      - name: "[Java] Extract Test Results"
+        if: matrix.language == 'java'
+        id: java-tests
+        working-directory: repo
+        run: |
+          TOTAL=0; PASSED=0; FAILED=0; SKIPPED=0; RUNTIME=0
+
+          for report in $(find . -path "*/surefire-reports/*.xml" -o -path "*/failsafe-reports/*.xml" 2>/dev/null); do
+            T=$(grep -oP 'tests="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
+            F=$(grep -oP 'failures="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
+            E=$(grep -oP 'errors="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
+            S=$(grep -oP 'skipped="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
+            TIME=$(grep -oP 'time="\K[0-9.]+' "$report" 2>/dev/null | head -1 || echo 0)
+            TOTAL=$((TOTAL + T))
+            FAILED=$((FAILED + F + E))
+            SKIPPED=$((SKIPPED + S))
+            RUNTIME=$(echo "$RUNTIME + $TIME" | bc 2>/dev/null || echo $RUNTIME)
+          done
+          PASSED=$((TOTAL - FAILED - SKIPPED))
+
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+          echo "runtime=${RUNTIME}s" >> $GITHUB_OUTPUT
+
+          echo "Tests: $TOTAL total, $PASSED passed, $FAILED failed, $SKIPPED skipped"
+
+      - name: "[Java] Extract Coverage"
+        if: matrix.language == 'java'
+        id: java-coverage
+        working-directory: repo
+        run: |
+          COVERED=0; MISSED=0; PERCENT=0
+
+          JACOCO=$(find . -name "jacoco.xml" -path "*/site/*" 2>/dev/null | head -1)
+          if [ -n "$JACOCO" ] && [ -f "$JACOCO" ]; then
+            COVERED=$(grep -oP 'INSTRUCTION.*?covered="\K[0-9]+' "$JACOCO" 2>/dev/null | awk '{s+=$1} END {print s}' || echo 0)
+            MISSED=$(grep -oP 'INSTRUCTION.*?missed="\K[0-9]+' "$JACOCO" 2>/dev/null | awk '{s+=$1} END {print s}' || echo 0)
+            TOTAL=$((COVERED + MISSED))
+            if [ "$TOTAL" -gt 0 ]; then
+              PERCENT=$((COVERED * 100 / TOTAL))
+            fi
+          fi
+
+          echo "covered=$COVERED" >> $GITHUB_OUTPUT
+          echo "missed=$MISSED" >> $GITHUB_OUTPUT
+          echo "percent=$PERCENT" >> $GITHUB_OUTPUT
+          echo "lines=$COVERED / $((COVERED + MISSED))" >> $GITHUB_OUTPUT
+
+          echo "Coverage: $PERCENT% ($COVERED / $((COVERED + MISSED)) instructions)"
+
+      - name: "[Java] Checkstyle"
+        if: matrix.language == 'java'
+        id: java-checkstyle
+        working-directory: repo
+        run: |
+          VIOLATIONS=0
+
+          if [ -f "mvnw" ]; then
+            ./mvnw -B -ntp checkstyle:check 2>/dev/null || true
+          fi
+
+          for xml in $(find . -name "checkstyle-result.xml" 2>/dev/null); do
+            COUNT=$(grep -c "<error" "$xml" 2>/dev/null || echo 0)
+            VIOLATIONS=$((VIOLATIONS + COUNT))
+          done
+
+          echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+          echo "Checkstyle: $VIOLATIONS violations"
+        continue-on-error: true
+
+      - name: "[Java] SpotBugs"
+        if: matrix.language == 'java'
+        id: java-spotbugs
+        working-directory: repo
+        run: |
+          BUGS=0
+
+          if [ -f "mvnw" ]; then
+            ./mvnw -B -ntp com.github.spotbugs:spotbugs-maven-plugin:check 2>/dev/null || true
+          fi
+
+          for xml in $(find . -name "spotbugsXml.xml" 2>/dev/null); do
+            COUNT=$(grep -c "<BugInstance" "$xml" 2>/dev/null || echo 0)
+            BUGS=$((BUGS + COUNT))
+          done
+
+          echo "count=$BUGS" >> $GITHUB_OUTPUT
+          echo "SpotBugs: $BUGS potential bugs"
+        continue-on-error: true
+
+      # ========================================
+      # PYTHON SETUP & CORE TOOLS
+      # ========================================
+      - name: Set up Python 3.12
+        if: matrix.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "[Python] Install Dependencies"
+        if: matrix.language == 'python'
+        working-directory: repo
+        run: |
+          echo "::group::Install Python Dependencies"
+          pip install --upgrade pip
+          # Core testing
+          pip install pytest pytest-cov
+          # Linting & formatting
+          pip install ruff black
+          # Install repo dependencies
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+          if [ -f "requirements-dev.txt" ]; then pip install -r requirements-dev.txt; fi
+          if [ -f "pyproject.toml" ]; then pip install -e ".[dev]" 2>/dev/null || pip install -e . 2>/dev/null || true; fi
+          echo "::endgroup::"
+
+      - name: "[Python] Run Tests with Coverage"
+        if: matrix.language == 'python'
+        id: python-tests
+        working-directory: repo
+        run: |
+          echo "::group::pytest with coverage"
+          pytest --cov=. --cov-report=xml --cov-report=term -v 2>&1 | tee test-output.txt || true
+          echo "::endgroup::"
+
+          TOTAL=$(grep -oP '\d+ passed' test-output.txt | grep -oP '\d+' || echo 0)
+          FAILED=$(grep -oP '\d+ failed' test-output.txt | grep -oP '\d+' || echo 0)
+          SKIPPED=$(grep -oP '\d+ skipped' test-output.txt | grep -oP '\d+' || echo 0)
+
+          COVERAGE=0
+          if [ -f "coverage.xml" ]; then
+            COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
+          fi
+
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "passed=$TOTAL" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+
+          echo "Tests: $TOTAL passed, $FAILED failed, $SKIPPED skipped"
+          echo "Coverage: $COVERAGE%"
+        continue-on-error: true
+
+      - name: "[Python] Ruff Lint"
+        if: matrix.language == 'python'
+        id: python-ruff
+        working-directory: repo
+        run: |
+          echo "::group::Ruff Linting"
+          ruff check . --output-format=json > ruff-report.json 2>/dev/null || true
+          echo "::endgroup::"
+
+          ERRORS=$(jq 'length' ruff-report.json 2>/dev/null || echo 0)
+          SECURITY=$(jq '[.[] | select(.code | startswith("S"))] | length' ruff-report.json 2>/dev/null || echo 0)
+
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "security=$SECURITY" >> $GITHUB_OUTPUT
+          echo "Ruff: $ERRORS issues ($SECURITY security-related)"
+        continue-on-error: true
+
+      - name: "[Python] Black Format Check"
+        if: matrix.language == 'python'
+        id: python-black
+        working-directory: repo
+        run: |
+          echo "::group::Black Format Check"
+          black --check . 2>&1 | tee black-output.txt || true
+          echo "::endgroup::"
+
+          WOULD_REFORMAT=$(grep -c "would reformat" black-output.txt 2>/dev/null || echo 0)
+          echo "issues=$WOULD_REFORMAT" >> $GITHUB_OUTPUT
+          echo "Black: $WOULD_REFORMAT files need reformatting"
+        continue-on-error: true
+
+      # ========================================
+      # GENERATE SMOKE TEST REPORT
+      # ========================================
+      - name: Generate Smoke Test Report
+        id: report
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          # Smoke Test Results: ${{ matrix.owner }}/${{ matrix.name }}
+
+          **Branch:** `${{ matrix.branch }}` | **Language:** `${{ matrix.language }}` | **Config:** `${{ matrix.config }}`
+
+          ---
+
+          EOF
+
+          if [ "${{ matrix.language }}" = "java" ]; then
+            COV=${{ steps.java-coverage.outputs.percent || 0 }}
+            COV_BAR=$(printf '█%.0s' $(seq 1 $((COV / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - COV / 5))) 2>/dev/null)
+
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## Java Smoke Test Results
+
+          | Metric | Result | Status |
+          |--------|--------|--------|
+          | **Unit Tests** | ${{ steps.java-tests.outputs.total || 0 }} executed | ${{ steps.java-tests.outputs.total > 0 && '✅' || '❌' }} |
+          | **Test Failures** | ${{ steps.java-tests.outputs.failed || 0 }} failed | ${{ steps.java-tests.outputs.failed == 0 && '✅' || '⚠️' }} |
+          | **Coverage (JaCoCo)** | ${COV}% ${COV_BAR} | ${{ steps.java-coverage.outputs.percent >= 50 && '✅' || '⚠️' }} |
+          | **Checkstyle** | ${{ steps.java-checkstyle.outputs.violations || 0 }} violations | ${{ steps.java-checkstyle.outputs.violations == 0 && '✅' || '⚠️' }} |
+          | **SpotBugs** | ${{ steps.java-spotbugs.outputs.count || 0 }} potential bugs | ${{ steps.java-spotbugs.outputs.count == 0 && '✅' || '⚠️' }} |
+
+          **Coverage Details:** ${{ steps.java-coverage.outputs.lines || '0 / 0' }} instructions covered
+
+          ### Smoke Test Status
+          ${{ steps.java-tests.outputs.total > 0 && steps.java-coverage.outputs.percent > 0 && '✅ **PASS** - Core Java tools executed successfully' || '❌ **FAIL** - Missing test execution or coverage data' }}
+
+          EOF
+
+          else
+            COV=${{ steps.python-tests.outputs.coverage || 0 }}
+            COV_BAR=$(printf '█%.0s' $(seq 1 $((COV / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - COV / 5))) 2>/dev/null)
+
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## Python Smoke Test Results
+
+          | Metric | Result | Status |
+          |--------|--------|--------|
+          | **Unit Tests** | ${{ steps.python-tests.outputs.total || 0 }} passed | ${{ steps.python-tests.outputs.total > 0 && '✅' || '❌' }} |
+          | **Test Failures** | ${{ steps.python-tests.outputs.failed || 0 }} failed | ${{ steps.python-tests.outputs.failed == 0 && '✅' || '⚠️' }} |
+          | **Coverage (pytest-cov)** | ${COV}% ${COV_BAR} | ${{ steps.python-tests.outputs.coverage >= 50 && '✅' || '⚠️' }} |
+          | **Ruff Lint** | ${{ steps.python-ruff.outputs.errors || 0 }} issues | ${{ steps.python-ruff.outputs.errors == 0 && '✅' || '⚠️' }} |
+          | **Black Format** | ${{ steps.python-black.outputs.issues || 0 }} files need reformatting | ${{ steps.python-black.outputs.issues == 0 && '✅' || '⚠️' }} |
+
+          **Security:** ${{ steps.python-ruff.outputs.security || 0 }} security-related issues
+
+          ### Smoke Test Status
+          ${{ steps.python-tests.outputs.total > 0 && steps.python-tests.outputs.coverage > 0 && '✅ **PASS** - Core Python tools executed successfully' || '❌ **FAIL** - Missing test execution or coverage data' }}
+
+          EOF
+          fi
+
+      # ========================================
+      # UPLOAD ARTIFACTS
+      # ========================================
+      - name: Upload Smoke Test Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-${{ matrix.language }}-${{ matrix.name }}
+          path: |
+            repo/**/target/surefire-reports/
+            repo/**/target/site/jacoco/
+            repo/**/target/checkstyle-result.xml
+            repo/**/target/spotbugsXml.xml
+            repo/coverage.xml
+            repo/htmlcov/
+            repo/*-report.json
+            repo/test-output.txt
+          retention-days: 7
+          if-no-files-found: warn
+
+  # ============================================================================
+  # Smoke Test Summary
+  # ============================================================================
+  summary:
+    name: Smoke Test Summary
+    runs-on: ubuntu-latest
+    needs: [discover, test-repo]
+    if: always()
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: smoke-test-artifacts
+
+      - name: Generate Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # 🔬 Smoke Test Summary
+
+          **Total Test Repositories:** ${{ needs.discover.outputs.count }}
+          **Run Number:** #${{ github.run_number }}
+          **Trigger:** ${{ github.event_name }}
+          **Status:** ${{ needs.test-repo.result == 'success' && '✅ PASSED' || '❌ FAILED' }}
+
+          ---
+
+          ## What Was Tested
+
+          The smoke test validates core hub functionality:
+
+          - ✅ Repository discovery and configuration loading
+          - ✅ Language detection (Java and Python)
+          - ✅ Core tool execution (coverage, linting, style checks)
+          - ✅ Artifact generation and upload
+          - ✅ Summary report generation
+
+          ## Test Repositories
+
+          EOF
+
+          echo "| Language | Repository | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          # This would ideally parse from job results, but for now we show static info
+          echo "| Java | Smoke Test Java | See job results above |" >> $GITHUB_STEP_SUMMARY
+          echo "| Python | Smoke Test Python | See job results above |" >> $GITHUB_STEP_SUMMARY
+
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+
+          ---
+
+          ## Next Steps
+
+          If this smoke test **PASSED**:
+          1. ✅ Mark the smoke test checkbox in \`requirements/P0.md\`
+          2. Proceed with full hub testing on all configured repos
+          3. Review individual job summaries for detailed metrics
+
+          If this smoke test **FAILED**:
+          1. Check individual job logs for errors
+          2. Verify test repositories are accessible
+          3. Ensure config files are valid YAML
+          4. See [\`docs/SMOKE_TEST.md\`](docs/SMOKE_TEST.md) for troubleshooting
+
+          ---
+
+          **Documentation:** See [\`docs/SMOKE_TEST.md\`](docs/SMOKE_TEST.md) for detailed smoke test guide.
+
+          EOF
+
+      - name: Check Smoke Test Result
+        run: |
+          if [ "${{ needs.test-repo.result }}" != "success" ]; then
+            echo "::error::Smoke test failed - check job results above"
+            exit 1
+          fi
+
+          echo "✅ Smoke test passed!"

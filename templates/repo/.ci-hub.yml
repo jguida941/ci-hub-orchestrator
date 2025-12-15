@@ -1,0 +1,102 @@
+# CI/CD Hub - Master Template for Repos
+# Copy this to the root of your repo as `.ci-hub.yml` and adjust values.
+# Hub precedence: repo/.ci-hub.yml > hub config/repos/<repo>.yaml > hub config/defaults.yaml
+
+version: "1.0"
+
+repo:
+  owner: your-github-handle        # REQUIRED
+  name: your-repo-name             # REQUIRED
+  language: java                   # java | python (more coming soon)
+  default_branch: main             # branch to run CI against
+  # distributed: false             # optional: set true to run in target repo
+
+java:
+  version: "21"
+  distribution: temurin           # temurin|corretto|zulu|microsoft
+  build_tool: maven               # maven|gradle
+
+  tools:
+    jacoco:
+      enabled: true
+      min_coverage: 80            # fail/warn threshold
+    checkstyle:
+      enabled: true
+      fail_on_violation: true
+    spotbugs:
+      enabled: true
+      fail_on_error: true
+    pmd:
+      enabled: true
+      fail_on_violation: false    # advisory by default
+    owasp:
+      enabled: true
+      fail_on_cvss: 7
+    pitest:
+      enabled: true
+      min_mutation_score: 70
+    semgrep:
+      enabled: false              # enable for SAST
+    trivy:
+      enabled: false              # enable if repo has Dockerfile
+      fail_on_critical: false
+      fail_on_high: false
+    codeql:
+      enabled: true
+    docker:
+      enabled: false
+      compose_file: docker-compose.yml
+      health_endpoint: /actuator/health
+
+python:
+  version: "3.12"
+
+  tools:
+    pytest:
+      enabled: true
+      min_coverage: 80
+    ruff:
+      enabled: true
+      fail_on_error: true
+    black:
+      enabled: true
+      fail_on_format_issues: false
+    isort:
+      enabled: true
+      fail_on_issues: false
+    bandit:
+      enabled: true
+      fail_on_high: true
+    pip_audit:
+      enabled: true
+      fail_on_vuln: true
+    mypy:
+      enabled: false
+    mutmut:
+      enabled: false
+      min_mutation_score: 70
+    semgrep:
+      enabled: false              # enable for SAST
+    trivy:
+      enabled: false              # enable if repo has Dockerfile
+      fail_on_critical: false
+      fail_on_high: false
+    codeql:
+      enabled: true
+    docker:
+      enabled: false
+
+reports:
+  retention_days: 30
+  badges:
+    enabled: true
+    branch: main
+  codecov:
+    enabled: true
+    fail_ci_on_error: false
+
+thresholds:
+  coverage_min: 80
+  mutation_score_min: 70
+  max_critical_vulns: 0
+  max_high_vulns: 0

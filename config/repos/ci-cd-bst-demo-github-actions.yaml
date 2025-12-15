@@ -1,0 +1,66 @@
+# ============================================================================
+# Repo Config: ci-cd-bst-demo-github-actions
+# ============================================================================
+# Python BST demo with comprehensive CI/CD
+# ============================================================================
+
+repo:
+  owner: jguida941
+  name: ci-cd-bst-demo-github-actions
+  language: python
+  default_branch: main
+
+python:
+  version: "3.12"
+
+  tools:
+    pytest:
+      enabled: true
+      min_coverage: 95  # This repo requires 95%!
+
+    # Hypothesis property-based testing
+    hypothesis:
+      enabled: true
+
+    # mutmut mutation testing
+    mutmut:
+      enabled: true
+      min_score: 80
+
+    ruff:
+      enabled: true
+
+    bandit:
+      enabled: true
+
+    pip_audit:
+      enabled: true
+
+    mypy:
+      enabled: true
+
+    black:
+      enabled: true
+
+    codeql:
+      enabled: true
+
+    sbom:
+      enabled: true
+      format: cyclonedx
+
+# Custom thresholds (higher than defaults)
+thresholds:
+  coverage_min: 95
+  mutation_score_min: 80
+
+# Extra tests specific to this repo
+extra_tests:
+  - name: "Hypothesis fuzzing"
+    command: "pytest --hypothesis-show-statistics tests/"
+
+  - name: "mutmut mutation"
+    command: "mutmut run --paths-to-mutate=src/"
+
+  - name: "Make targets"
+    command: "make lint test"

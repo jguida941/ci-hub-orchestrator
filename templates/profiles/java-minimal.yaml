@@ -1,0 +1,31 @@
+# ============================================================================
+# Java Minimal Profile - Baseline signal, fastest runtime
+# ============================================================================
+# Use when you need the quickest sanity signal (e.g., tiny repos, docs-only PRs).
+# Focus: compile + tests; all heavy scanners off.
+# Expected runtime: ~3-6 minutes
+# ============================================================================
+
+java:
+  tools:
+    jacoco:
+      enabled: false   # Skip coverage to maximize speed
+      min_coverage: 0
+    checkstyle:
+      enabled: false   # Skip style checks
+    spotbugs:
+      enabled: false   # Skip static analysis
+    owasp:
+      enabled: false   # Skip dependency scan
+    pmd:
+      enabled: false
+    pitest:
+      enabled: false
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+    docker:
+      enabled: false

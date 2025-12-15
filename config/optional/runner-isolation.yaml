@@ -1,0 +1,75 @@
+# ============================================================================
+# Runner Isolation Configuration (Optional)
+# ============================================================================
+# Controls concurrency, runner types, and resource limits per workflow.
+# Prevents repos from monopolizing shared runners.
+#
+# To enable: Set runner_isolation.enabled = true in your repo config
+# ============================================================================
+
+runner_isolation:
+  # Master toggle - disabled by default
+  enabled: false
+
+  # Global defaults
+  defaults:
+    # Cancel in-progress runs when new commit pushed
+    cancel_in_progress: true
+
+    # Allowed runner labels
+    allowed_runners:
+      - ubuntu-latest
+      - ubuntu-22.04
+      - ubuntu-24.04
+      - windows-latest
+      - macos-latest
+
+    # Maximum concurrent jobs per repo
+    max_concurrent_jobs: 5
+
+    # Maximum parallel matrix jobs
+    max_matrix_parallel: 4
+
+  # Per-workflow overrides
+  workflows:
+    # Example: Limit release workflow to 1 at a time
+    release:
+      max_in_progress: 1
+      cancel_in_progress: false  # Don't cancel releases
+
+    # Example: Test workflows can run more freely
+    test:
+      max_in_progress: 3
+      max_matrix_parallel: 6
+
+    # Example: Security scans are resource-intensive
+    security:
+      max_in_progress: 2
+      timeout_minutes: 60
+
+  # Self-hosted runner profiles (if using self-hosted)
+  self_hosted_profiles:
+    # Example: High-memory runner for builds
+    # high-memory:
+    #   labels: [self-hosted, linux, high-mem]
+    #   max_concurrent: 2
+    #   setup_script: scripts/setup-high-mem-runner.sh
+
+  # Resource limits (informational - enforced by runner)
+  resource_limits:
+    default:
+      memory_mb: 7168   # 7GB (GitHub hosted)
+      cpu_cores: 2
+      disk_gb: 14
+
+    large:
+      memory_mb: 14336  # 14GB
+      cpu_cores: 4
+      disk_gb: 30
+
+  # Fair scheduling - prevent queue monopolization
+  fair_scheduling:
+    enabled: false
+    token_bucket:
+      capacity: 10
+      refill_rate_per_minute: 2

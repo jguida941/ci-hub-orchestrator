@@ -1,0 +1,53 @@
+# ============================================================================
+# Python Fast Profile - Quick feedback for PRs
+# ============================================================================
+# Use this profile when you want fast CI feedback without expensive analysis.
+# Best for: PR checks, quick builds, development iteration
+#
+# Tools enabled:  pytest, ruff, black, isort, bandit, pip-audit
+# Tools disabled: mutmut, semgrep, trivy, codeql, mypy
+# Expected runtime: ~3-8 minutes
+# ============================================================================
+
+python:
+  tools:
+    # Core testing and coverage
+    pytest:
+      enabled: true
+      min_coverage: 70
+      fail_fast: false
+
+    # Linting - fast and valuable
+    ruff:
+      enabled: true
+      fail_on_error: true
+
+    # Formatting checks - fast
+    black:
+      enabled: true
+      fail_on_format_issues: false
+    isort:
+      enabled: true
+      fail_on_issues: false
+
+    # Security scanning - fast and important
+    bandit:
+      enabled: true
+      fail_on_high: true
+    pip_audit:
+      enabled: true
+      fail_on_vuln: true
+
+    # Expensive tools - disabled for speed
+    mypy:
+      enabled: false  # Skip type checking
+    mutmut:
+      enabled: false  # Skip mutation testing
+    semgrep:
+      enabled: false  # Skip SAST
+    trivy:
+      enabled: false  # Skip container scan
+    codeql:
+      enabled: false  # Skip CodeQL
+    docker:
+      enabled: false  # Skip Docker build

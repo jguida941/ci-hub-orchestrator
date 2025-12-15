@@ -1,0 +1,52 @@
+# ============================================================================
+# Repo Config: smoke-test-python
+# ============================================================================
+# Minimal Python smoke test config - for testing hub functionality
+# This can point to any simple Python repo with pytest
+# ============================================================================
+
+repo:
+  owner: jguida941
+  name: ci-cd-bst-demo-github-actions  # Using existing repo
+  language: python
+  default_branch: main
+
+python:
+  version: "3.12"
+
+  tools:
+    # Core tools only for smoke test
+    pytest:
+      enabled: true
+      min_coverage: 50  # Lower threshold for smoke test
+      fail_fast: false
+
+    ruff:
+      enabled: true
+      fail_on_error: false  # Don't fail smoke test
+
+    # Disable heavy/slow tools for smoke test
+    bandit:
+      enabled: false
+
+    pip_audit:
+      enabled: false
+
+    mypy:
+      enabled: false
+
+    black:
+      enabled: true
+
+    codeql:
+      enabled: false
+
+    docker:
+      enabled: false
+
+# Lower thresholds for smoke test
+thresholds:
+  coverage_min: 50
+  mutation_score_min: 0
+  max_critical_vulns: 100
+  max_high_vulns: 100

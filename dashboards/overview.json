@@ -1,0 +1,78 @@
+{
+  "title": "CI/CD Hub Overview",
+  "description": "Aggregated metrics across all connected repositories",
+  "refresh_interval_seconds": 300,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Total Repositories",
+      "type": "stat",
+      "query": "COUNT(DISTINCT repo)",
+      "position": { "x": 0, "y": 0, "w": 4, "h": 2 }
+    },
+    {
+      "id": 2,
+      "title": "Success Rate (24h)",
+      "type": "gauge",
+      "query": "SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) * 100.0 / COUNT(*)",
+      "thresholds": [
+        { "value": 0, "color": "red" },
+        { "value": 80, "color": "yellow" },
+        { "value": 95, "color": "green" }
+      ],
+      "position": { "x": 4, "y": 0, "w": 4, "h": 2 }
+    },
+    {
+      "id": 3,
+      "title": "Average Coverage",
+      "type": "gauge",
+      "query": "AVG(coverage.line_percent)",
+      "thresholds": [
+        { "value": 0, "color": "red" },
+        { "value": 60, "color": "yellow" },
+        { "value": 80, "color": "green" }
+      ],
+      "position": { "x": 8, "y": 0, "w": 4, "h": 2 }
+    },
+    {
+      "id": 4,
+      "title": "Build Status by Repo",
+      "type": "table",
+      "query": "SELECT repo, status, coverage.line_percent as coverage, coverage.mutation_score as mutation FROM runs ORDER BY ended_at DESC",
+      "columns": ["repo", "status", "coverage", "mutation"],
+      "position": { "x": 0, "y": 2, "w": 12, "h": 4 }
+    },
+    {
+      "id": 5,
+      "title": "Build Duration Trend",
+      "type": "line",
+      "query": "SELECT DATE(started_at) as date, AVG(duration_ms)/1000 as avg_seconds FROM runs GROUP BY date",
+      "x_axis": "date",
+      "y_axis": "avg_seconds",
+      "position": { "x": 0, "y": 6, "w": 6, "h": 3 }
+    },
+    {
+      "id": 6,
+      "title": "Test Results Trend",
+      "type": "stacked_bar",
+      "query": "SELECT DATE(started_at) as date, SUM(tests.passed) as passed, SUM(tests.failed) as failed FROM runs GROUP BY date",
+      "x_axis": "date",
+      "series": ["passed", "failed"],
+      "position": { "x": 6, "y": 6, "w": 6, "h": 3 }
+    },
+    {
+      "id": 7,
+      "title": "Vulnerabilities by Severity",
+      "type": "pie",
+      "query": "SELECT 'Critical' as severity, SUM(security.vulnerabilities.critical) as count UNION ALL SELECT 'High', SUM(security.vulnerabilities.high) UNION ALL SELECT 'Medium', SUM(security.vulnerabilities.medium)",
+      "position": { "x": 0, "y": 9, "w": 4, "h": 3 }
+    },
+    {
+      "id": 8,
+      "title": "Top Failing Repos (7d)",
+      "type": "bar",
+      "query": "SELECT repo, COUNT(*) as failures FROM runs WHERE status = 'failure' AND started_at > NOW() - INTERVAL 7 DAY GROUP BY repo ORDER BY failures DESC LIMIT 10",
+      "position": { "x": 4, "y": 9, "w": 8, "h": 3 }
+    }
+  ]
+}

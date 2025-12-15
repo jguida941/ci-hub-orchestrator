@@ -1,0 +1,52 @@
+# ============================================================================
+# Kyverno Policy: Verify Image Signatures
+# ============================================================================
+# Denies workloads unless container images are signed with Cosign keyless.
+#
+# Requirements:
+#   - Kyverno installed in cluster
+#   - Images signed via GitHub Actions OIDC
+#   - Signatures recorded in Rekor
+# ============================================================================
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-keyless-images
+  annotations:
+    policies.kyverno.io/title: Enforce Cosign keyless signatures
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >
+      Deny workloads unless container images are signed with keyless Cosign
+      certificates issued by GitHub Actions OIDC and recorded in Rekor.
+spec:
+  # Change to Enforce when ready for production
+  validationFailureAction: Audit
+  background: false
+  failurePolicy: Fail
+  rules:
+    - name: require-keyless-cosign
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      verifyImages:
+        - imageReferences:
+            # Update with your registry pattern
+            - "ghcr.io/YOUR_ORG/*"
+          attestors:
+            - entries:
+                - keyless:
+                    issuer: https://token.actions.githubusercontent.com
+                    # Update with your org/repo pattern
+                    subject: "https://github.com/YOUR_ORG/*/.github/workflows/*"
+                    rekor:
+                      url: https://rekor.sigstore.dev
+          mutateDigest: true
+          verifyDigest: true

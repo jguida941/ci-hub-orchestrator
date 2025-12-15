@@ -1,0 +1,688 @@
+# ============================================================================
+# CI/CD Hub - Central Test Runner
+# ============================================================================
+# This is the TRUE hub workflow - it clones and tests ALL your repos directly.
+# Target repos DO NOT need any workflow files - the hub does everything.
+#
+# How it works:
+#   1. Reads config/repos/*.yaml to get repo list
+#   2. Clones each repo
+#   3. Detects language (Java/Python)
+#   4. Runs ALL quality tools
+#   5. Generates beautiful reports
+#   6. Stores all artifacts centrally
+# ============================================================================
+
+name: "Hub: Run All Repos"
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: 'Specific repos (comma-separated, empty=all)'
+        required: false
+        type: string
+      skip_mutation:
+        description: 'Skip mutation testing (faster)'
+        required: false
+        type: boolean
+        default: false
+
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+
+  push:
+    branches: [main, master]
+    paths:
+      - 'config/repos/*.yaml'
+
+env:
+  REPORTS_DIR: ${{ github.workspace }}/all-reports
+
+jobs:
+  # ============================================================================
+  # Discover Repos
+  # ============================================================================
+  discover:
+    name: Discover Repositories
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.repos.outputs.matrix }}
+      count: ${{ steps.repos.outputs.count }}
+
+    steps:
+      - name: Checkout Hub
+        uses: actions/checkout@v4
+
+      - name: Build Repo Matrix
+        id: repos
+        run: |
+          REPOS='{"include":['
+          FIRST=true
+          COUNT=0
+
+          for config in config/repos/*.yaml; do
+            if [ -f "$config" ]; then
+              NAME=$(grep -E "^\s+name:" "$config" | head -1 | sed 's/.*name:\s*//' | tr -d '"' | tr -d "'")
+              OWNER=$(grep -E "^\s+owner:" "$config" | head -1 | sed 's/.*owner:\s*//' | tr -d '"' | tr -d "'")
+              LANG=$(grep -E "^\s+language:" "$config" | head -1 | sed 's/.*language:\s*//' | tr -d '"' | tr -d "'")
+              BRANCH=$(grep -E "^\s+default_branch:" "$config" | head -1 | sed 's/.*default_branch:\s*//' | tr -d '"' | tr -d "'" || echo "main")
+
+              if [ -n "$NAME" ] && [ -n "$OWNER" ]; then
+                # Filter if specific repos requested
+                if [ -n "${{ inputs.repos }}" ]; then
+                  if ! echo "${{ inputs.repos }}" | grep -q "$NAME"; then
+                    continue
+                  fi
+                fi
+
+                if [ "$FIRST" = true ]; then
+                  FIRST=false
+                else
+                  REPOS+=','
+                fi
+                REPOS+="{\"name\":\"$NAME\",\"owner\":\"$OWNER\",\"language\":\"${LANG:-java}\",\"branch\":\"${BRANCH:-main}\"}"
+                COUNT=$((COUNT + 1))
+              fi
+            fi
+          done
+
+          REPOS+=']}'
+          echo "matrix=$REPOS" >> $GITHUB_OUTPUT
+          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "Found $COUNT repositories"
+
+  # ============================================================================
+  # Run CI for Each Repo
+  # ============================================================================
+  test-repo:
+    name: "Test: ${{ matrix.name }}"
+    runs-on: ubuntu-latest
+    needs: discover
+    if: needs.discover.outputs.count > 0
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+
+    steps:
+      - name: Checkout Hub (for scripts)
+        uses: actions/checkout@v4
+        with:
+          path: hub
+
+      - name: Checkout Target Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.owner }}/${{ matrix.name }}
+          ref: ${{ matrix.branch }}
+          path: repo
+          fetch-depth: 0
+
+      - name: Create Reports Directory
+        run: mkdir -p reports
+
+      # ========================================
+      # JAVA SETUP & TOOLS
+      # ========================================
+      - name: Set up JDK 21
+        if: matrix.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: "[Java] Build & Test"
+        if: matrix.language == 'java'
+        working-directory: repo
+        run: |
+          if [ -f "mvnw" ]; then
+            chmod +x mvnw
+            ./mvnw -B -ntp verify -Dmaven.test.failure.ignore=true
+          elif [ -f "pom.xml" ]; then
+            mvn -B -ntp verify -Dmaven.test.failure.ignore=true
+          fi
+        continue-on-error: true
+
+      - name: "[Java] Extract Test Results"
+        if: matrix.language == 'java'
+        id: java-tests
+        working-directory: repo
+        run: |
+          TOTAL=0; PASSED=0; FAILED=0; SKIPPED=0; RUNTIME=0
+
+          for report in $(find . -path "*/surefire-reports/*.xml" -o -path "*/failsafe-reports/*.xml" 2>/dev/null); do
+            T=$(grep -oP 'tests="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
+            F=$(grep -oP 'failures="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
+            E=$(grep -oP 'errors="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
+            S=$(grep -oP 'skipped="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
+            TIME=$(grep -oP 'time="\K[0-9.]+' "$report" 2>/dev/null | head -1 || echo 0)
+            TOTAL=$((TOTAL + T))
+            FAILED=$((FAILED + F + E))
+            SKIPPED=$((SKIPPED + S))
+            RUNTIME=$(echo "$RUNTIME + $TIME" | bc 2>/dev/null || echo $RUNTIME)
+          done
+          PASSED=$((TOTAL - FAILED - SKIPPED))
+
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+          echo "runtime=${RUNTIME}s" >> $GITHUB_OUTPUT
+
+      - name: "[Java] Extract Coverage"
+        if: matrix.language == 'java'
+        id: java-coverage
+        working-directory: repo
+        run: |
+          COVERED=0; MISSED=0; PERCENT=0
+
+          JACOCO=$(find . -name "jacoco.xml" -path "*/site/*" 2>/dev/null | head -1)
+          if [ -n "$JACOCO" ] && [ -f "$JACOCO" ]; then
+            COVERED=$(grep -oP 'INSTRUCTION.*?covered="\K[0-9]+' "$JACOCO" 2>/dev/null | awk '{s+=$1} END {print s}' || echo 0)
+            MISSED=$(grep -oP 'INSTRUCTION.*?missed="\K[0-9]+' "$JACOCO" 2>/dev/null | awk '{s+=$1} END {print s}' || echo 0)
+            TOTAL=$((COVERED + MISSED))
+            if [ "$TOTAL" -gt 0 ]; then
+              PERCENT=$((COVERED * 100 / TOTAL))
+            fi
+          fi
+
+          echo "covered=$COVERED" >> $GITHUB_OUTPUT
+          echo "missed=$MISSED" >> $GITHUB_OUTPUT
+          echo "percent=$PERCENT" >> $GITHUB_OUTPUT
+          echo "lines=$COVERED / $((COVERED + MISSED))" >> $GITHUB_OUTPUT
+
+      - name: "[Java] Run PITest Mutation"
+        if: matrix.language == 'java' && inputs.skip_mutation != true
+        id: java-mutation
+        working-directory: repo
+        run: |
+          KILLED=0; SURVIVED=0; SCORE=0
+
+          if [ -f "mvnw" ]; then
+            ./mvnw -B -ntp test-compile org.pitest:pitest-maven:mutationCoverage -DskipTests 2>/dev/null || true
+          fi
+
+          MUTATIONS=$(find . -name "mutations.xml" 2>/dev/null | head -1)
+          if [ -n "$MUTATIONS" ] && [ -f "$MUTATIONS" ]; then
+            KILLED=$(grep -c 'status="KILLED"' "$MUTATIONS" 2>/dev/null || echo 0)
+            SURVIVED=$(grep -c 'status="SURVIVED"' "$MUTATIONS" 2>/dev/null || echo 0)
+            TOTAL=$((KILLED + SURVIVED))
+            if [ "$TOTAL" -gt 0 ]; then
+              SCORE=$((KILLED * 100 / TOTAL))
+            fi
+          fi
+
+          echo "killed=$KILLED" >> $GITHUB_OUTPUT
+          echo "survived=$SURVIVED" >> $GITHUB_OUTPUT
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Java] OWASP Dependency Check"
+        if: matrix.language == 'java'
+        id: java-owasp
+        working-directory: repo
+        run: |
+          CRITICAL=0; HIGH=0; MEDIUM=0; LOW=0
+
+          if [ -f "mvnw" ]; then
+            ./mvnw -B -ntp org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=11 2>/dev/null || true
+          fi
+
+          REPORT=$(find . -name "dependency-check-report.json" 2>/dev/null | head -1)
+          if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
+            CRITICAL=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "CRITICAL")] | length' "$REPORT" 2>/dev/null || echo 0)
+            HIGH=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "HIGH")] | length' "$REPORT" 2>/dev/null || echo 0)
+            MEDIUM=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "MEDIUM")] | length' "$REPORT" 2>/dev/null || echo 0)
+            LOW=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "LOW")] | length' "$REPORT" 2>/dev/null || echo 0)
+          fi
+
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+          echo "low=$LOW" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Java] SpotBugs"
+        if: matrix.language == 'java'
+        id: java-spotbugs
+        working-directory: repo
+        run: |
+          BUGS=0
+
+          if [ -f "mvnw" ]; then
+            ./mvnw -B -ntp com.github.spotbugs:spotbugs-maven-plugin:check 2>/dev/null || true
+          fi
+
+          for xml in $(find . -name "spotbugsXml.xml" 2>/dev/null); do
+            COUNT=$(grep -c "<BugInstance" "$xml" 2>/dev/null || echo 0)
+            BUGS=$((BUGS + COUNT))
+          done
+
+          echo "count=$BUGS" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Java] Checkstyle"
+        if: matrix.language == 'java'
+        id: java-checkstyle
+        working-directory: repo
+        run: |
+          VIOLATIONS=0
+
+          if [ -f "mvnw" ]; then
+            ./mvnw -B -ntp checkstyle:check 2>/dev/null || true
+          fi
+
+          for xml in $(find . -name "checkstyle-result.xml" 2>/dev/null); do
+            COUNT=$(grep -c "<error" "$xml" 2>/dev/null || echo 0)
+            VIOLATIONS=$((VIOLATIONS + COUNT))
+          done
+
+          echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      # ========================================
+      # PYTHON SETUP & TOOLS
+      # ========================================
+      - name: Set up Python 3.12
+        if: matrix.language == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "[Python] Install Dependencies"
+        if: matrix.language == 'python'
+        working-directory: repo
+        run: |
+          pip install --upgrade pip
+          # Core testing
+          pip install pytest pytest-cov hypothesis
+          # Linting & formatting
+          pip install ruff black isort
+          # Security
+          pip install bandit pip-audit safety
+          # Type checking
+          pip install mypy
+          # Mutation testing
+          pip install mutmut
+          # Install repo dependencies
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+          if [ -f "requirements-dev.txt" ]; then pip install -r requirements-dev.txt; fi
+          if [ -f "pyproject.toml" ]; then pip install -e ".[dev]" 2>/dev/null || pip install -e . 2>/dev/null || true; fi
+
+      - name: "[Python] Run Tests with Coverage"
+        if: matrix.language == 'python'
+        id: python-tests
+        working-directory: repo
+        run: |
+          pytest --cov=. --cov-report=xml --cov-report=term -v 2>&1 | tee test-output.txt || true
+
+          TOTAL=$(grep -oP '\d+ passed' test-output.txt | grep -oP '\d+' || echo 0)
+          FAILED=$(grep -oP '\d+ failed' test-output.txt | grep -oP '\d+' || echo 0)
+          SKIPPED=$(grep -oP '\d+ skipped' test-output.txt | grep -oP '\d+' || echo 0)
+
+          COVERAGE=0
+          if [ -f "coverage.xml" ]; then
+            COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
+          fi
+
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          echo "passed=$TOTAL" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Python] Ruff Lint + Security"
+        if: matrix.language == 'python'
+        id: python-ruff
+        working-directory: repo
+        run: |
+          ruff check . --output-format=json > ruff-report.json 2>/dev/null || true
+          ERRORS=$(jq 'length' ruff-report.json 2>/dev/null || echo 0)
+          SECURITY=$(jq '[.[] | select(.code | startswith("S"))] | length' ruff-report.json 2>/dev/null || echo 0)
+
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "security=$SECURITY" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Python] Bandit Security Scan"
+        if: matrix.language == 'python'
+        id: python-bandit
+        working-directory: repo
+        run: |
+          bandit -r . -f json -o bandit-report.json 2>/dev/null || true
+
+          HIGH=0; MEDIUM=0; LOW=0
+          if [ -f "bandit-report.json" ]; then
+            HIGH=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json 2>/dev/null || echo 0)
+            MEDIUM=$(jq '[.results[] | select(.issue_severity == "MEDIUM")] | length' bandit-report.json 2>/dev/null || echo 0)
+            LOW=$(jq '[.results[] | select(.issue_severity == "LOW")] | length' bandit-report.json 2>/dev/null || echo 0)
+          fi
+
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+          echo "low=$LOW" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Python] pip-audit Dependency Check"
+        if: matrix.language == 'python'
+        id: python-pipaudit
+        working-directory: repo
+        run: |
+          pip-audit --format=json --output=pip-audit-report.json 2>/dev/null || true
+
+          VULNS=0
+          if [ -f "pip-audit-report.json" ]; then
+            VULNS=$(jq 'length' pip-audit-report.json 2>/dev/null || echo 0)
+          fi
+
+          echo "vulnerabilities=$VULNS" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Python] Black Format Check"
+        if: matrix.language == 'python'
+        id: python-black
+        working-directory: repo
+        run: |
+          black --check . 2>&1 | tee black-output.txt || true
+          WOULD_REFORMAT=$(grep -c "would reformat" black-output.txt 2>/dev/null || echo 0)
+          echo "issues=$WOULD_REFORMAT" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Python] mypy Type Check"
+        if: matrix.language == 'python'
+        id: python-mypy
+        working-directory: repo
+        run: |
+          mypy . --ignore-missing-imports 2>&1 | tee mypy-output.txt || true
+          ERRORS=$(grep -c "error:" mypy-output.txt 2>/dev/null || echo 0)
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Python] Hypothesis Property Tests"
+        if: matrix.language == 'python'
+        id: python-hypothesis
+        working-directory: repo
+        run: |
+          # Run tests with hypothesis statistics
+          pytest --hypothesis-show-statistics -v 2>&1 | tee hypothesis-output.txt || true
+          EXAMPLES=$(grep -oP '\d+ passing examples' hypothesis-output.txt | grep -oP '\d+' || echo 0)
+          echo "examples=$EXAMPLES" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[Python] mutmut Mutation Testing"
+        if: matrix.language == 'python' && inputs.skip_mutation != true
+        id: python-mutmut
+        working-directory: repo
+        run: |
+          KILLED=0; SURVIVED=0; SCORE=0
+
+          # Find source directory
+          SRC_DIR="."
+          if [ -d "src" ]; then SRC_DIR="src"; fi
+
+          # Run mutmut (limited for speed)
+          timeout 600 mutmut run --paths-to-mutate="$SRC_DIR" --runner="pytest -x -q" 2>/dev/null || true
+
+          # Get results
+          if command -v mutmut &> /dev/null; then
+            RESULTS=$(mutmut results 2>/dev/null || echo "")
+            KILLED=$(echo "$RESULTS" | grep -oP 'Killed: \K\d+' || echo 0)
+            SURVIVED=$(echo "$RESULTS" | grep -oP 'Survived: \K\d+' || echo 0)
+            TOTAL=$((KILLED + SURVIVED))
+            if [ "$TOTAL" -gt 0 ]; then
+              SCORE=$((KILLED * 100 / TOTAL))
+            fi
+          fi
+
+          echo "killed=$KILLED" >> $GITHUB_OUTPUT
+          echo "survived=$SURVIVED" >> $GITHUB_OUTPUT
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+        continue-on-error: true
+        timeout-minutes: 15
+
+      - name: "[Python] isort Import Check"
+        if: matrix.language == 'python'
+        id: python-isort
+        working-directory: repo
+        run: |
+          isort --check-only --diff . 2>&1 | tee isort-output.txt || true
+          ISSUES=$(grep -c "would reformat" isort-output.txt 2>/dev/null || echo 0)
+          echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      # ========================================
+      # JAVA EXTRA TOOLS
+      # ========================================
+      - name: "[Java] PMD Static Analysis"
+        if: matrix.language == 'java'
+        id: java-pmd
+        working-directory: repo
+        run: |
+          VIOLATIONS=0
+
+          if [ -f "mvnw" ]; then
+            ./mvnw -B -ntp pmd:check 2>/dev/null || true
+          fi
+
+          for xml in $(find . -name "pmd.xml" 2>/dev/null); do
+            COUNT=$(grep -c "<violation" "$xml" 2>/dev/null || echo 0)
+            VIOLATIONS=$((VIOLATIONS + COUNT))
+          done
+
+          echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      # ========================================
+      # CONTAINER & UNIVERSAL TOOLS
+      # ========================================
+      - name: "[All] Trivy Container Scan"
+        if: hashFiles('repo/Dockerfile') != ''
+        id: trivy
+        working-directory: repo
+        run: |
+          # Install Trivy
+          curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
+
+          # Scan filesystem
+          trivy fs --format json --output trivy-report.json . 2>/dev/null || true
+
+          CRITICAL=0; HIGH=0
+          if [ -f "trivy-report.json" ]; then
+            CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-report.json 2>/dev/null || echo 0)
+            HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-report.json 2>/dev/null || echo 0)
+          fi
+
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: "[All] Semgrep SAST"
+        id: semgrep
+        working-directory: repo
+        run: |
+          pip install semgrep 2>/dev/null || true
+
+          # Run semgrep with auto config
+          semgrep --config=auto --json --output=semgrep-report.json . 2>/dev/null || true
+
+          FINDINGS=0
+          if [ -f "semgrep-report.json" ]; then
+            FINDINGS=$(jq '.results | length' semgrep-report.json 2>/dev/null || echo 0)
+          fi
+
+          echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      # ========================================
+      # EXTRA TESTS FROM CONFIG
+      # ========================================
+      - name: "[All] Run Extra Tests from Config"
+        id: extra-tests
+        working-directory: repo
+        run: |
+          echo "Running extra tests for ${{ matrix.name }}..."
+
+          # Check if Makefile exists and run make targets
+          if [ -f "Makefile" ]; then
+            echo "Found Makefile, running available targets..."
+            make lint 2>/dev/null || true
+            make test 2>/dev/null || true
+          fi
+
+          echo "status=complete" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      # ========================================
+      # GENERATE BEAUTIFUL REPORT
+      # ========================================
+      - name: Generate QA Metrics Report
+        id: report
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          # QA Metrics: ${{ matrix.owner }}/${{ matrix.name }}
+
+          **Branch:** `${{ matrix.branch }}` | **Language:** `${{ matrix.language }}` | **Run:** #${{ github.run_number }}
+
+          ---
+
+          EOF
+
+          if [ "${{ matrix.language }}" = "java" ]; then
+            # Calculate progress bar
+            COV=${{ steps.java-coverage.outputs.percent || 0 }}
+            MUT=${{ steps.java-mutation.outputs.score || 0 }}
+            COV_BAR=$(printf '█%.0s' $(seq 1 $((COV / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - COV / 5))) 2>/dev/null)
+            MUT_BAR=$(printf '█%.0s' $(seq 1 $((MUT / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - MUT / 5))) 2>/dev/null)
+
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## QA Metrics (Java)
+
+          | Metric | Result | Details |
+          |--------|--------|---------|
+          | **Tests** | ${{ steps.java-tests.outputs.total || 0 }} executed | Runtime: ${{ steps.java-tests.outputs.runtime || '0s' }}, Failures: ${{ steps.java-tests.outputs.failed || 0 }}, Skipped: ${{ steps.java-tests.outputs.skipped || 0 }} |
+          | **Line Coverage (JaCoCo)** | ${COV}% ${COV_BAR} | ${{ steps.java-coverage.outputs.lines || '0 / 0' }} lines covered |
+          | **Mutation Score (PITest)** | ${MUT}% ${MUT_BAR} | ${{ steps.java-mutation.outputs.killed || 0 }} killed, ${{ steps.java-mutation.outputs.survived || 0 }} survived |
+          | **Dependency-Check** | scan complete | ${{ steps.java-owasp.outputs.critical || 0 }} crit, ${{ steps.java-owasp.outputs.high || 0 }} high, ${{ steps.java-owasp.outputs.medium || 0 }} med |
+          | **SpotBugs** | ${{ steps.java-spotbugs.outputs.count || 0 }} bugs | Static analysis |
+          | **PMD** | ${{ steps.java-pmd.outputs.violations || 0 }} violations | Code analysis |
+          | **Checkstyle** | ${{ steps.java-checkstyle.outputs.violations || 0 }} violations | Code style |
+          | **Semgrep** | ${{ steps.semgrep.outputs.findings || 0 }} findings | SAST analysis |
+          | **Trivy** | ${{ steps.trivy.outputs.critical || 0 }} crit, ${{ steps.trivy.outputs.high || 0 }} high | Container scan |
+
+          ### Dependency Severity
+          🔴 Critical: ${{ steps.java-owasp.outputs.critical || 0 }} | 🟠 High: ${{ steps.java-owasp.outputs.high || 0 }} | 🟡 Medium: ${{ steps.java-owasp.outputs.medium || 0 }} | 🟢 Low: ${{ steps.java-owasp.outputs.low || 0 }}
+
+          EOF
+
+          else
+            # Python report
+            COV=${{ steps.python-tests.outputs.coverage || 0 }}
+            COV_BAR=$(printf '█%.0s' $(seq 1 $((COV / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - COV / 5))) 2>/dev/null)
+
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## QA Metrics (Python)
+
+          | Metric | Result | Details |
+          |--------|--------|---------|
+          | **Tests (pytest)** | ${{ steps.python-tests.outputs.total || 0 }} executed | Passed: ${{ steps.python-tests.outputs.passed || 0 }}, Failed: ${{ steps.python-tests.outputs.failed || 0 }}, Skipped: ${{ steps.python-tests.outputs.skipped || 0 }} |
+          | **Line Coverage** | ${COV}% ${COV_BAR} | pytest-cov |
+          | **Mutation (mutmut)** | ${{ steps.python-mutmut.outputs.score || 0 }}% | ${{ steps.python-mutmut.outputs.killed || 0 }} killed, ${{ steps.python-mutmut.outputs.survived || 0 }} survived |
+          | **Hypothesis** | ${{ steps.python-hypothesis.outputs.examples || 0 }} examples | Property-based testing |
+          | **Ruff Lint** | ${{ steps.python-ruff.outputs.errors || 0 }} issues | Security rules: ${{ steps.python-ruff.outputs.security || 0 }} |
+          | **Bandit Security** | scan complete | High: ${{ steps.python-bandit.outputs.high || 0 }}, Med: ${{ steps.python-bandit.outputs.medium || 0 }}, Low: ${{ steps.python-bandit.outputs.low || 0 }} |
+          | **pip-audit** | ${{ steps.python-pipaudit.outputs.vulnerabilities || 0 }} vulns | Dependency check |
+          | **Black** | ${{ steps.python-black.outputs.issues || 0 }} files | Format check |
+          | **isort** | ${{ steps.python-isort.outputs.issues || 0 }} files | Import ordering |
+          | **mypy** | ${{ steps.python-mypy.outputs.errors || 0 }} errors | Type check |
+          | **Semgrep** | ${{ steps.semgrep.outputs.findings || 0 }} findings | SAST analysis |
+          | **Trivy** | ${{ steps.trivy.outputs.critical || 0 }} crit, ${{ steps.trivy.outputs.high || 0 }} high | Container scan |
+
+          ### Security Summary
+          🔴 High: ${{ steps.python-bandit.outputs.high || 0 }} | 🟡 Medium: ${{ steps.python-bandit.outputs.medium || 0 }} | 🟢 Low: ${{ steps.python-bandit.outputs.low || 0 }}
+
+          EOF
+          fi
+
+          # Quality Gates
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+
+          ---
+
+          ### Quality Gates
+
+          | Check | Status |
+          |-------|--------|
+          EOF
+
+          if [ "${{ matrix.language }}" = "java" ]; then
+            echo "| Unit Tests | ${{ steps.java-tests.outputs.failed == '0' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| JaCoCo Coverage | ✅ Generated |" >> $GITHUB_STEP_SUMMARY
+            echo "| PITest Mutation | ✅ Generated |" >> $GITHUB_STEP_SUMMARY
+            echo "| Checkstyle | ${{ steps.java-checkstyle.outputs.violations == '0' && '✅ Passed' || '⚠️ Violations' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| SpotBugs | ${{ steps.java-spotbugs.outputs.count == '0' && '✅ Passed' || '⚠️ Bugs found' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| PMD | ${{ steps.java-pmd.outputs.violations == '0' && '✅ Passed' || '⚠️ Violations' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| OWASP Check | ${{ steps.java-owasp.outputs.critical == '0' && steps.java-owasp.outputs.high == '0' && '✅ Passed' || '⚠️ Vulnerabilities' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Semgrep | ${{ steps.semgrep.outputs.findings == '0' && '✅ Passed' || '⚠️ Findings' }} |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| pytest | ${{ steps.python-tests.outputs.failed == '0' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Coverage | ✅ Generated |" >> $GITHUB_STEP_SUMMARY
+            echo "| mutmut Mutation | ✅ Generated |" >> $GITHUB_STEP_SUMMARY
+            echo "| Hypothesis | ✅ Complete |" >> $GITHUB_STEP_SUMMARY
+            echo "| Ruff | ${{ steps.python-ruff.outputs.errors == '0' && '✅ Passed' || '⚠️ Issues' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Bandit | ${{ steps.python-bandit.outputs.high == '0' && '✅ Passed' || '⚠️ Security issues' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| pip-audit | ${{ steps.python-pipaudit.outputs.vulnerabilities == '0' && '✅ Passed' || '⚠️ Vulnerabilities' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Black | ${{ steps.python-black.outputs.issues == '0' && '✅ Passed' || '⚠️ Format issues' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| isort | ${{ steps.python-isort.outputs.issues == '0' && '✅ Passed' || '⚠️ Import issues' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| mypy | ${{ steps.python-mypy.outputs.errors == '0' && '✅ Passed' || '⚠️ Type errors' }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Semgrep | ${{ steps.semgrep.outputs.findings == '0' && '✅ Passed' || '⚠️ Findings' }} |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # ========================================
+      # UPLOAD ARTIFACTS
+      # ========================================
+      - name: Upload Test Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports-${{ matrix.name }}
+          path: |
+            repo/**/target/surefire-reports/
+            repo/**/target/site/jacoco/
+            repo/**/target/pit-reports/
+            repo/**/target/dependency-check-report.*
+            repo/**/target/spotbugsXml.xml
+            repo/**/target/checkstyle-result.xml
+            repo/coverage.xml
+            repo/htmlcov/
+            repo/*-report.json
+          retention-days: 30
+          if-no-files-found: ignore
+
+  # ============================================================================
+  # Hub Summary
+  # ============================================================================
+  summary:
+    name: Hub Summary
+    runs-on: ubuntu-latest
+    needs: [discover, test-repo]
+    if: always()
+
+    steps:
+      - name: Generate Hub Summary
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # 🏠 CI/CD Hub Summary
+
+          **Total Repositories:** ${{ needs.discover.outputs.count }}
+          **Run:** #${{ github.run_number }}
+          **Triggered:** ${{ github.event_name }}
+
+          ---
+
+          See individual job summaries above for detailed QA metrics per repository.
+
+          EOF

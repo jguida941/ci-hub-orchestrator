@@ -1,0 +1,156 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/jguida941/ci-cd-hub/schema/pipeline-run.v1.json",
+  "title": "Pipeline Run Telemetry",
+  "description": "Schema for CI/CD pipeline run telemetry events",
+  "type": "object",
+  "required": ["schema_version", "run_id", "repo", "commit_sha", "status", "started_at"],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Schema version"
+    },
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for this run"
+    },
+    "repo": {
+      "type": "string",
+      "description": "Repository name (owner/repo)"
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$",
+      "description": "Full commit SHA"
+    },
+    "branch": {
+      "type": "string",
+      "description": "Branch name"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["success", "failure", "cancelled", "skipped"],
+      "description": "Final run status"
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp"
+    },
+    "ended_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp"
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Total duration in milliseconds"
+    },
+    "trigger": {
+      "type": "string",
+      "enum": ["push", "pull_request", "schedule", "workflow_dispatch", "repository_dispatch"],
+      "description": "What triggered this run"
+    },
+    "jobs": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/job"
+      },
+      "description": "Individual job results"
+    },
+    "tests": {
+      "$ref": "#/definitions/testResults",
+      "description": "Test execution summary"
+    },
+    "coverage": {
+      "$ref": "#/definitions/coverage",
+      "description": "Code coverage metrics"
+    },
+    "security": {
+      "$ref": "#/definitions/security",
+      "description": "Security scan results"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/artifact"
+      },
+      "description": "Generated artifacts"
+    },
+    "cost": {
+      "$ref": "#/definitions/cost",
+      "description": "Estimated run cost"
+    }
+  },
+  "definitions": {
+    "job": {
+      "type": "object",
+      "required": ["name", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "status": {
+          "type": "string",
+          "enum": ["success", "failure", "cancelled", "skipped"]
+        },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "runner": { "type": "string" },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "cache_hit": { "type": "boolean" }
+      }
+    },
+    "testResults": {
+      "type": "object",
+      "properties": {
+        "total": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "skipped": { "type": "integer", "minimum": 0 },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "flaky_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "properties": {
+        "line_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "branch_percent": { "type": "number", "minimum": 0, "maximum": 100 },
+        "mutation_score": { "type": "number", "minimum": 0, "maximum": 100 }
+      }
+    },
+    "security": {
+      "type": "object",
+      "properties": {
+        "vulnerabilities": {
+          "type": "object",
+          "properties": {
+            "critical": { "type": "integer", "minimum": 0 },
+            "high": { "type": "integer", "minimum": 0 },
+            "medium": { "type": "integer", "minimum": 0 },
+            "low": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "codeql_alerts": { "type": "integer", "minimum": 0 },
+        "spotbugs_issues": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "size_bytes": { "type": "integer", "minimum": 0 },
+        "uri": { "type": "string", "format": "uri" }
+      }
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "estimated_usd": { "type": "number", "minimum": 0 },
+        "billable_minutes": { "type": "integer", "minimum": 0 },
+        "runner_type": { "type": "string" }
+      }
+    }
+  }
+}

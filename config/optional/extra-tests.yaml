@@ -1,0 +1,72 @@
+# ============================================================================
+# Extra Tests Configuration
+# ============================================================================
+# Define custom test commands to run from the hub on each repo.
+# These run IN ADDITION to the standard tools.
+#
+# Use this to add repo-specific tests, integration tests, or any custom commands.
+# ============================================================================
+
+extra_tests:
+  # Master toggle
+  enabled: true
+
+  # Global extra tests (run on ALL repos)
+  global:
+    - name: "Check for secrets in code"
+      command: "git secrets --scan || true"
+      enabled: false
+
+    - name: "Dockerfile lint"
+      command: "hadolint Dockerfile || true"
+      condition: "file_exists:Dockerfile"
+      enabled: false
+
+  # Per-repo extra tests
+  repos:
+    # Example: contact-suite-spring-react specific tests
+    contact-suite-spring-react:
+      - name: "Integration tests"
+        command: "./mvnw -B verify -Pintegration-tests"
+        enabled: true
+        timeout_minutes: 30
+
+      - name: "E2E tests with Docker"
+        command: "docker compose up -d && sleep 30 && ./run-e2e.sh && docker compose down"
+        condition: "file_exists:docker-compose.yml"
+        enabled: false
+
+    # Example: java-spring-tutorials specific tests
+    java-spring-tutorials:
+      - name: "All modules test"
+        command: "./mvnw -B test -pl '!:parent'"
+        enabled: true
+
+    # Example: Python repo specific tests
+    ci-cd-bst-demo-github-actions:
+      - name: "Hypothesis property tests"
+        command: "pytest --hypothesis-show-statistics"
+        enabled: true
+
+      - name: "mutmut mutation testing"
+        command: "mutmut run --paths-to-mutate=src/ || true"
+        enabled: true
+        timeout_minutes: 30
+
+      - name: "Make all targets"
+        command: "make lint test"
+        enabled: true
+
+# Custom quality thresholds per repo
+thresholds:
+  contact-suite-spring-react:
+    coverage_min: 80
+    mutation_score_min: 75
+
+  java-spring-tutorials:
+    coverage_min: 70
+    mutation_score_min: 70
+
+  ci-cd-bst-demo-github-actions:
+    coverage_min: 95  # This repo requires 95%!
+    mutation_score_min: 80

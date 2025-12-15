@@ -1,0 +1,75 @@
+# ============================================================================
+# Supply Chain Security Configuration (Optional)
+# ============================================================================
+# SBOM generation, VEX documents, provenance attestation, and signing.
+# Aligns with SLSA Level 3 requirements.
+#
+# To enable: Set supply_chain.enabled = true in your repo config
+# ============================================================================
+
+supply_chain:
+  # Master toggle - disabled by default
+  enabled: false
+
+  # SBOM (Software Bill of Materials)
+  sbom:
+    enabled: true
+    formats:
+      - spdx-json     # SPDX 2.3 JSON
+      - cyclonedx     # CycloneDX 1.5
+    generator: syft   # syft | trivy
+    output_path: artifacts/sbom/
+
+  # VEX (Vulnerability Exploitability eXchange)
+  vex:
+    enabled: true
+    format: cyclonedx  # cyclonedx | csaf
+    output_path: artifacts/vex/
+    # Known false positives / not-affected
+    exemptions_file: config/vex-exemptions.json
+
+  # Provenance attestation (SLSA)
+  provenance:
+    enabled: true
+    slsa_level: 3
+    builder_id: "https://github.com/actions/runner"
+    # What to include in provenance
+    include:
+      - source_repo
+      - commit_sha
+      - workflow_path
+      - build_inputs
+      - environment
+
+  # Image signing (Cosign keyless)
+  signing:
+    enabled: true
+    method: keyless   # keyless | key
+    # For keyless (recommended)
+    keyless:
+      issuer: https://token.actions.githubusercontent.com
+      identity_regex: "https://github.com/${REPO_OWNER}/${REPO_NAME}/.github/workflows/*"
+    # For key-based (if needed)
+    # key:
+    #   private_key_secret: COSIGN_PRIVATE_KEY
+    #   password_secret: COSIGN_PASSWORD
+    # Rekor transparency log
+    rekor:
+      enabled: true
+      url: https://rekor.sigstore.dev
+
+  # OCI artifact publishing
+  oci:
+    enabled: false
+    registry: ghcr.io
+    # Attach SBOM/VEX as OCI referrers
+    attach_referrers: true
+
+  # Policy gates
+  gates:
+    # Fail if SBOM missing
+    require_sbom: true
+    # Fail if critical vulns without VEX justification
+    require_vex_for_critical: true
+    # Fail if unsigned
+    require_signature: true

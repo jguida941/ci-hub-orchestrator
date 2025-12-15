@@ -1,0 +1,56 @@
+# ============================================================================
+# Python Security Profile - Full security scanning
+# ============================================================================
+# Use this profile for comprehensive security analysis.
+# Best for: Security audits, compliance checks, release gates
+#
+# Tools enabled:  bandit, pip-audit, semgrep, trivy, codeql
+# Tools disabled: pytest, ruff, black, isort, mypy, mutmut (not security-focused)
+# Expected runtime: ~15-30 minutes
+# ============================================================================
+
+python:
+  tools:
+    # Skip quality-focused tools
+    pytest:
+      enabled: false  # Tests not security-relevant for this profile
+    ruff:
+      enabled: false  # Linting not security-focused
+    black:
+      enabled: false  # Formatting not security-relevant
+    isort:
+      enabled: false  # Import order not security-relevant
+    mypy:
+      enabled: false  # Types not security-focused
+    mutmut:
+      enabled: false  # Mutation not security-relevant
+
+    # Security scanning - the focus
+    bandit:
+      enabled: true
+      fail_on_high: true
+    pip_audit:
+      enabled: true
+      fail_on_vuln: true
+
+    # SAST - comprehensive security analysis
+    semgrep:
+      enabled: true
+      fail_on_findings: false  # Advisory, review manually
+    codeql:
+      enabled: true
+      languages: ["python"]
+
+    # Container security - if you have Dockerfiles
+    trivy:
+      enabled: true
+      fail_on_critical: true
+      fail_on_high: false
+
+    # Docker build - enable if testing container
+    docker:
+      enabled: false  # Enable if needed
+
+thresholds:
+  max_critical_vulns: 0  # Zero tolerance for CRITICAL
+  max_high_vulns: 5      # Review HIGHs but don't block

@@ -1,0 +1,97 @@
+# ============================================================================
+# .ci-hub.yml - Example Repository Configuration
+# ============================================================================
+# Place this file in the ROOT of your repository to override hub defaults.
+# Only include settings you want to CHANGE - everything else uses defaults.
+#
+# Config priority (highest wins):
+#   1. This file (.ci-hub.yml in your repo)
+#   2. Hub's config/repos/<your-repo>.yaml
+#   3. Hub's config/defaults.yaml
+# ============================================================================
+
+version: "1.0"
+language: java  # java | python | node | go
+
+# ------------------------------------------------------------------------------
+# Java Configuration (only for Java repos)
+# ------------------------------------------------------------------------------
+java:
+  version: "21"  # 17, 21, etc.
+  build_tool: maven  # maven | gradle
+
+  tools:
+    # ---- Code Coverage ----
+    jacoco:
+      enabled: true
+      min_coverage: 70
+
+    # ---- Code Style ----
+    checkstyle:
+      enabled: true
+      fail_on_violation: true
+      # config_file: "config/checkstyle.xml"  # optional custom config
+
+    # ---- Static Analysis ----
+    spotbugs:
+      enabled: true
+      fail_on_error: true
+      effort: max      # min | default | max
+      threshold: medium  # low | medium | high
+
+    # ---- Dependency Vulnerabilities ----
+    owasp:
+      enabled: true
+      fail_on_cvss: 7  # fail if any vuln has CVSS >= this
+
+    # ---- Mutation Testing ----
+    pitest:
+      enabled: true
+      min_mutation_score: 70
+      threads: 4
+
+    # ---- Security Analysis ----
+    codeql:
+      enabled: true
+
+    # ---- Docker ----
+    docker:
+      enabled: false  # set to true if you have Docker
+      compose_file: docker-compose.yml
+      health_endpoint: /actuator/health
+      health_timeout: 300
+
+# ------------------------------------------------------------------------------
+# Python Configuration (only for Python repos)
+# ------------------------------------------------------------------------------
+# python:
+#   version: "3.12"
+#   tools:
+#     pytest:
+#       enabled: true
+#       min_coverage: 70
+#     ruff:
+#       enabled: true
+#     bandit:
+#       enabled: true
+#     pip_audit:
+#       enabled: true
+
+# ------------------------------------------------------------------------------
+# Custom Thresholds (override global gates)
+# ------------------------------------------------------------------------------
+thresholds:
+  coverage_min: 70
+  mutation_score_min: 70
+  max_critical_vulns: 0
+  max_high_vulns: 0
+
+# ------------------------------------------------------------------------------
+# Report Settings
+# ------------------------------------------------------------------------------
+reports:
+  retention_days: 30
+  badges:
+    enabled: true
+  codecov:
+    enabled: true

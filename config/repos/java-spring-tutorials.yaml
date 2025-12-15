@@ -1,0 +1,21 @@
+# ============================================================================
+# Repo Config: java-spring-tutorials
+# ============================================================================
+# Overrides defaults.yaml for this specific repository
+# ============================================================================
+
+repo:
+  owner: jguida941
+  name: java-spring-tutorials
+  language: java
+  default_branch: main
+
+java:
+  version: "21"
+
+  tools:
+    # No Docker for this repo
+    docker:
+      enabled: false
+
+    # All other tools use defaults (enabled)

@@ -1,0 +1,82 @@
+# ============================================================================
+# Egress Control Configuration (Optional)
+# ============================================================================
+# Network allowlists to prevent data exfiltration.
+# Controls which external hosts CI jobs can contact.
+#
+# To enable: Set egress_control.enabled = true in your repo config
+# ============================================================================
+
+egress_control:
+  # Master toggle - disabled by default
+  enabled: false
+
+  # Enforcement mode
+  mode: audit  # audit | warn | enforce
+
+  # Default allowlist (applies to all repos)
+  default_allowlist:
+    # Package registries
+    - "*.maven.org"
+    - "*.mvnrepository.com"
+    - "repo1.maven.org"
+    - "plugins.gradle.org"
+    - "*.npmjs.org"
+    - "registry.npmjs.org"
+    - "*.pypi.org"
+    - "pypi.org"
+    - "files.pythonhosted.org"
+    - "*.rubygems.org"
+    - "*.crates.io"
+    - "*.nuget.org"
+
+    # Container registries
+    - "ghcr.io"
+    - "*.ghcr.io"
+    - "docker.io"
+    - "*.docker.io"
+    - "registry.hub.docker.com"
+    - "*.gcr.io"
+    - "*.azurecr.io"
+
+    # GitHub
+    - "github.com"
+    - "*.github.com"
+    - "*.githubusercontent.com"
+    - "api.github.com"
+    - "objects.githubusercontent.com"
+
+    # Security databases
+    - "nvd.nist.gov"
+    - "*.nist.gov"
+    - "ossindex.sonatype.org"
+    - "cve.mitre.org"
+
+    # Code quality services
+    - "codecov.io"
+    - "*.codecov.io"
+    - "sonarcloud.io"
+    - "*.sonarcloud.io"
+
+    # Signing/transparency
+    - "rekor.sigstore.dev"
+    - "fulcio.sigstore.dev"
+    - "tuf-repo-cdn.sigstore.dev"
+
+  # Per-repo additional allowlist
+  # (Add in repo config: egress_control.additional_hosts)
+  # additional_hosts:
+  #   - "my-internal-registry.com"
+
+  # Blocked hosts (never allowed)
+  blocklist:
+    - "*.pastebin.com"
+    - "*.requestbin.com"
+    - "*.ngrok.io"
+
+  # Proxy configuration (for enforcement)
+  proxy:
+    enabled: false
+    http_proxy: "${HTTP_PROXY}"
+    https_proxy: "${HTTPS_PROXY}"
+    no_proxy: "localhost,127.0.0.1"

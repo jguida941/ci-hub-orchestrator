@@ -1,0 +1,56 @@
+# ============================================================================
+# Kyverno Policy: Require OCI Referrers
+# ============================================================================
+# Denies workloads unless images have SBOM and provenance attached.
+#
+# Requirements:
+#   - Kyverno installed in cluster
+#   - SBOM/provenance attached as OCI referrers
+# ============================================================================
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-oci-referrers
+  annotations:
+    policies.kyverno.io/title: Require SBOM and Provenance
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/description: >
+      Deny workloads unless container images have SBOM and provenance
+      attestations attached as OCI referrers.
+spec:
+  validationFailureAction: Audit
+  background: false
+  rules:
+    - name: require-sbom-referrer
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+      validate:
+        message: "Image must have SBOM attached as OCI referrer"
+        deny:
+          conditions:
+            any:
+              - key: "{{ images.containers.*.referrers[?artifactType=='application/spdx+json'] | length(@) }}"
+                operator: Equals
+                value: 0
+
+    - name: require-provenance-referrer
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+      validate:
+        message: "Image must have provenance attestation attached"
+        deny:
+          conditions:
+            any:
+              - key: "{{ images.containers.*.referrers[?artifactType=='application/vnd.in-toto+json'] | length(@) }}"
+                operator: Equals
+                value: 0

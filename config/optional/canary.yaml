@@ -1,0 +1,68 @@
+# ============================================================================
+# Canary Deployment Configuration (Optional)
+# ============================================================================
+# Gradual rollout with automatic rollback on failure.
+#
+# To enable: Set canary.enabled = true in your repo config
+# ============================================================================
+
+canary:
+  # Master toggle - disabled by default
+  enabled: false
+
+  # Deployment strategy
+  strategy:
+    type: canary  # canary | blue-green | rolling
+    # Canary traffic percentage steps
+    steps:
+      - percentage: 5
+        duration_minutes: 5
+      - percentage: 25
+        duration_minutes: 10
+      - percentage: 50
+        duration_minutes: 15
+      - percentage: 100
+        duration_minutes: 0  # Full rollout
+
+  # Health checks during rollout
+  health_checks:
+    - name: http-health
+      type: http
+      endpoint: /actuator/health
+      expected_status: 200
+      interval_seconds: 10
+      failure_threshold: 3
+
+    - name: error-rate
+      type: metric
+      query: "rate(http_server_requests_seconds_count{status=~'5..'}[1m])"
+      threshold: 0.01  # 1% error rate max
+      comparison: less_than
+
+    - name: latency-p99
+      type: metric
+      query: "histogram_quantile(0.99, rate(http_server_requests_seconds_bucket[1m]))"
+      threshold: 2.0  # 2 second max
+      comparison: less_than
+
+  # Automatic rollback triggers
+  rollback:
+    enabled: true
+    triggers:
+      - health_check_failures: 3
+      - error_rate_threshold: 0.05  # 5%
+      - manual_approval_timeout_minutes: 30
+
+  # Notifications
+  notifications:
+    on_promotion: true
+    on_rollback: true
+    channels:
+      - slack
+      # - pagerduty
+
+  # Evidence capture
+  evidence:
+    capture_metrics: true
+    capture_logs: true
+    output_path: artifacts/canary/

@@ -1,0 +1,43 @@
+# ============================================================================
+# Java Coverage Gate Profile - Enforce high coverage/mutation
+# ============================================================================
+# Use for release branches where code quality bars must be met.
+# Focus: coverage + mutation; security scanners optional/off.
+# Expected runtime: ~15-25 minutes (PITest dominates)
+# ============================================================================
+
+java:
+  tools:
+    jacoco:
+      enabled: true
+      min_coverage: 90
+    checkstyle:
+      enabled: true
+      fail_on_violation: true
+    spotbugs:
+      enabled: true
+      fail_on_error: true
+    pmd:
+      enabled: true
+      fail_on_violation: true
+
+    pitest:
+      enabled: true
+      min_mutation_score: 80
+      threads: 4
+
+    # Security tools off by default here (run security or compliance profiles instead)
+    owasp:
+      enabled: false
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+    docker:
+      enabled: false
+
+thresholds:
+  coverage_min: 90
+  mutation_score_min: 80

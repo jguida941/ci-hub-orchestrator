@@ -1,0 +1,626 @@
+# ============================================================================
+# CI/CD Hub - Reusable Python CI Workflow
+# ============================================================================
+# Call this workflow from any Python repository to run the full CI pipeline.
+#
+# Usage in your repo's workflow:
+#   jobs:
+#     ci:
+#       uses: jguida941/ci-cd-hub/.github/workflows/python-ci.yml@main
+#       with:
+#         python_version: '3.12'
+#         run_bandit: true
+#       secrets: inherit
+# ============================================================================
+
+name: Python CI Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      # ---- Python Settings ----
+      python_version:
+        description: 'Python version'
+        type: string
+        default: '3.12'
+
+      # ---- Tool Toggles ----
+      run_pytest:
+        description: 'Run pytest with coverage'
+        type: boolean
+        default: true
+      run_ruff:
+        description: 'Run Ruff linter'
+        type: boolean
+        default: true
+      run_bandit:
+        description: 'Run Bandit security scanner'
+        type: boolean
+        default: true
+      run_pip_audit:
+        description: 'Run pip-audit dependency check'
+        type: boolean
+        default: true
+      run_mypy:
+        description: 'Run mypy type checker'
+        type: boolean
+        default: false
+      run_black:
+        description: 'Run Black format checker'
+        type: boolean
+        default: true
+      run_isort:
+        description: 'Run isort import checker'
+        type: boolean
+        default: true
+      run_mutmut:
+        description: 'Run mutmut mutation testing (expensive)'
+        type: boolean
+        default: false
+      run_semgrep:
+        description: 'Run Semgrep SAST (expensive)'
+        type: boolean
+        default: false
+      run_trivy:
+        description: 'Run Trivy container scan (expensive)'
+        type: boolean
+        default: false
+      run_docker:
+        description: 'Build and test Docker'
+        type: boolean
+        default: false
+      run_codeql:
+        description: 'Run CodeQL analysis (expensive)'
+        type: boolean
+        default: false
+
+      # ---- Thresholds ----
+      coverage_min:
+        description: 'Minimum coverage percentage'
+        type: number
+        default: 70
+
+      # ---- Reports ----
+      retention_days:
+        description: 'Artifact retention days'
+        type: number
+        default: 30
+
+    secrets:
+      CODECOV_TOKEN:
+        required: false
+
+    outputs:
+      build_status:
+        description: 'Build result'
+        value: ${{ jobs.test.outputs.status }}
+      coverage:
+        description: 'Coverage percentage'
+        value: ${{ jobs.test.outputs.coverage }}
+      mutation_score:
+        description: 'Mutation score'
+        value: ${{ jobs.mutation-test.outputs.score }}
+
+jobs:
+  # ============================================================================
+  # Lint
+  # ============================================================================
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install Linters
+        run: |
+          pip install --upgrade pip
+          pip install ruff bandit black isort
+
+      - name: Run Ruff
+        if: inputs.run_ruff
+        run: |
+          ruff check . --output-format=github || true
+          ruff check . --statistics >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Run Bandit
+        if: inputs.run_bandit
+        run: |
+          bandit -r . -f json -o bandit-report.json || true
+          bandit -r . -f txt >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Run Black
+        if: inputs.run_black
+        id: black
+        run: |
+          black --check . 2>&1 | tee black-output.txt || true
+          WOULD_REFORMAT=$(grep -c "would reformat" black-output.txt 2>/dev/null || echo 0)
+          echo "issues=$WOULD_REFORMAT" >> $GITHUB_OUTPUT
+          echo "Black format check: $WOULD_REFORMAT files would be reformatted" >> $GITHUB_STEP_SUMMARY
+
+      - name: Run isort
+        if: inputs.run_isort
+        id: isort
+        run: |
+          isort --check-only --diff . 2>&1 | tee isort-output.txt || true
+          ISSUES=$(grep -c "would reformat" isort-output.txt 2>/dev/null || echo 0)
+          echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+          echo "isort import check: $ISSUES files would be reformatted" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Bandit Report
+        if: inputs.run_bandit
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
+  # ============================================================================
+  # Test
+  # ============================================================================
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.test.outcome }}
+      coverage: ${{ steps.coverage.outputs.percentage }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+          if [ -f "requirements-dev.txt" ]; then pip install -r requirements-dev.txt; fi
+          if [ -f "pyproject.toml" ]; then pip install -e ".[dev]" || pip install -e .; fi
+          pip install pytest pytest-cov hypothesis
+
+      - name: Run Tests
+        id: test
+        if: inputs.run_pytest
+        run: |
+          # NOTE: Hypothesis property-based tests run automatically with pytest
+          # No separate step needed - if your tests use @given decorators, they run here
+          pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term -v || true
+
+      - name: Extract Coverage
+        id: coverage
+        run: |
+          COVERAGE=0
+          if [ -f "coverage.xml" ]; then
+            COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
+          fi
+          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "Coverage: $COVERAGE%"
+
+      - name: Check Coverage Threshold
+        run: |
+          COVERAGE=${{ steps.coverage.outputs.percentage }}
+          MIN=${{ inputs.coverage_min }}
+          if [ "$COVERAGE" -lt "$MIN" ]; then
+            echo "::warning::Coverage $COVERAGE% is below minimum $MIN%"
+          fi
+
+      - name: Generate Test Summary
+        if: always()
+        run: |
+          echo "## Python Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Python Version | ${{ inputs.python_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Minimum | ${{ inputs.coverage_min }}% |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Coverage Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            coverage.xml
+            htmlcov/
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
+      - name: Upload to Codecov
+        if: inputs.run_pytest
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          fail_ci_if_error: false
+        continue-on-error: true
+
+  # ============================================================================
+  # Security Scan
+  # ============================================================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    if: inputs.run_pip_audit
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Run pip-audit
+        run: |
+          pip-audit --format=json --output=pip-audit-report.json || true
+          pip-audit >> $GITHUB_STEP_SUMMARY || true
+
+      - name: Upload pip-audit Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-report
+          path: pip-audit-report.json
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
+  # ============================================================================
+  # Type Checking
+  # ============================================================================
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    if: inputs.run_mypy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install mypy
+        run: |
+          pip install mypy
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+
+      - name: Run mypy
+        run: mypy . --ignore-missing-imports || true
+
+  # ============================================================================
+  # Mutation Testing
+  # ============================================================================
+  mutation-test:
+    name: Mutation Testing
+    runs-on: ubuntu-latest
+    needs: test
+    if: inputs.run_mutmut
+    outputs:
+      score: ${{ steps.mutmut.outputs.score }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install Dependencies
+        run: |
+          pip install --upgrade pip
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+          if [ -f "requirements-dev.txt" ]; then pip install -r requirements-dev.txt; fi
+          if [ -f "pyproject.toml" ]; then pip install -e ".[dev]" || pip install -e .; fi
+          pip install pytest mutmut
+
+      - name: Run mutmut
+        id: mutmut
+        run: |
+          KILLED=0
+          SURVIVED=0
+          SCORE=0
+
+          # Find source directory
+          SRC_DIR="."
+          if [ -d "src" ]; then SRC_DIR="src"; fi
+
+          # Run mutmut (limited for speed)
+          timeout 600 mutmut run --paths-to-mutate="$SRC_DIR" --runner="pytest -x -q" 2>/dev/null || true
+
+          # Get results
+          if command -v mutmut &> /dev/null; then
+            RESULTS=$(mutmut results 2>/dev/null || echo "")
+            KILLED=$(echo "$RESULTS" | grep -oP 'Killed: \K\d+' || echo 0)
+            SURVIVED=$(echo "$RESULTS" | grep -oP 'Survived: \K\d+' || echo 0)
+            TOTAL=$((KILLED + SURVIVED))
+            if [ "$TOTAL" -gt 0 ]; then
+              SCORE=$((KILLED * 100 / TOTAL))
+            fi
+          fi
+
+          echo "killed=$KILLED" >> $GITHUB_OUTPUT
+          echo "survived=$SURVIVED" >> $GITHUB_OUTPUT
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "Mutation Score: $SCORE%"
+        continue-on-error: true
+        timeout-minutes: 15
+
+      - name: Generate Mutation Summary
+        if: always()
+        run: |
+          echo "## Mutation Testing Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Mutation Score:** ${{ steps.mutmut.outputs.score }}%" >> $GITHUB_STEP_SUMMARY
+          echo "**Killed:** ${{ steps.mutmut.outputs.killed }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Survived:** ${{ steps.mutmut.outputs.survived }}" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # Semgrep SAST
+  # ============================================================================
+  semgrep:
+    name: Semgrep SAST
+    runs-on: ubuntu-latest
+    needs: test
+    if: inputs.run_semgrep
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep
+        id: semgrep
+        run: |
+          semgrep --config=auto --json --output=semgrep-report.json . || true
+
+          FINDINGS=0
+          if [ -f "semgrep-report.json" ]; then
+            FINDINGS=$(jq '.results | length' semgrep-report.json 2>/dev/null || echo 0)
+          fi
+
+          echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+          echo "Semgrep Findings: $FINDINGS"
+        continue-on-error: true
+
+      - name: Generate Semgrep Summary
+        if: always()
+        run: |
+          echo "## Semgrep SAST Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Findings:** ${{ steps.semgrep.outputs.findings }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Semgrep Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: semgrep-report.json
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
+  # ============================================================================
+  # Trivy Container Scan
+  # ============================================================================
+  trivy:
+    name: Trivy Container Scan
+    runs-on: ubuntu-latest
+    needs: test
+    if: inputs.run_trivy
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for Dockerfile
+        id: check-dockerfile
+        run: |
+          if [ -f "Dockerfile" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "No Dockerfile found - skipping Trivy container scan"
+          fi
+
+      - name: Run Trivy Scan
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        id: trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          format: 'json'
+          output: 'trivy-report.json'
+        continue-on-error: true
+
+      - name: Parse Trivy Results
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        id: trivy-parse
+        run: |
+          CRITICAL=0
+          HIGH=0
+          if [ -f "trivy-report.json" ]; then
+            CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-report.json 2>/dev/null || echo 0)
+            HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-report.json 2>/dev/null || echo 0)
+          fi
+          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "Trivy: $CRITICAL critical, $HIGH high"
+
+      - name: Generate Trivy Summary
+        if: always() && steps.check-dockerfile.outputs.exists == 'true'
+        run: |
+          echo "## Trivy Container Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Critical:** ${{ steps.trivy-parse.outputs.critical }}" >> $GITHUB_STEP_SUMMARY
+          echo "**High:** ${{ steps.trivy-parse.outputs.high }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Trivy Report
+        if: always() && steps.check-dockerfile.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.json
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
+  # ============================================================================
+  # Docker Build & Test
+  # ============================================================================
+  docker-build:
+    name: Docker Build
+    runs-on: ubuntu-latest
+    needs: test
+    if: inputs.run_docker
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker Image
+        run: |
+          if [ -f "Dockerfile" ]; then
+            docker build -t ${{ github.repository }}:ci-test .
+          fi
+
+      - name: Test Docker Image
+        run: |
+          if [ -f "Dockerfile" ]; then
+            echo "Docker image built successfully"
+            docker images | grep ci-test
+          fi
+
+  # ============================================================================
+  # CodeQL
+  # ============================================================================
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    if: inputs.run_codeql
+    permissions:
+      security-events: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  # ============================================================================
+  # Generate Report
+  # ============================================================================
+  report:
+    name: Generate Report
+    runs-on: ubuntu-latest
+    needs: [lint, test, security, mutation-test]
+    if: always()
+
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-reports/
+
+      - name: Generate Combined Report
+        run: |
+          # Extract vulnerability counts from pip-audit report
+          CRITICAL_VULNS=0
+          HIGH_VULNS=0
+          MEDIUM_VULNS=0
+
+          PIP_AUDIT_REPORT=$(find all-reports -name "pip-audit-report.json" 2>/dev/null | head -1)
+          if [ -n "$PIP_AUDIT_REPORT" ] && [ -f "$PIP_AUDIT_REPORT" ]; then
+            # pip-audit uses "vulnerabilities" array with "id" and "fix_versions"
+            # Count vulnerabilities - pip-audit doesn't provide severity in older versions
+            # but newer versions have it in the aliases field
+            TOTAL_VULNS=$(jq '[.dependencies[]?.vulnerabilities[]?] | length' "$PIP_AUDIT_REPORT" 2>/dev/null || echo 0)
+            # For now, treat all pip-audit findings as HIGH since severity not always present
+            HIGH_VULNS=$TOTAL_VULNS
+          fi
+
+          # Extract Trivy vulnerability counts if available
+          TRIVY_REPORT=$(find all-reports -name "trivy-report.json" 2>/dev/null | head -1)
+          if [ -n "$TRIVY_REPORT" ] && [ -f "$TRIVY_REPORT" ]; then
+            TRIVY_CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
+            TRIVY_HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
+            TRIVY_MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
+            # Add Trivy counts to totals
+            CRITICAL_VULNS=$((CRITICAL_VULNS + TRIVY_CRITICAL))
+            HIGH_VULNS=$((HIGH_VULNS + TRIVY_HIGH))
+            MEDIUM_VULNS=$((MEDIUM_VULNS + TRIVY_MEDIUM))
+          fi
+
+          cat > report.json << EOF
+          {
+            "repository": "${{ github.repository }}",
+            "run_id": "${{ github.run_id }}",
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+            "python_version": "${{ inputs.python_version }}",
+            "results": {
+              "test": "${{ needs.test.outputs.status }}",
+              "coverage": ${{ needs.test.outputs.coverage || 0 }},
+              "mutation_score": ${{ needs.mutation-test.outputs.score || 0 }},
+              "critical_vulns": ${CRITICAL_VULNS},
+              "high_vulns": ${HIGH_VULNS},
+              "medium_vulns": ${MEDIUM_VULNS}
+            },
+            "tools": {
+              "pytest": ${{ inputs.run_pytest }},
+              "ruff": ${{ inputs.run_ruff }},
+              "bandit": ${{ inputs.run_bandit }},
+              "pip_audit": ${{ inputs.run_pip_audit }},
+              "mypy": ${{ inputs.run_mypy }},
+              "black": ${{ inputs.run_black }},
+              "isort": ${{ inputs.run_isort }},
+              "mutmut": ${{ inputs.run_mutmut }},
+              "semgrep": ${{ inputs.run_semgrep }},
+              "trivy": ${{ inputs.run_trivy }},
+              "docker": ${{ inputs.run_docker }},
+              "codeql": ${{ inputs.run_codeql }}
+            }
+          }
+          EOF
+
+          cat report.json
+
+      - name: Upload Combined Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report
+          path: report.json
+          retention-days: ${{ inputs.retention_days }}

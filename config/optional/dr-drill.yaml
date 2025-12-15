@@ -1,0 +1,68 @@
+# ============================================================================
+# Disaster Recovery Drill Configuration (Optional)
+# ============================================================================
+# Automated backup/restore testing to verify recovery capabilities.
+#
+# To enable: Set dr_drill.enabled = true in your repo config
+# ============================================================================
+
+dr_drill:
+  # Master toggle - disabled by default
+  enabled: false
+
+  # Schedule DR drills (cron) - empty = manual only
+  schedule: ""  # e.g., "0 3 * * 0" for weekly Sunday 3 AM UTC
+
+  # Recovery Point Objective - max acceptable data loss
+  rpo:
+    target_minutes: 60
+    warn_minutes: 30
+
+  # Recovery Time Objective - max acceptable downtime
+  rto:
+    target_minutes: 120
+    warn_minutes: 60
+
+  # What to backup/restore
+  targets:
+    - name: database
+      enabled: true
+      type: postgresql  # postgresql, mysql, mongodb
+      backup_command: "pg_dump -Fc ${DATABASE_URL} > backup.dump"
+      restore_command: "pg_restore -d ${DATABASE_URL} backup.dump"
+      verify_command: "psql ${DATABASE_URL} -c 'SELECT COUNT(*) FROM health_check'"
+
+    - name: artifacts
+      enabled: true
+      type: s3
+      bucket: "${ARTIFACT_BUCKET}"
+      backup_path: "backups/$(date +%Y%m%d)"
+      restore_path: "restore/"
+
+    - name: config
+      enabled: true
+      type: git
+      repository: "${CONFIG_REPO}"
+      branch: main
+
+  # Verification steps after restore
+  verification:
+    - name: health-check
+      command: "curl -f ${APP_URL}/actuator/health"
+      timeout_seconds: 30
+
+    - name: data-integrity
+      command: "python scripts/verify_data_integrity.py"
+      timeout_seconds: 120
+
+  # Output
+  output:
+    report_path: artifacts/dr/report.json
+    events_ndjson: artifacts/dr/events.ndjson
+
+  # Notifications
+  notifications:
+    on_success: false
+    on_failure: true
+    channels:
+      - slack  # requires SLACK_WEBHOOK secret

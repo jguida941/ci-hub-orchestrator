@@ -1,0 +1,36 @@
+# ============================================================================
+# Repo Config: contact-suite-spring-react
+# ============================================================================
+# Overrides defaults.yaml for this specific repository
+# Only include settings you want to CHANGE from defaults
+# ============================================================================
+
+repo:
+  owner: jguida941
+  name: contact-suite-spring-react
+  language: java
+  default_branch: master
+
+# Override Java settings
+java:
+  version: "21"
+
+  tools:
+    # Enable Docker for this repo (disabled by default)
+    docker:
+      enabled: true
+      compose_file: "docker-compose.yml"
+      health_endpoint: "/actuator/health"
+      health_timeout: 300
+
+    # This repo has all quality tools enabled (inherits from defaults)
+    # Uncomment below to disable specific tools:
+    # pitest:
+    #   enabled: false
+    # owasp:
+    #   enabled: false
+
+# Custom thresholds for this repo (if different from global)
+# thresholds:
+#   coverage_min: 80
+#   mutation_score_min: 75

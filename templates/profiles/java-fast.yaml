@@ -1,0 +1,39 @@
+# ============================================================================
+# Java Fast Profile - Quick feedback for PRs
+# ============================================================================
+# Use this profile when you want fast CI feedback without expensive analysis.
+# Best for: PR checks, quick builds, development iteration
+#
+# Tools enabled:  JaCoCo, Checkstyle, SpotBugs
+# Tools disabled: PITest, Semgrep, Trivy, CodeQL, OWASP, PMD
+# Expected runtime: ~5-10 minutes
+# ============================================================================
+
+java:
+  tools:
+    # Core quality tools - always run
+    jacoco:
+      enabled: true
+      min_coverage: 70
+    checkstyle:
+      enabled: true
+      fail_on_violation: true
+    spotbugs:
+      enabled: true
+      fail_on_error: true
+
+    # Expensive tools - disabled for speed
+    owasp:
+      enabled: false  # Skip dependency vulnerability check
+    pmd:
+      enabled: false  # Skip PMD analysis
+    pitest:
+      enabled: false  # Skip mutation testing
+    semgrep:
+      enabled: false  # Skip SAST
+    trivy:
+      enabled: false  # Skip container scan
+    codeql:
+      enabled: false  # Skip CodeQL
+    docker:
+      enabled: false  # Skip Docker build

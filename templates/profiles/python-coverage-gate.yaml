@@ -1,0 +1,48 @@
+# ============================================================================
+# Python Coverage Gate Profile - Enforce high coverage/mutation
+# ============================================================================
+# Use for release branches where code quality bars must be met.
+# Focus: coverage + mutation; security scanners optional/off.
+# Expected runtime: ~12-20 minutes (mutation dominates)
+# ============================================================================
+
+python:
+  tools:
+    pytest:
+      enabled: true
+      min_coverage: 90
+      fail_fast: false
+    ruff:
+      enabled: true
+      fail_on_error: true
+    black:
+      enabled: true
+      fail_on_format_issues: true
+    isort:
+      enabled: true
+      fail_on_issues: true
+
+    mutmut:
+      enabled: true
+      min_mutation_score: 80
+      timeout_minutes: 15
+
+    # Security tools off by default here (run security/compliance profiles instead)
+    bandit:
+      enabled: false
+    pip_audit:
+      enabled: false
+    mypy:
+      enabled: false
+    semgrep:
+      enabled: false
+    trivy:
+      enabled: false
+    codeql:
+      enabled: false
+    docker:
+      enabled: false
+
+thresholds:
+  coverage_min: 90
+  mutation_score_min: 80

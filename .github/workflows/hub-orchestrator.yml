@@ -1,0 +1,724 @@
+# ============================================================================
+# CI/CD Hub - Main Orchestrator
+# ============================================================================
+# This workflow orchestrates CI/CD for all configured repositories.
+# It reads config, triggers builds, and aggregates reports.
+#
+# Triggers:
+#   - Manual dispatch (workflow_dispatch)
+#   - Scheduled (e.g., nightly)
+#   - When config changes
+# ============================================================================
+
+name: Hub Orchestrator
+
+on:
+  workflow_dispatch:
+    inputs:
+      repos:
+        description: 'Comma-separated repo names (empty = all)'
+        required: false
+        type: string
+      force_all_tools:
+        description: 'Run all tools regardless of config'
+        required: false
+        type: boolean
+        default: false
+
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+
+  push:
+    branches: [main, master]
+    paths:
+      - 'config/**'
+      - '.github/workflows/hub-orchestrator.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+# Prevent concurrent runs for the same ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================================================
+  # Load Configuration
+  # ============================================================================
+  load-config:
+    name: Load Repository Config
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.config.outputs.matrix }}
+      repo_count: ${{ steps.config.outputs.count }}
+
+    steps:
+      - name: Checkout Hub
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: pip install pyyaml jsonschema
+
+      - name: Generate Build Matrix
+        id: config
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          import sys
+          import yaml
+          from pathlib import Path
+          from jsonschema import Draft7Validator
+
+          def validate_config(cfg, schema, source: str) -> None:
+              validator = Draft7Validator(schema)
+              errors = list(validator.iter_errors(cfg))
+              if errors:
+                  print(f"Config validation failed for {source}:")
+                  for err in errors:
+                      path = ".".join([str(p) for p in err.path]) or "<root>"
+                      print(f"  - {path}: {err.message}")
+                  sys.exit(1)
+
+          # Load schema once
+          schema_path = Path("schema/ci-hub-config.schema.json")
+          if not schema_path.exists():
+              print(f"Schema not found at {schema_path}", file=sys.stderr)
+              sys.exit(1)
+          schema = json.loads(schema_path.read_text())
+
+          # Load all repo configs
+          repos_dir = Path("config/repos")
+          repos = []
+
+          if repos_dir.exists():
+              for config_file in repos_dir.glob("*.yaml"):
+                  with open(config_file) as f:
+                      config = yaml.safe_load(f)
+
+                  if config and "repo" in config:
+                      repo_info = config["repo"]
+                      validate_config(config, schema, str(config_file))
+                      repos.append({
+                          "name": repo_info.get("name", config_file.stem),
+                          "owner": repo_info.get("owner", "jguida941"),
+                          "language": repo_info.get("language", "java"),
+                          "default_branch": repo_info.get("default_branch", "main"),
+                          "config_file": str(config_file),
+                      })
+
+          # Filter by input if provided
+          filter_repos = os.environ.get("INPUT_REPOS", "").strip()
+          if filter_repos:
+              filter_list = [r.strip() for r in filter_repos.split(",")]
+              repos = [r for r in repos if r["name"] in filter_list]
+
+          # Output for GitHub Actions matrix
+          matrix = {"include": repos}
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"matrix={json.dumps(matrix)}\n")
+              f.write(f"count={len(repos)}\n")
+
+          print(f"Found {len(repos)} repositories:")
+          for r in repos:
+              print(f"  - {r['owner']}/{r['name']} ({r['language']})")
+          EOF
+        env:
+          INPUT_REPOS: ${{ inputs.repos }}
+
+      - name: Summary
+        run: |
+          echo "## Hub Orchestrator" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Repositories to build:** ${{ steps.config.outputs.count }}" >> $GITHUB_STEP_SUMMARY
+
+  # ============================================================================
+  # Trigger Builds for Each Repo
+  # ============================================================================
+  trigger-builds:
+    name: Build ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    needs: load-config
+    if: needs.load-config.outputs.repo_count > 0
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.load-config.outputs.matrix) }}
+
+    steps:
+      - name: Checkout Hub
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: pip install pyyaml
+
+      - name: Load Repo Config
+        id: repo-config
+        env:
+          MATRIX_CONFIG_FILE: ${{ matrix.config_file }}
+          MATRIX_LANGUAGE: ${{ matrix.language }}
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          import yaml
+          from pathlib import Path
+
+          # Load defaults
+          defaults = {}
+          defaults_file = Path("config/defaults.yaml")
+          if defaults_file.exists():
+              with open(defaults_file) as f:
+                  defaults = yaml.safe_load(f) or {}
+
+          # Load repo-specific config (using env var to prevent injection)
+          repo_config = {}
+          config_file = Path(os.environ.get("MATRIX_CONFIG_FILE", ""))
+          if config_file.exists():
+              with open(config_file) as f:
+                  repo_config = yaml.safe_load(f) or {}
+
+          # Deep merge (repo overrides defaults)
+          def deep_merge(base, override):
+              result = base.copy()
+              for key, value in override.items():
+                  if key in result and isinstance(result[key], dict) and isinstance(value, dict):
+                      result[key] = deep_merge(result[key], value)
+                  else:
+                      result[key] = value
+              return result
+
+          merged = deep_merge(defaults, repo_config)
+          language = os.environ.get("MATRIX_LANGUAGE", "java")
+
+          # Extract workflow inputs based on language
+          inputs = {"language": language}
+
+          if language == "java":
+              java = merged.get("java", {})
+              tools = java.get("tools", {})
+
+              inputs["java_version"] = java.get("version", "21")
+              inputs["build_tool"] = java.get("build_tool", "maven")
+              inputs["run_jacoco"] = tools.get("jacoco", {}).get("enabled", True)
+              inputs["run_checkstyle"] = tools.get("checkstyle", {}).get("enabled", True)
+              inputs["run_spotbugs"] = tools.get("spotbugs", {}).get("enabled", True)
+              inputs["run_owasp"] = tools.get("owasp", {}).get("enabled", True)
+              inputs["run_pitest"] = tools.get("pitest", {}).get("enabled", True)
+              inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", True)
+              inputs["run_docker"] = tools.get("docker", {}).get("enabled", False)
+              inputs["coverage_min"] = tools.get("jacoco", {}).get("min_coverage", 70)
+              inputs["mutation_score_min"] = tools.get("pitest", {}).get("min_mutation_score", 70)
+              inputs["owasp_cvss_fail"] = tools.get("owasp", {}).get("fail_on_cvss", 7)
+              inputs["docker_compose_file"] = tools.get("docker", {}).get("compose_file", "docker-compose.yml")
+              inputs["docker_health_endpoint"] = tools.get("docker", {}).get("health_endpoint", "/actuator/health")
+              inputs["run_pmd"] = tools.get("pmd", {}).get("enabled", True)
+              inputs["run_semgrep"] = tools.get("semgrep", {}).get("enabled", True)
+              inputs["run_trivy"] = tools.get("trivy", {}).get("enabled", True)
+
+          elif language == "python":
+              python = merged.get("python", {})
+              tools = python.get("tools", {})
+
+              inputs["python_version"] = python.get("version", "3.12")
+              inputs["run_pytest"] = tools.get("pytest", {}).get("enabled", True)
+              inputs["run_ruff"] = tools.get("ruff", {}).get("enabled", True)
+              inputs["run_bandit"] = tools.get("bandit", {}).get("enabled", True)
+              inputs["run_pip_audit"] = tools.get("pip_audit", {}).get("enabled", True)
+              inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", True)
+              inputs["coverage_min"] = tools.get("pytest", {}).get("min_coverage", 70)
+              inputs["run_mypy"] = tools.get("mypy", {}).get("enabled", False)
+              inputs["run_black"] = tools.get("black", {}).get("enabled", True)
+              inputs["run_isort"] = tools.get("isort", {}).get("enabled", True)
+              inputs["run_mutmut"] = tools.get("mutmut", {}).get("enabled", True)
+              inputs["run_semgrep"] = tools.get("semgrep", {}).get("enabled", True)
+              inputs["run_trivy"] = tools.get("trivy", {}).get("enabled", True)
+              inputs["run_docker"] = tools.get("docker", {}).get("enabled", False)
+
+          reports = merged.get("reports", {})
+          inputs["retention_days"] = reports.get("retention_days", 30)
+
+          # Write outputs
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              for key, value in inputs.items():
+                  if isinstance(value, bool):
+                      f.write(f"{key}={str(value).lower()}\n")
+                  else:
+                      f.write(f"{key}={value}\n")
+
+          print(f"Config for ${{ matrix.name }}:")
+          print(json.dumps(inputs, indent=2))
+          EOF
+
+      - name: Trigger Repository Workflow
+        id: dispatch
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const owner = '${{ matrix.owner }}';
+            const repo = '${{ matrix.name }}';
+            const language = '${{ matrix.language }}';
+            const branch = '${{ matrix.default_branch }}';
+
+            const asBool = (val) => String(val || '').toLowerCase() === 'true';
+            const asNumber = (val, fallback) => {
+              const n = Number(val);
+              return Number.isFinite(n) ? n : fallback;
+            };
+
+            const inputs = {};
+            const MAX_POLL_MS = 30 * 60 * 1000; // 30 minutes
+
+            if (language === 'java') {
+              inputs.java_version = '${{ steps.repo-config.outputs.java_version }}' || '21';
+              inputs.build_tool = '${{ steps.repo-config.outputs.build_tool }}' || 'maven';
+              inputs.run_jacoco = asBool('${{ steps.repo-config.outputs.run_jacoco }}');
+              inputs.run_checkstyle = asBool('${{ steps.repo-config.outputs.run_checkstyle }}');
+              inputs.run_spotbugs = asBool('${{ steps.repo-config.outputs.run_spotbugs }}');
+              inputs.run_owasp = asBool('${{ steps.repo-config.outputs.run_owasp }}');
+              inputs.run_pitest = asBool('${{ steps.repo-config.outputs.run_pitest }}');
+              inputs.run_codeql = asBool('${{ steps.repo-config.outputs.run_codeql }}');
+              inputs.run_docker = asBool('${{ steps.repo-config.outputs.run_docker }}');
+              inputs.coverage_min = asNumber('${{ steps.repo-config.outputs.coverage_min }}', 70);
+              inputs.mutation_score_min = asNumber('${{ steps.repo-config.outputs.mutation_score_min }}', 70);
+              inputs.owasp_cvss_fail = asNumber('${{ steps.repo-config.outputs.owasp_cvss_fail }}', 7);
+              inputs.docker_compose_file = '${{ steps.repo-config.outputs.docker_compose_file }}' || 'docker-compose.yml';
+              inputs.docker_health_endpoint = '${{ steps.repo-config.outputs.docker_health_endpoint }}' || '/actuator/health';
+              inputs.run_pmd = asBool('${{ steps.repo-config.outputs.run_pmd }}');
+              inputs.run_semgrep = asBool('${{ steps.repo-config.outputs.run_semgrep }}');
+              inputs.run_trivy = asBool('${{ steps.repo-config.outputs.run_trivy }}');
+              inputs.retention_days = asNumber('${{ steps.repo-config.outputs.retention_days }}', 30);
+            } else {
+              inputs.python_version = '${{ steps.repo-config.outputs.python_version }}' || '3.12';
+              inputs.run_pytest = asBool('${{ steps.repo-config.outputs.run_pytest }}');
+              inputs.run_ruff = asBool('${{ steps.repo-config.outputs.run_ruff }}');
+              inputs.run_bandit = asBool('${{ steps.repo-config.outputs.run_bandit }}');
+              inputs.run_pip_audit = asBool('${{ steps.repo-config.outputs.run_pip_audit }}');
+              inputs.run_mypy = asBool('${{ steps.repo-config.outputs.run_mypy }}');
+              inputs.run_codeql = asBool('${{ steps.repo-config.outputs.run_codeql }}');
+              inputs.run_black = asBool('${{ steps.repo-config.outputs.run_black }}');
+              inputs.run_isort = asBool('${{ steps.repo-config.outputs.run_isort }}');
+              inputs.run_mutmut = asBool('${{ steps.repo-config.outputs.run_mutmut }}');
+              inputs.run_semgrep = asBool('${{ steps.repo-config.outputs.run_semgrep }}');
+              inputs.run_trivy = asBool('${{ steps.repo-config.outputs.run_trivy }}');
+              inputs.run_docker = asBool('${{ steps.repo-config.outputs.run_docker }}');
+              inputs.coverage_min = asNumber('${{ steps.repo-config.outputs.coverage_min }}', 70);
+              inputs.retention_days = asNumber('${{ steps.repo-config.outputs.retention_days }}', 30);
+            }
+
+            const workflowId = language === 'java' ? 'java-ci.yml' : 'python-ci.yml';
+            const startedAt = Date.now();
+
+            core.info(`Dispatching ${workflowId} on ${owner}/${repo}@${branch}`);
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner,
+                repo,
+                workflow_id: workflowId,
+                ref: branch,
+                inputs,
+              });
+            } catch (err) {
+              core.setFailed(`Dispatch failed for ${owner}/${repo}: ${err.message}`);
+              throw err;
+            }
+
+            let runId = '';
+            let pollDelay = 5000;
+            const deadline = startedAt + MAX_POLL_MS;
+
+            while (Date.now() < deadline) {
+              await new Promise((resolve) => setTimeout(resolve, pollDelay));
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: workflowId,
+                event: 'workflow_dispatch',
+                branch,
+                per_page: 5,
+              });
+
+              const recent = runs.data.workflow_runs.find((run) => {
+                const created = new Date(run.created_at).getTime();
+                return created >= startedAt - 10000;
+              });
+
+              if (recent) {
+                runId = String(recent.id);
+                core.info(`Captured run id ${runId} for ${repo}`);
+                break;
+              }
+
+              pollDelay = Math.min(pollDelay * 2, 30000); // backoff up to 30s
+            }
+
+            if (!runId) {
+              core.setFailed(`Dispatched ${workflowId} for ${repo}, but could not determine run id.`);
+              return;
+            }
+
+            core.setOutput('run_id', runId);
+            core.setOutput('branch', branch);
+            core.setOutput('workflow_id', workflowId);
+
+      - name: Record Build Trigger
+        run: |
+          echo "## ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Owner:** ${{ matrix.owner }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ matrix.language }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ matrix.default_branch }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow:** ${{ steps.dispatch.outputs.workflow_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Run ID:** ${{ steps.dispatch.outputs.run_id != '' && steps.dispatch.outputs.run_id || 'pending' }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** Triggered" >> $GITHUB_STEP_SUMMARY
+
+      - name: Save Dispatch Metadata
+        if: always()
+        run: |
+          mkdir -p dispatch-results
+          cat > dispatch-results/${{ matrix.name }}.json << EOF
+          {
+            "repo": "${{ matrix.owner }}/${{ matrix.name }}",
+            "language": "${{ matrix.language }}",
+            "branch": "${{ matrix.default_branch }}",
+            "workflow": "${{ steps.dispatch.outputs.workflow_id }}",
+            "run_id": "${{ steps.dispatch.outputs.run_id }}",
+            "status": "${{ job.status }}"
+          }
+          EOF
+
+      - name: Upload Dispatch Metadata
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dispatch-${{ matrix.name }}
+          path: dispatch-results/${{ matrix.name }}.json
+          retention-days: 7
+
+  # ============================================================================
+  # Aggregate Reports
+  # ============================================================================
+  aggregate-reports:
+    name: Aggregate Reports
+    runs-on: ubuntu-latest
+    needs: [load-config, trigger-builds]
+    if: always()
+
+    steps:
+      - name: Checkout Hub
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Dependencies
+        run: pip install pyyaml
+
+      - name: Download Dispatch Metadata
+        uses: actions/download-artifact@v4
+        with:
+          path: dispatch-artifacts
+        continue-on-error: true
+
+      - name: Generate Hub Summary and Report
+        env:
+          TOTAL_REPOS: ${{ needs.load-config.outputs.repo_count }}
+          HUB_RUN_ID: ${{ github.run_id }}
+          HUB_EVENT: ${{ github.event_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          from datetime import datetime
+          from pathlib import Path
+          from urllib import request
+          import time
+          import zipfile
+          import tempfile
+
+          token = os.environ.get("GITHUB_TOKEN")
+          if not token:
+              print("Missing GITHUB_TOKEN for aggregation", flush=True)
+              exit(1)
+
+          def gh_get(url: str, retries: int = 3, backoff: float = 2.0) -> dict:
+              attempt = 0
+              while True:
+                  try:
+                      req = request.Request(
+                          url,
+                          headers={
+                              "Authorization": f"Bearer {token}",
+                              "Accept": "application/vnd.github+json",
+                              "X-GitHub-Api-Version": "2022-11-28",
+                          },
+                      )
+                      with request.urlopen(req) as resp:
+                          return json.loads(resp.read().decode())
+                  except Exception as exc:  # noqa: PIE786
+                      attempt += 1
+                      if attempt > retries:
+                          raise
+                      sleep_for = backoff * attempt
+                      print(f"Retry {attempt}/{retries} for {url} after error: {exc} (sleep {sleep_for}s)")
+                      time.sleep(sleep_for)
+
+          def download_artifact(archive_url: str, target_dir: Path) -> Path | None:
+              req = request.Request(
+                  archive_url,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Accept": "application/vnd.github+json",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              try:
+                  with request.urlopen(req) as resp:
+                      data = resp.read()
+                  target_dir.mkdir(parents=True, exist_ok=True)
+                  zip_path = target_dir / "artifact.zip"
+                  zip_path.write_bytes(data)
+                  with zipfile.ZipFile(zip_path, "r") as zf:
+                      zf.extractall(target_dir)
+                  return target_dir
+              except Exception as exc:  # noqa: PIE786
+                  print(f"Warning: failed to download artifact {archive_url}: {exc}")
+                  return None
+
+          meta_dir = Path("dispatch-artifacts")
+          entries = []
+          for path in meta_dir.rglob("*.json"):
+              try:
+                  data = json.loads(path.read_text())
+                  data["_source"] = str(path)
+                  entries.append(data)
+              except Exception as exc:  # noqa: PIE786
+                  print(f"Warning: could not read {path}: {exc}")
+
+          # Poll runs and collect artifacts/metrics
+          results = []
+          pending_statuses = {"queued", "in_progress", "waiting", "pending"}
+          poll_timeout_sec = 30 * 60  # 30 minutes
+          for entry in entries:
+              repo_full = entry.get("repo", "unknown/unknown")
+              owner_repo = repo_full.split("/")
+              if len(owner_repo) != 2:
+                  print(f"Invalid repo format in entry: {repo_full}")
+                  continue
+              owner, repo = owner_repo
+              run_id = entry.get("run_id")
+              language = entry.get("language")
+              branch = entry.get("branch")
+              workflow = entry.get("workflow")
+
+              run_status = {
+                  "repo": repo_full,
+                  "language": language,
+                  "branch": branch,
+                  "workflow": workflow,
+                  "run_id": run_id or "",
+                  "status": "missing_run_id" if not run_id else "unknown",
+                  "conclusion": "unknown",
+                  "coverage": None,
+                  "mutation_score": None,
+                  "critical_vulns": None,
+                  "high_vulns": None,
+                  "medium_vulns": None,
+              }
+
+              if not run_id:
+                  results.append(run_status)
+                  continue
+
+              try:
+                  url = f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}"
+                  start_poll = time.time()
+                  delay = 10
+                  while True:
+                      run = gh_get(url)
+                      status = run.get("status", "unknown")
+                      conclusion = run.get("conclusion", "unknown")
+                      run_status["status"] = status
+                      run_status["conclusion"] = conclusion
+
+                      if status not in pending_statuses:
+                          break
+
+                      if time.time() - start_poll > poll_timeout_sec:
+                          run_status["status"] = "timed_out"
+                          run_status["conclusion"] = "timed_out"
+                          break
+
+                      time.sleep(delay)
+                      delay = min(delay * 1.5, 60)
+              except Exception as exc:  # noqa: PIE786
+                  print(f"Warning: could not fetch run {run_id} for {repo_full}: {exc}")
+                  run_status["status"] = "fetch_failed"
+                  results.append(run_status)
+                  continue
+
+              # If completed and succeeded, try to download artifacts
+              if run_status["status"] == "completed" and run_status["conclusion"] == "success":
+                  try:
+                      artifacts = gh_get(f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts")
+                      ci_artifacts = artifacts.get("artifacts", [])
+                      # Prefer ci-report, otherwise first artifact
+                      artifact = next((a for a in ci_artifacts if a.get("name") == "ci-report"), None)
+                      if not artifact and ci_artifacts:
+                          artifact = ci_artifacts[0]
+                      if artifact:
+                          with tempfile.TemporaryDirectory() as tmpdir:
+                              extracted = download_artifact(artifact["archive_download_url"], Path(tmpdir))
+                              if extracted:
+                                  report_file = next(iter(Path(extracted).rglob("report.json")), None)
+                                  if report_file and report_file.exists():
+                                      try:
+                                          report_data = json.loads(report_file.read_text())
+                                          results_data = report_data.get("results", {})
+                                          run_status["coverage"] = results_data.get("coverage")
+                                          run_status["mutation_score"] = results_data.get("mutation_score")
+                                          run_status["critical_vulns"] = results_data.get("critical_vulns")
+                                          run_status["high_vulns"] = results_data.get("high_vulns")
+                                          run_status["medium_vulns"] = results_data.get("medium_vulns")
+                                      except Exception as exc:  # noqa: PIE786
+                                          print(f"Warning: could not parse report.json from {artifact['name']}: {exc}")
+                  except Exception as exc:  # noqa: PIE786
+                      print(f"Warning: failed to fetch artifacts for run {run_id} in {repo_full}: {exc}")
+
+              results.append(run_status)
+
+          total_repos = int(os.environ.get("TOTAL_REPOS") or 0)
+          dispatched = len(results)
+          missing = max(total_repos - dispatched, 0)
+          missing_run_id = len([e for e in results if not e.get("run_id")])
+
+          failed_runs = [
+              r for r in results
+              if r.get("status") in ("missing_run_id", "fetch_failed")
+              or (r.get("status") == "completed" and r.get("conclusion") != "success")
+              or r.get("status") not in ("completed",)
+          ]
+
+          report = {
+              "hub_run_id": os.environ.get("HUB_RUN_ID"),
+              "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "triggered_by": os.environ.get("HUB_EVENT"),
+              "total_repos": total_repos,
+              "dispatched_repos": dispatched,
+              "missing_dispatch_metadata": missing,
+              "runs": results,
+          }
+
+          # Aggregated metrics
+          coverages = [r["coverage"] for r in results if isinstance(r.get("coverage"), (int, float))]
+          mutations = [r["mutation_score"] for r in results if isinstance(r.get("mutation_score"), (int, float))]
+          critical_vulns = [r["critical_vulns"] for r in results if isinstance(r.get("critical_vulns"), (int, float))]
+          high_vulns = [r["high_vulns"] for r in results if isinstance(r.get("high_vulns"), (int, float))]
+          medium_vulns = [r["medium_vulns"] for r in results if isinstance(r.get("medium_vulns"), (int, float))]
+
+          if coverages:
+              report["coverage_average"] = round(sum(coverages) / len(coverages), 1)
+          if mutations:
+              report["mutation_average"] = round(sum(mutations) / len(mutations), 1)
+
+          # Vulnerability aggregation
+          report["total_critical_vulns"] = sum(critical_vulns) if critical_vulns else 0
+          report["total_high_vulns"] = sum(high_vulns) if high_vulns else 0
+          report["total_medium_vulns"] = sum(medium_vulns) if medium_vulns else 0
+
+          Path("hub-report.json").write_text(json.dumps(report, indent=2))
+
+          summary_lines = [
+              "# CI/CD Hub Report",
+              "",
+              f"**Run ID:** {report['hub_run_id']}",
+              f"**Timestamp:** {report['timestamp']}",
+              "",
+              "## Dispatch Status",
+              f"- Total repos (matrix): {total_repos}",
+              f"- Dispatch metadata received: {dispatched}",
+              f"- Missing metadata files: {missing}",
+              f"- Runs without run_id: {missing_run_id}",
+              "",
+              "### Runs",
+          ]
+
+          for entry in results:
+              line = f"- {entry.get('repo', 'unknown')} ({entry.get('language', '-')}) "
+              line += f"branch `{entry.get('branch', '-')}`, workflow `{entry.get('workflow', '-')}`, run_id `{entry.get('run_id', '') or 'pending'}`, status `{entry.get('status', '-')}`, conclusion `{entry.get('conclusion', '-')}`, coverage `{entry.get('coverage', '-')}`, mutation `{entry.get('mutation_score', '-')}`, vulns(C/H/M) `{entry.get('critical_vulns', '-')}/{entry.get('high_vulns', '-')}/{entry.get('medium_vulns', '-')}`"
+              summary_lines.append(line)
+
+          # Add aggregated vulnerability metrics to summary
+          summary_lines.extend([
+              "",
+              "## Aggregated Metrics",
+              f"- **Total Critical Vulnerabilities:** {report['total_critical_vulns']}",
+              f"- **Total High Vulnerabilities:** {report['total_high_vulns']}",
+              f"- **Total Medium Vulnerabilities:** {report['total_medium_vulns']}",
+          ])
+          if "coverage_average" in report:
+              summary_lines.append(f"- **Average Coverage:** {report['coverage_average']}%")
+          if "mutation_average" in report:
+              summary_lines.append(f"- **Average Mutation Score:** {report['mutation_average']}%")
+
+          summary_path = Path(os.environ["GITHUB_STEP_SUMMARY"])
+          summary_path.write_text("\n".join(summary_lines))
+
+          # Load thresholds from defaults.yaml
+          import yaml
+          max_critical_vulns = 0
+          max_high_vulns = 0
+          defaults_path = Path("config/defaults.yaml")
+          if defaults_path.exists():
+              try:
+                  defaults = yaml.safe_load(defaults_path.read_text())
+                  thresholds = defaults.get("thresholds", {})
+                  max_critical_vulns = thresholds.get("max_critical_vulns", 0)
+                  max_high_vulns = thresholds.get("max_high_vulns", 0)
+              except Exception as exc:  # noqa: PIE786
+                  print(f"Warning: could not load thresholds from defaults.yaml: {exc}")
+
+          # Check vulnerability thresholds
+          threshold_exceeded = False
+          if report["total_critical_vulns"] > max_critical_vulns:
+              print(f"THRESHOLD EXCEEDED: Critical vulnerabilities {report['total_critical_vulns']} > {max_critical_vulns}", flush=True)
+              threshold_exceeded = True
+          if report["total_high_vulns"] > max_high_vulns:
+              print(f"THRESHOLD EXCEEDED: High vulnerabilities {report['total_high_vulns']} > {max_high_vulns}", flush=True)
+              threshold_exceeded = True
+
+          # Fail the job if any run failed, metadata is missing, or thresholds exceeded
+          if failed_runs or missing > 0 or threshold_exceeded:
+              if failed_runs:
+                  print("Aggregation detected failures.", flush=True)
+              if missing > 0:
+                  print("Aggregation detected missing data.", flush=True)
+              if threshold_exceeded:
+                  print("Vulnerability thresholds exceeded.", flush=True)
+              print("Failing job.", flush=True)
+              exit(1)
+          EOF
+
+      - name: Upload Hub Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: hub-report
+          path: hub-report.json
+          retention-days: 30
