@@ -286,10 +286,11 @@ jobs:
               return;
             }
 
-            const asBool = (val) => String(val || '').toLowerCase() === 'true';
+            // GitHub workflow_dispatch API requires ALL inputs as strings
+            const asBool = (val) => String(val || '').toLowerCase() === 'true' ? 'true' : 'false';
             const asNumber = (val, fallback) => {
               const n = Number(val);
-              return Number.isFinite(n) ? n : fallback;
+              return String(Number.isFinite(n) ? n : fallback);
             };
 
             const inputs = {};
