@@ -1,0 +1,104 @@
+# ============================================================================
+# Kyverno Policy Validation
+# ============================================================================
+# Validates Kyverno policy syntax without requiring a Kubernetes cluster.
+# Runs on changes to policy files to catch syntax errors early.
+#
+# See also: docs/adr/0012-kyverno-policies.md
+# ============================================================================
+
+name: "Kyverno: Validate Policies"
+
+on:
+  push:
+    paths:
+      - 'policies/kyverno/**/*.yaml'
+      - 'templates/kyverno/**/*.yaml'
+  pull_request:
+    paths:
+      - 'policies/kyverno/**/*.yaml'
+      - 'templates/kyverno/**/*.yaml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate Policy Syntax
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Kyverno CLI
+        run: |
+          # Install Kyverno CLI for policy validation
+          curl -LO https://github.com/kyverno/kyverno/releases/download/v1.11.4/kyverno-cli_v1.11.4_linux_x86_64.tar.gz
+          tar -xzf kyverno-cli_v1.11.4_linux_x86_64.tar.gz
+          sudo mv kyverno /usr/local/bin/
+          kyverno version
+
+      - name: Validate Policies
+        run: |
+          echo "Validating Kyverno policies..."
+
+          FAILED=0
+
+          # Validate all policy files
+          for policy in policies/kyverno/*.yaml; do
+            if [ -f "$policy" ]; then
+              echo "Validating: $policy"
+              if kyverno validate "$policy" 2>&1; then
+                echo "  OK"
+              else
+                echo "  FAILED"
+                FAILED=$((FAILED + 1))
+              fi
+            fi
+          done
+
+          # Validate template files if they exist
+          if [ -d "templates/kyverno" ]; then
+            for template in templates/kyverno/*.yaml; do
+              if [ -f "$template" ]; then
+                echo "Validating template: $template"
+                if kyverno validate "$template" 2>&1; then
+                  echo "  OK"
+                else
+                  echo "  FAILED"
+                  FAILED=$((FAILED + 1))
+                fi
+              fi
+            done
+          fi
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo "::error::$FAILED policy validation(s) failed"
+            exit 1
+          fi
+
+          echo "All policies validated successfully"
+
+      - name: Generate Summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          # Kyverno Policy Validation
+
+          | Policy | Purpose | Status |
+          |--------|---------|--------|
+          EOF
+
+          for policy in policies/kyverno/*.yaml; do
+            if [ -f "$policy" ]; then
+              NAME=$(basename "$policy" .yaml)
+              PURPOSE=$(grep -A1 "policies.kyverno.io/title:" "$policy" 2>/dev/null | head -1 | sed 's/.*title:\s*//' || echo "N/A")
+              echo "| \`$NAME\` | $PURPOSE | Validated |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+
+          ---
+
+          See [docs/guides/KYVERNO.md](../../docs/guides/KYVERNO.md) for usage instructions.
+          EOF

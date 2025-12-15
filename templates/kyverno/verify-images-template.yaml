@@ -1,0 +1,93 @@
+# ============================================================================
+# Kyverno Policy Template: Verify Image Signatures
+# ============================================================================
+# TEMPLATE - Copy this file and customize for your organization.
+#
+# Required customizations:
+#   1. Replace YOUR_ORG with your GitHub organization
+#   2. Replace your-registry.io with your container registry
+#   3. Adjust namespace exclusions as needed
+#   4. Set validationFailureAction to Enforce when ready
+#
+# Usage:
+#   cp templates/kyverno/verify-images-template.yaml policies/kyverno/verify-images.yaml
+#   # Edit the file with your values
+#   kubectl apply -f policies/kyverno/verify-images.yaml
+# ============================================================================
+
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: verify-keyless-images
+  annotations:
+    policies.kyverno.io/title: Enforce Cosign keyless signatures
+    policies.kyverno.io/category: Supply Chain Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/description: >
+      Deny workloads unless container images are signed with keyless Cosign
+      certificates issued by GitHub Actions OIDC and recorded in Rekor.
+spec:
+  # ============================================================================
+  # CUSTOMIZE: Change to Enforce when ready for production
+  # ============================================================================
+  validationFailureAction: Audit
+  background: false
+  failurePolicy: Fail
+
+  rules:
+    - name: require-keyless-cosign
+      match:
+        any:
+          - resources:
+              kinds:
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+                - CronJob
+      exclude:
+        any:
+          # ============================================================================
+          # CUSTOMIZE: Add namespaces that should be excluded from verification
+          # ============================================================================
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                # Add your exceptions here:
+                # - monitoring
+                # - cert-manager
+
+      verifyImages:
+        - imageReferences:
+            # ============================================================================
+            # CUSTOMIZE: Update with your registry patterns
+            # Examples:
+            #   - "ghcr.io/YOUR_ORG/*"
+            #   - "your-registry.io/YOUR_ORG/*"
+            #   - "docker.io/YOUR_ORG/*"
+            # ============================================================================
+            - "ghcr.io/YOUR_ORG/*"
+
+          attestors:
+            - entries:
+                - keyless:
+                    # GitHub Actions OIDC issuer (do not change)
+                    issuer: https://token.actions.githubusercontent.com
+
+                    # ============================================================================
+                    # CUSTOMIZE: Update with your org/repo pattern
+                    # The subject should match your GitHub Actions workflow that signs images.
+                    # Examples:
+                    #   - "https://github.com/YOUR_ORG/*/.github/workflows/*"
+                    #   - "https://github.com/YOUR_ORG/specific-repo/.github/workflows/release.yml@*"
+                    # ============================================================================
+                    subject: "https://github.com/YOUR_ORG/*/.github/workflows/*"
+
+                    # Rekor transparency log (do not change unless self-hosting)
+                    rekor:
+                      url: https://rekor.sigstore.dev
+
+          # Enforce digest-based image references
+          mutateDigest: true
+          verifyDigest: true

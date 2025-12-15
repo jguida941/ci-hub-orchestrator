@@ -14,6 +14,7 @@ Existing:
 - [ADR-0009: Monorepo Support via repo.subdir](0009-monorepo-support.md)
 - [ADR-0010: Dispatch Token and Skip Flag](0010-dispatch-token-and-skip.md)
 - [ADR-0011: Dispatchable Workflow Requirement](0011-dispatchable-workflow-requirement.md)
+- [ADR-0012: Kyverno Policies](0012-kyverno-policies.md)
 
 Template starter:
 ```markdown
@@ -26,3 +27,5 @@ Decision
 Consequences (positive/negative)
 Alternatives considered
 ```
+
+- ADR-0012: Kyverno Policies for Kubernetes Admission Control

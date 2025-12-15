@@ -25,7 +25,8 @@ docs/
 │   ├── MODES.md
 │   ├── TEMPLATES.md
 │   ├── TROUBLESHOOTING.md
-│   └── MONOREPOS.md
+│   ├── MONOREPOS.md
+│   └── KYVERNO.md
 ├── reference/       # Reference documentation
 │   ├── CONFIG_REFERENCE.md
 │   ├── TOOLS.md
@@ -56,6 +57,7 @@ User-facing tutorials and how-to guides:
 | [TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) | Common issues and solutions |
 | [MONOREPOS.md](guides/MONOREPOS.md) | Monorepo support guide |
 | [DISPATCH_SETUP.md](guides/DISPATCH_SETUP.md) | How to set up tokens and dispatchable repos |
+| [KYVERNO.md](guides/KYVERNO.md) | Kyverno policies for Kubernetes admission control |
 | run_group filter | Use `run_group` to include only `full`, `fixtures`, or `smoke` configs when running the hub |
 | Job naming | Matrix jobs and artifacts include config basename/subdir to avoid collisions |
 
@@ -103,6 +105,8 @@ Internal documentation for hub maintainers:
 | Create a custom config | [guides/TEMPLATES.md](guides/TEMPLATES.md) |
 | Understand workflow inputs | [guides/WORKFLOWS.md](guides/WORKFLOWS.md) |
 | Set up a monorepo | [guides/MONOREPOS.md](guides/MONOREPOS.md) |
+| Add Kubernetes admission control | [guides/KYVERNO.md](guides/KYVERNO.md) |
+| Treat Kyverno as optional | [guides/KYVERNO.md](guides/KYVERNO.md) documents optional cluster policy usage |
 
 ---
 
@@ -146,3 +150,10 @@ When adding new documentation:
 - **PITest**: https://pitest.org/
 - **Ruff**: https://github.com/astral-sh/ruff
 - **OWASP Dependency Check**: https://owasp.org/www-project-dependency-check/
+- **Kyverno**: https://kyverno.io/docs/
+
+## Precedence reminder
+- defaults.yaml -> config/repos/<repo>.yaml -> repo-local .ci-hub.yml (repo wins).
+- Dispatch mode (current): hub config is authoritative; repo-local .ci-hub.yml is ignored until a safe merge path is added.
+- Profiles seed hub configs; they are not a runtime layer.
+- run_group can filter hub runs (full/fixtures/smoke).

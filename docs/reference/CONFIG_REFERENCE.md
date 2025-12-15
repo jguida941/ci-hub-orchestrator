@@ -49,9 +49,12 @@ See `templates/profiles/` for ready-to-use profile configs.
 Configuration is merged with the following precedence (highest wins):
 
 ```
-1. Repo-local .ci-hub.yml       (in target repo root - optional)
+1. Repo-local .ci-hub.yml       (in target repo root - optional, highest) — only in central mode
 2. Hub config/repos/<repo>.yaml (hub-side per-repo override)
 3. Hub config/defaults.yaml     (global defaults)
+Profiles: templates/profiles/*.yaml are starting points; apply them into config/repos, then repo-local overrides win.
+
+Dispatch mode (current behavior): only hub-side config is used; repo-local `.ci-hub.yml` is ignored unless we add a safe checkout+merge path.
 ```
 
 **Example:** If `defaults.yaml` sets `java.tools.jacoco.min_coverage: 70` but `config/repos/my-app.yaml` sets it to `80`, the merged value is `80`.
@@ -63,8 +66,8 @@ Configuration is merged with the following precedence (highest wins):
 All configs are validated against `schema/ci-hub-config.schema.json`.
 
 **Where validation runs:**
-- `scripts/load_config.py` - validates on config load
-- `hub-orchestrator.yml` load-config job - validates before dispatch
+- `scripts/load_config.py` - validates merged config on load
+- `hub-orchestrator.yml` load-config job - validates merged config before dispatch
 - `config-validate.yml` workflow - runs on config/schema changes
 
 **Validation errors look like:**
@@ -86,6 +89,8 @@ Config validation failed for config/repos/my-app.yaml:
 | `repo.name` | string | Yes | — | Repository name |
 | `repo.language` | enum | No | `java` | `java` or `python` |
 | `repo.default_branch` | string | No | `main` | Branch for CI runs |
+| `repo.run_group` | enum | No | `full` | Group tag to filter runs (e.g., `full`, `fixtures`, `smoke`) |
+| `repo.dispatch_enabled` | boolean | No | `true` | If `false`, hub skips dispatch mode for this repo |
 
 **Example:**
 ```yaml
@@ -114,6 +119,8 @@ repo:
 |-------|------|---------|-------------|
 | `enabled` | boolean | `true` | Run JaCoCo coverage |
 | `min_coverage` | integer | `70` | Minimum coverage % (0-100) |
+| `max_critical_vulns` | integer | `0` | Fail when CRITICAL vulns exceed this (applies to OWASP/Trivy gates) |
+| `max_high_vulns` | integer | `0` | Fail when HIGH vulns exceed this (applies to OWASP/Trivy gates) |
 
 ### java.tools.checkstyle
 
@@ -197,6 +204,8 @@ repo:
 | `enabled` | boolean | `true` | Run pytest with coverage |
 | `min_coverage` | integer | `70` | Minimum coverage % (0-100) |
 | `fail_fast` | boolean | `false` | Stop on first failure |
+| `max_critical_vulns` | integer | `0` | Fail when CRITICAL vulns exceed this (applies to Trivy) |
+| `max_high_vulns` | integer | `0` | Fail when HIGH vulns exceed this (applies to Bandit/pip-audit/Trivy) |
 
 ### python.tools.ruff
 

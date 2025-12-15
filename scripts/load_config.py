@@ -22,7 +22,15 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from jsonschema import Draft7Validator, ValidationError
+from jsonschema import Draft7Validator
+
+
+class ConfigValidationError(Exception):
+    """Raised when a merged CI/CD Hub config fails schema validation."""
+
+    def __init__(self, message: str, errors: list[str] | None = None) -> None:
+        super().__init__(message)
+        self.errors = errors or []
 
 
 def deep_merge(base: dict, override: dict) -> dict:
@@ -45,7 +53,7 @@ def load_yaml_file(path: Path) -> dict:
     if not path.exists():
         return {}
 
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         content = yaml.safe_load(f)
         return content if content else {}
 
@@ -54,6 +62,7 @@ def load_config(
     repo_name: str,
     hub_root: Path,
     repo_config_path: Path | None = None,
+    exit_on_validation_error: bool = True,
 ) -> dict:
     """
     Load and merge configuration for a repository.
@@ -81,10 +90,15 @@ def load_config(
         errors = list(validator.iter_errors(cfg))
         if errors:
             print(f"Config validation failed for {source}:", file=sys.stderr)
+            messages: list[str] = []
             for err in errors:
                 path = ".".join([str(p) for p in err.path]) or "<root>"
-                print(f"  - {path}: {err.message}", file=sys.stderr)
-            raise ValidationError(f"Validation failed for {source}")
+                message = f"{path}: {err.message}"
+                messages.append(message)
+                print(f"  - {message}", file=sys.stderr)
+            raise ConfigValidationError(
+                f"Validation failed for {source}", errors=messages
+            )
 
     # 1. Load defaults (lowest priority)
     defaults_path = hub_root / "config" / "defaults.yaml"
@@ -93,29 +107,32 @@ def load_config(
     if not config:
         print(f"Warning: No defaults found at {defaults_path}", file=sys.stderr)
         config = {}
-    else:
-        validate_config(config, str(defaults_path))
 
     # 2. Merge hub's repo-specific config
     repo_override_path = hub_root / "config" / "repos" / f"{repo_name}.yaml"
     repo_override = load_yaml_file(repo_override_path)
 
     if repo_override:
-        validate_config(repo_override, str(repo_override_path))
         config = deep_merge(config, repo_override)
 
     # 3. Merge repo's own .ci-hub.yml (highest priority)
     if repo_config_path:
         repo_local_config = load_yaml_file(repo_config_path)
         if repo_local_config:
-            validate_config(repo_local_config, str(repo_config_path))
             config = deep_merge(config, repo_local_config)
 
     # Validate merged config once more
+    # Ensure top-level language is set from repo.language if present
+    repo_info = config.get("repo", {})
+    if repo_info.get("language"):
+        config["language"] = repo_info["language"]
+
     try:
         validate_config(config, "merged-config")
-    except ValidationError:
-        sys.exit(1)
+    except ConfigValidationError:
+        if exit_on_validation_error:
+            sys.exit(1)
+        raise
 
     # Add metadata
     config["_meta"] = {
@@ -169,7 +186,10 @@ def generate_workflow_inputs(config: dict) -> dict:
         inputs["run_spotbugs"] = tools.get("spotbugs", {}).get("enabled", True)
         inputs["run_owasp"] = tools.get("owasp", {}).get("enabled", True)
         inputs["run_pitest"] = tools.get("pitest", {}).get("enabled", True)
-        inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", True)
+        inputs["run_pmd"] = tools.get("pmd", {}).get("enabled", True)
+        inputs["run_semgrep"] = tools.get("semgrep", {}).get("enabled", False)
+        inputs["run_trivy"] = tools.get("trivy", {}).get("enabled", False)
+        inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", False)
         inputs["run_docker"] = tools.get("docker", {}).get("enabled", False)
 
         # Thresholds
@@ -198,9 +218,34 @@ def generate_workflow_inputs(config: dict) -> dict:
         inputs["run_ruff"] = tools.get("ruff", {}).get("enabled", True)
         inputs["run_bandit"] = tools.get("bandit", {}).get("enabled", True)
         inputs["run_pip_audit"] = tools.get("pip_audit", {}).get("enabled", True)
-        inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", True)
+        inputs["run_mypy"] = tools.get("mypy", {}).get("enabled", False)
+        inputs["run_black"] = tools.get("black", {}).get("enabled", True)
+        inputs["run_isort"] = tools.get("isort", {}).get("enabled", True)
+        inputs["run_mutmut"] = tools.get("mutmut", {}).get("enabled", False)
+        inputs["run_hypothesis"] = tools.get("hypothesis", {}).get("enabled", True)
+        inputs["run_semgrep"] = tools.get("semgrep", {}).get("enabled", False)
+        inputs["run_trivy"] = tools.get("trivy", {}).get("enabled", False)
+        inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", False)
+        inputs["run_docker"] = tools.get("docker", {}).get("enabled", False)
 
         inputs["coverage_min"] = tools.get("pytest", {}).get("min_coverage", 70)
+        inputs["mutation_score_min"] = tools.get("mutmut", {}).get(
+            "min_mutation_score", 70
+        )
+
+    # Global thresholds (override tool defaults if provided)
+    thresholds = config.get("thresholds", {})
+    if "coverage_min" in thresholds:
+        inputs["coverage_min"] = thresholds.get("coverage_min", inputs.get("coverage_min", 0))
+    if "mutation_score_min" in thresholds:
+        inputs["mutation_score_min"] = thresholds.get("mutation_score_min", inputs.get("mutation_score_min", 0))
+    inputs["max_critical_vulns"] = thresholds.get("max_critical_vulns", 0)
+    inputs["max_high_vulns"] = thresholds.get("max_high_vulns", 0)
+
+    # Dispatch flags and grouping
+    repo = config.get("repo", {})
+    inputs["dispatch_enabled"] = repo.get("dispatch_enabled", True)
+    inputs["run_group"] = repo.get("run_group", "full")
 
     # Reports
     reports = config.get("reports", {})

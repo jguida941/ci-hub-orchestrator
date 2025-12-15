@@ -4,22 +4,37 @@
   "title": "CI/CD Hub Repository Configuration",
   "description": "Schema for .ci-hub.yml files in connected repositories",
   "type": "object",
+  "additionalProperties": false,
+  "required": ["repo", "language"],
   "properties": {
     "version": {
       "type": "string",
       "description": "Config schema version",
       "default": "1.0"
     },
+    "extra_tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "command": { "type": "string" }
+        },
+        "required": ["name", "command"]
+      }
+    },
     "repo": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "owner": { "type": "string" },
         "name": { "type": "string" },
         "language": { "type": "string" },
         "default_branch": { "type": "string", "default": "main" },
-        "subdir": { "type": "string", "description": "Optional subdirectory within the repo" },
+        "subdir": { "type": "string", "description": "Optional subdirectory within the repo", "pattern": "^(?!/)(?!.*\\.\\.).+$" },
         "dispatch_enabled": { "type": "boolean", "description": "Allow orchestrator dispatch (default true)", "default": true },
-        "run_group": { "type": "string", "description": "Grouping label for selective runs (e.g., full, fixtures, smoke)", "default": "full" }
+        "run_group": { "type": "string", "description": "Grouping label for selective runs (e.g., full, fixtures, smoke)", "default": "full", "enum": ["full", "fixtures", "smoke", "security", "compliance"] }
       },
       "required": ["owner", "name"]
     },
@@ -30,6 +45,7 @@
     },
     "java": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "version": {
           "type": "string",
@@ -52,6 +68,7 @@
     },
     "python": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "version": {
           "type": "string",
@@ -67,14 +84,57 @@
     },
     "reports": {
       "$ref": "#/definitions/reports"
-    }
+    },
+    "notifications": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "slack": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "on_failure": { "type": "boolean", "default": true },
+            "on_success": { "type": "boolean", "default": false }
+          }
+        },
+        "email": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false }
+          }
+        }
+      }
+    },
+    "cache_sentinel": { "type": "object", "additionalProperties": true },
+    "canary": { "type": "object", "additionalProperties": true },
+    "chaos": { "type": "object", "additionalProperties": true },
+    "dr_drill": { "type": "object", "additionalProperties": true },
+    "runner_isolation": { "type": "object", "additionalProperties": true },
+    "supply_chain": { "type": "object", "additionalProperties": true },
+    "egress_control": { "type": "object", "additionalProperties": true },
+    "telemetry": { "type": "object", "additionalProperties": true },
+    "kyverno": { "type": "object", "additionalProperties": true }
   },
+  "allOf": [
+    {
+      "if": { "properties": { "language": { "const": "java" } } },
+      "then": { "required": ["java"] }
+    },
+    {
+      "if": { "properties": { "language": { "const": "python" } } },
+      "then": { "required": ["python"] }
+    }
+  ],
   "definitions": {
     "javaTools": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "jacoco": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "min_coverage": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 }
@@ -82,6 +142,7 @@
         },
         "checkstyle": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "fail_on_violation": { "type": "boolean", "default": true },
@@ -90,6 +151,7 @@
         },
         "spotbugs": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "fail_on_error": { "type": "boolean", "default": true },
@@ -99,28 +161,59 @@
         },
         "owasp": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
-            "fail_on_cvss": { "type": "integer", "minimum": 0, "maximum": 10, "default": 7 }
+            "fail_on_cvss": { "type": "integer", "minimum": 0, "maximum": 10, "default": 7 },
+            "nvd_api_key_required": { "type": "boolean", "default": false }
           }
         },
         "pitest": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "min_mutation_score": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 },
-            "threads": { "type": "integer", "default": 4 }
+            "threads": { "type": "integer", "default": 4 },
+            "timeout_multiplier": { "type": "integer", "default": 2 }
+          }
+        },
+        "pmd": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "fail_on_violation": { "type": "boolean", "default": false }
+          }
+        },
+        "semgrep": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "fail_on_findings": { "type": "boolean", "default": false }
+          }
+        },
+        "trivy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "fail_on_critical": { "type": "boolean", "default": false },
+            "fail_on_high": { "type": "boolean", "default": false }
           }
         },
         "codeql": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean", "default": true },
+            "enabled": { "type": "boolean", "default": false },
             "languages": { "type": "array", "items": { "type": "string" }, "default": ["java"] }
           }
         },
         "docker": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": false },
             "compose_file": { "type": "string", "default": "docker-compose.yml" },
@@ -133,16 +226,20 @@
     },
     "pythonTools": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
         "pytest": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
-            "min_coverage": { "type": "integer", "default": 70 }
+            "min_coverage": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 },
+            "fail_fast": { "type": "boolean", "default": false }
           }
         },
         "ruff": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "fail_on_error": { "type": "boolean", "default": true }
@@ -150,6 +247,7 @@
         },
         "bandit": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "fail_on_high": { "type": "boolean", "default": true }
@@ -157,36 +255,131 @@
         },
         "pip_audit": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "fail_on_vuln": { "type": "boolean", "default": true }
+          }
+        },
+        "mypy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false }
+          }
+        },
+        "black": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "fail_on_format_issues": { "type": "boolean", "default": false }
+          }
+        },
+        "isort": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "fail_on_issues": { "type": "boolean", "default": false }
+          }
+        },
+        "mutmut": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "min_mutation_score": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 },
+            "timeout_minutes": { "type": "integer", "default": 15 },
+            "min_score": { "type": "integer", "minimum": 0, "maximum": 100, "default": 0 }
+          }
+        },
+        "sbom": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "format": { "type": "string", "default": "cyclonedx" }
+          }
+        },
+        "hypothesis": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true }
+          }
+        },
+        "semgrep": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "fail_on_findings": { "type": "boolean", "default": false }
+          }
+        },
+        "trivy": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "fail_on_critical": { "type": "boolean", "default": false },
+            "fail_on_high": { "type": "boolean", "default": false }
+          }
+        },
+        "codeql": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false },
+            "languages": { "type": "array", "items": { "type": "string" }, "default": ["python"] }
+          }
+        },
+        "docker": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false }
           }
         }
       }
     },
     "thresholds": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "coverage_min": { "type": "integer", "default": 70 },
-        "mutation_score_min": { "type": "integer", "default": 70 },
-        "max_critical_vulns": { "type": "integer", "default": 0 },
-        "max_high_vulns": { "type": "integer", "default": 0 }
+        "coverage_min": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 },
+        "mutation_score_min": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 },
+        "max_critical_vulns": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 0 },
+        "max_high_vulns": { "type": "integer", "minimum": 0, "maximum": 1000, "default": 0 }
       }
     },
     "reports": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "retention_days": { "type": "integer", "default": 30 },
+        "retention_days": { "type": "integer", "minimum": 1, "maximum": 365, "default": 30 },
         "badges": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean", "default": true }
+            "enabled": { "type": "boolean", "default": true },
+            "branch": { "type": "string", "default": "main" }
           }
         },
         "codecov": {
           "type": "object",
+          "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean", "default": true }
+            "enabled": { "type": "boolean", "default": true },
+            "fail_ci_on_error": { "type": "boolean", "default": false }
+          }
+        },
+        "github_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": true },
+            "include_metrics": { "type": "boolean", "default": true }
           }
         }
       }

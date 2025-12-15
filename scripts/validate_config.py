@@ -16,13 +16,13 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from jsonschema import Draft7Validator, ValidationError
+from jsonschema import Draft7Validator
 
 
 def load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         raise FileNotFoundError(f"Config not found: {path}")
-    data = yaml.safe_load(path.read_text()) or {}
+    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     if not isinstance(data, dict):
         raise ValueError(f"{path} must start with a YAML mapping")
     return data
@@ -31,7 +31,10 @@ def load_yaml(path: Path) -> dict[str, Any]:
 def validate_config(config: dict[str, Any], schema: dict[str, Any]) -> list[str]:
     validator = Draft7Validator(schema)
     errors = []
-    for err in validator.iter_errors(config):
+    for err in sorted(
+        validator.iter_errors(config),
+        key=lambda e: ".".join(map(str, e.path)),
+    ):
         path = ".".join([str(p) for p in err.path]) or "<root>"
         errors.append(f"{path}: {err.message}")
     return errors
@@ -53,7 +56,11 @@ def main() -> int:
         print(f"Schema not found at {schema_path}", file=sys.stderr)
         return 1
 
-    schema = json.loads(schema_path.read_text())
+    schema_data = json.loads(schema_path.read_text(encoding="utf-8"))
+    if not isinstance(schema_data, dict):
+        print("Schema must be a JSON object at the top level", file=sys.stderr)
+        return 1
+    schema = schema_data
     config = load_yaml(args.config)
 
     errors = validate_config(config, schema)

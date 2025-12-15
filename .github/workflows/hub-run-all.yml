@@ -59,68 +59,153 @@ jobs:
       - name: Checkout Hub
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Config Dependencies
+        run: pip install pyyaml jsonschema
+
       - name: Build Repo Matrix
         id: repos
         run: |
-          REPOS='{"include":['
-          FIRST=true
-          COUNT=0
-          RUN_GROUP_FILTER="${{ inputs.run_group }}"
+          python <<'PY'
+          import json
+          import os
+          from pathlib import Path
 
-          for config in config/repos/*.yaml; do
-            if [ -f "$config" ]; then
-              BASENAME=$(basename "$config" .yaml)
-              NAME=$(grep -E "^\s+name:" "$config" | head -1 | sed 's/.*name:\s*//' | sed 's/#.*$//' | tr -d '"' | tr -d "'")
-              OWNER=$(grep -E "^\s+owner:" "$config" | head -1 | sed 's/.*owner:\s*//' | sed 's/#.*$//' | tr -d '"' | tr -d "'")
-              LANG=$(grep -E "^\s+language:" "$config" | head -1 | sed 's/.*language:\s*//' | sed 's/#.*$//' | tr -d '"' | tr -d "'")
-              BRANCH=$(grep -E "^\s+default_branch:" "$config" | head -1 | sed 's/.*default_branch:\s*//' | sed 's/#.*$//' | tr -d '"' | tr -d "'" || echo "main")
-              SUBDIR=$(grep -E "^\s+subdir:" "$config" | head -1 | sed 's/.*subdir:\s*//' | sed 's/#.*$//' | tr -d '"' | tr -d "'" || echo "")
-              DISPATCH=$(grep -E "^\s+dispatch_enabled:" "$config" | head -1 | sed 's/.*dispatch_enabled:\s*//' | sed 's/#.*$//' | tr -d '"' | tr -d "'" || echo "true")
-              RUN_GROUP=$(grep -E "^\s+run_group:" "$config" | head -1 | sed 's/.*run_group:\s*//' | sed 's/#.*$//' | tr -d '"' | tr -d "'" || echo "full")
+          from scripts.load_config import (
+              ConfigValidationError,
+              generate_workflow_inputs,
+              load_config,
+          )
 
-              if [ -n "$NAME" ] && [ -n "$OWNER" ]; then
-                # Filter if specific repos requested
-                if [ -n "${{ inputs.repos }}" ]; then
-                  if ! echo "${{ inputs.repos }}" | grep -q "$NAME"; then
-                    continue
-                  fi
-                fi
+          hub_root = Path(".")
+          repos_dir = hub_root / "config" / "repos"
 
-                # Filter by run_group if provided
-                if [ -n "$RUN_GROUP_FILTER" ]; then
-                  MATCHED=false
-                  IFS=',' read -ra GROUPS <<< "$RUN_GROUP_FILTER"
-                  for g in "${GROUPS[@]}"; do
-                    if [ "$RUN_GROUP" = "$g" ]; then
-                      MATCHED=true
-                      break
-                    fi
-                  done
-                  if [ "$MATCHED" = false ]; then
-                    continue
-                  fi
-                fi
+          run_group_filter = os.environ.get("INPUT_RUN_GROUP", "").strip()
+          filter_groups = [g.strip() for g in run_group_filter.split(",") if g.strip()]
 
-                if [ "$FIRST" = true ]; then
-                  FIRST=false
-                else
-                  REPOS+=','
-                fi
-                REPOS+="{\"name\":\"$NAME\",\"owner\":\"$OWNER\",\"language\":\"${LANG:-java}\",\"branch\":\"${BRANCH:-main}\",\"subdir\":\"${SUBDIR:-}\",\"config_basename\":\"${BASENAME}\",\"run_group\":\"${RUN_GROUP:-full}\"}"
-                COUNT=$((COUNT + 1))
-              fi
-            fi
-          done
+          repo_filter = os.environ.get("INPUT_REPOS", "").strip()
+          filter_repos = [r.strip() for r in repo_filter.split(",") if r.strip()]
 
-          REPOS+=']}'
-          echo "matrix=$REPOS" >> $GITHUB_OUTPUT
-          echo "count=$COUNT" >> $GITHUB_OUTPUT
-          echo "Found $COUNT repositories"
-          echo "$REPOS"
-          if [ "$COUNT" -eq 0 ]; then
-            echo "No repositories found after filtering. Exiting." >&2
-            exit 1
-          fi
+          entries: list[dict[str, object]] = []
+
+          for config_file in sorted(repos_dir.glob("*.yaml")):
+              repo_basename = config_file.stem
+              try:
+                  cfg = load_config(
+                      repo_name=repo_basename,
+                      hub_root=hub_root,
+                      exit_on_validation_error=False,
+                  )
+              except ConfigValidationError as exc:
+                  print(
+                      f"::warning::Skipping {config_file}: validation failed ({exc})"
+                  )
+                  continue
+              except SystemExit:
+                  print(f"::warning::Skipping {config_file}: validation aborted")
+                  continue
+              except Exception as exc:
+                  print(f"::warning::Skipping {config_file}: failed to load ({exc})")
+                  continue
+
+              repo_info = cfg.get("repo", {})
+              owner = repo_info.get("owner")
+              name = repo_info.get("name") or repo_basename
+              language = repo_info.get("language") or cfg.get("language")
+
+              if not (owner and name and language):
+                  print(
+                      f"::warning::Skipping {config_file}: missing repo.owner/name/language"
+                  )
+                  continue
+
+              if filter_repos:
+                  full_name = f"{owner}/{name}" if owner and name else name
+                  if (
+                      name not in filter_repos
+                      and full_name not in filter_repos
+                      and repo_basename not in filter_repos
+                  ):
+                      continue
+
+              run_group = repo_info.get("run_group") or cfg.get("run_group") or "full"
+              if filter_groups and run_group not in filter_groups:
+                  continue
+
+              dispatch_enabled = repo_info.get(
+                  "dispatch_enabled", cfg.get("dispatch_enabled", True)
+              )
+              if dispatch_enabled is False:
+                  print(f"::warning::Skipping {config_file}: dispatch_enabled=false")
+                  continue
+
+              inputs = generate_workflow_inputs(cfg)
+
+              entry: dict[str, object] = {
+                  "config_basename": repo_basename,
+                  "name": name,
+                  "owner": owner,
+                  "language": language,
+                  "branch": repo_info.get("default_branch", "main"),
+                  "subdir": repo_info.get("subdir", ""),
+              }
+
+              for key in (
+                  "run_jacoco",
+                  "run_checkstyle",
+                  "run_spotbugs",
+                  "run_owasp",
+                  "run_pitest",
+                  "run_pmd",
+                  "run_semgrep",
+                  "run_trivy",
+              ):
+                  if key in inputs:
+                      entry[key] = inputs[key]
+
+              for key in (
+                  "run_pytest",
+                  "run_ruff",
+                  "run_bandit",
+                  "run_pip_audit",
+                  "run_mypy",
+                  "run_black",
+                  "run_isort",
+                  "run_mutmut",
+                  "run_hypothesis",
+                  "run_semgrep",
+                  "run_trivy",
+              ):
+                  if key in inputs:
+                      entry[key] = inputs[key]
+
+              entries.append(entry)
+
+          matrix = {"include": entries}
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
+              handle.write(f"matrix={json.dumps(matrix)}\n")
+              handle.write(f"count={len(entries)}\n")
+
+          print(f"Found {len(entries)} repositories")
+          for entry in entries:
+              print(
+                  f"- {entry['owner']}/{entry['name']} ({entry['language']}) run_group={entry.get('run_group', 'full')}"
+              )
+
+          if not entries:
+              raise SystemExit("No repositories found after filtering.")
+          PY
+        env:
+          INPUT_REPOS: ${{ inputs.repos }}
+          INPUT_RUN_GROUP: ${{ inputs.run_group }}
+
+      - name: Verify matrix key coverage
+        run: python scripts/verify_hub_matrix_keys.py
 
   # ============================================================================
   # Run CI for Each Repo
@@ -214,7 +299,7 @@ jobs:
           echo "runtime=${RUNTIME}s" >> $GITHUB_OUTPUT
 
       - name: "[Java] Extract Coverage"
-        if: matrix.language == 'java'
+        if: matrix.language == 'java' && matrix.run_jacoco == true
         id: java-coverage
         working-directory: repo
         run: |
@@ -236,25 +321,35 @@ jobs:
           echo "lines=$COVERED / $((COVERED + MISSED))" >> $GITHUB_OUTPUT
 
       - name: "[Java] Run PITest Mutation"
-        if: matrix.language == 'java' && inputs.skip_mutation != true
+        if: matrix.language == 'java' && matrix.run_pitest == true && inputs.skip_mutation != true
         id: java-mutation
         working-directory: repo
         run: |
           KILLED=0; SURVIVED=0; SCORE=0
 
-          # Identify modules with PITest configured (root or modules/*)
+          # Identify ALL modules with PITest configured (search entire repo, not just modules/)
           MODULES=()
-          if [ -f "pom.xml" ] && grep -q "pitest-maven" pom.xml; then
-            MODULES+=(".")
-          fi
-          while IFS= read -r module_pom; do
-            if grep -q "pitest-maven" "$module_pom"; then
-              MODULE_DIR=$(dirname "$module_pom")
-              MODULES+=("${MODULE_DIR#./}")
+
+          # Search ALL pom.xml files in the repo for pitest-maven plugin
+          while IFS= read -r pom_file; do
+            if grep -q "pitest-maven" "$pom_file" 2>/dev/null; then
+              MODULE_DIR=$(dirname "$pom_file")
+              # Normalize path (remove leading ./)
+              MODULE_DIR="${MODULE_DIR#./}"
+              [ -z "$MODULE_DIR" ] && MODULE_DIR="."
+              # Avoid duplicates
+              if [[ ! " ${MODULES[*]} " =~ " ${MODULE_DIR} " ]]; then
+                MODULES+=("$MODULE_DIR")
+              fi
             fi
-          done < <(find modules -maxdepth 2 -name pom.xml 2>/dev/null || true)
+          done < <(find . -name "pom.xml" -type f 2>/dev/null | grep -v target || true)
 
           echo "PITest modules detected: ${MODULES[*]:-none}"
+
+          # Warn if no PITest modules found
+          if [ ${#MODULES[@]} -eq 0 ]; then
+            echo "::warning::No pom.xml files with pitest-maven plugin found. Ensure PITest is configured in your pom.xml."
+          fi
 
           if [ ${#MODULES[@]} -eq 0 ]; then
             echo "No modules with PITest configuration found; skipping execution."
@@ -290,7 +385,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Java] OWASP Dependency Check"
-        if: matrix.language == 'java'
+        if: matrix.language == 'java' && matrix.run_owasp == true
         id: java-owasp
         working-directory: repo
         run: |
@@ -315,7 +410,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Java] SpotBugs"
-        if: matrix.language == 'java'
+        if: matrix.language == 'java' && matrix.run_spotbugs == true
         id: java-spotbugs
         working-directory: repo
         run: |
@@ -334,7 +429,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Java] Checkstyle"
-        if: matrix.language == 'java'
+        if: matrix.language == 'java' && matrix.run_checkstyle == true
         id: java-checkstyle
         working-directory: repo
         run: |
@@ -382,7 +477,7 @@ jobs:
           if [ -f "pyproject.toml" ]; then pip install -e ".[dev]" 2>/dev/null || pip install -e . 2>/dev/null || true; fi
 
       - name: "[Python] Run Tests with Coverage"
-        if: matrix.language == 'python'
+        if: matrix.language == 'python' && matrix.run_pytest == true
         id: python-tests
         working-directory: repo
         run: |
@@ -405,7 +500,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Python] Ruff Lint + Security"
-        if: matrix.language == 'python'
+        if: matrix.language == 'python' && matrix.run_ruff == true
         id: python-ruff
         working-directory: repo
         run: |
@@ -418,7 +513,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Python] Bandit Security Scan"
-        if: matrix.language == 'python'
+        if: matrix.language == 'python' && matrix.run_bandit == true
         id: python-bandit
         working-directory: repo
         run: |
@@ -437,7 +532,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Python] pip-audit Dependency Check"
-        if: matrix.language == 'python'
+        if: matrix.language == 'python' && matrix.run_pip_audit == true
         id: python-pipaudit
         working-directory: repo
         run: |
@@ -452,7 +547,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Python] Black Format Check"
-        if: matrix.language == 'python'
+        if: matrix.language == 'python' && matrix.run_black == true
         id: python-black
         working-directory: repo
         run: |
@@ -462,7 +557,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Python] mypy Type Check"
-        if: matrix.language == 'python'
+        if: matrix.language == 'python' && matrix.run_mypy == true
         id: python-mypy
         working-directory: repo
         run: |
@@ -472,7 +567,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Python] Hypothesis Property Tests"
-        if: matrix.language == 'python'
+        if: matrix.language == 'python' && matrix.run_hypothesis == true
         id: python-hypothesis
         working-directory: repo
         run: |
@@ -483,11 +578,11 @@ jobs:
         continue-on-error: true
 
       - name: "[Python] mutmut Mutation Testing"
-        if: matrix.language == 'python' && inputs.skip_mutation != true
+        if: matrix.language == 'python' && matrix.run_mutmut == true && inputs.skip_mutation != true
         id: python-mutmut
         working-directory: repo
         run: |
-          KILLED=0; SURVIVED=0; SCORE=0
+          KILLED=0; SURVIVED=0; SCORE=0; TOTAL=0
 
           # Find source directory
           SRC_DIR="."
@@ -508,6 +603,14 @@ jobs:
             fi
           fi
 
+          # Save detailed mutmut output for artifacts
+          mutmut show > mutmut-details.txt 2>&1 || true
+
+          # Warn if no mutations found
+          if [ "$TOTAL" -eq 0 ]; then
+            echo "::warning::mutmut found 0 mutations. Check if source code is mutable or if mutmut is configured correctly."
+          fi
+
           echo "killed=$KILLED" >> $GITHUB_OUTPUT
           echo "survived=$SURVIVED" >> $GITHUB_OUTPUT
           echo "score=$SCORE" >> $GITHUB_OUTPUT
@@ -515,7 +618,7 @@ jobs:
         timeout-minutes: 15
 
       - name: "[Python] isort Import Check"
-        if: matrix.language == 'python'
+        if: matrix.language == 'python' && matrix.run_isort == true
         id: python-isort
         working-directory: repo
         run: |
@@ -528,7 +631,7 @@ jobs:
       # JAVA EXTRA TOOLS
       # ========================================
       - name: "[Java] PMD Static Analysis"
-        if: matrix.language == 'java'
+        if: matrix.language == 'java' && matrix.run_pmd == true
         id: java-pmd
         working-directory: repo
         run: |
@@ -550,7 +653,7 @@ jobs:
       # CONTAINER & UNIVERSAL TOOLS
       # ========================================
       - name: "[All] Trivy Container Scan"
-        if: hashFiles('repo/Dockerfile') != ''
+        if: matrix.run_trivy == true && hashFiles('repo/Dockerfile') != ''
         id: trivy
         working-directory: repo
         run: |
@@ -571,6 +674,7 @@ jobs:
         continue-on-error: true
 
       - name: "[All] Semgrep SAST"
+        if: matrix.run_semgrep == true
         id: semgrep
         working-directory: repo
         run: |
@@ -731,7 +835,9 @@ jobs:
             repo/*-report.json
             repo/mutmut-*.log
             repo/mutmut-results.txt
+            repo/mutmut-details.txt
             repo/mutmut-run.log
+            repo/.mutmut-cache
             repo/pytest-junit.xml
             repo/test-output.txt
             repo/hypothesis-output.txt

@@ -10,53 +10,59 @@ Comprehensive documentation for all quality, security, and testing tools support
 
 ### Legend
 - **Wired + Toggle**: Tool runs, controlled by config toggle
-- **Wired (Always)**: Tool runs in this mode, no toggle exists
 - **Not Wired**: Tool not implemented in this mode
 
 > **Verification:** Central mode tools are in `hub-run-all.yml`. Grep for tool names to verify.
+>
+> **Note:** Central mode now reads config via `load_config.py` and gates ALL tools based on `enabled: true/false` settings.
 
 ### Java Tools
 
 | Tool | Central Mode | Reusable Workflow | Config Toggle | Status |
 |------|--------------|-------------------|---------------|--------|
-| JaCoCo | Wired (Always) | Wired + Toggle | `java.tools.jacoco.enabled` | Production |
-| Checkstyle | Wired (Always) | Wired + Toggle | `java.tools.checkstyle.enabled` | Production |
-| SpotBugs | Wired (Always) | Wired + Toggle | `java.tools.spotbugs.enabled` | Production |
-| PMD | Wired (Always) | Not Wired | None | Central-only |
-| OWASP DC | Wired (Always) | Wired + Toggle | `java.tools.owasp.enabled` | Production |
-| PITest | Wired (skip_mutation) | Wired + Toggle | `java.tools.pitest.enabled` | Production |
+| JaCoCo | Wired + Toggle | Wired + Toggle | `java.tools.jacoco.enabled` | Production |
+| Checkstyle | Wired + Toggle | Wired + Toggle | `java.tools.checkstyle.enabled` | Production |
+| SpotBugs | Wired + Toggle | Wired + Toggle | `java.tools.spotbugs.enabled` | Production |
+| PMD | Wired + Toggle | Not Wired | `java.tools.pmd.enabled` | Central-only |
+| OWASP DC | Wired + Toggle | Wired + Toggle | `java.tools.owasp.enabled` | Production |
+| PITest | Wired + Toggle | Wired + Toggle | `java.tools.pitest.enabled` | Production |
 | CodeQL | Not Wired | Wired + Toggle | `java.tools.codeql.enabled` | Reusable-only |
+| Semgrep | Wired + Toggle | Not Wired | `java.tools.semgrep.enabled` | Central-only |
+| Trivy | Wired + Toggle | Not Wired | `java.tools.trivy.enabled` | Central-only |
 
 ### Python Tools
 
 | Tool | Central Mode | Reusable Workflow | Config Toggle | Status |
 |------|--------------|-------------------|---------------|--------|
-| pytest + coverage | Wired (Always) | Wired + Toggle | `python.tools.pytest.enabled` | Production |
-| Ruff | Wired (Always) | Wired + Toggle | `python.tools.ruff.enabled` | Production |
-| Bandit | Wired (Always) | Wired + Toggle | `python.tools.bandit.enabled` | Production |
-| pip-audit | Wired (Always) | Wired + Toggle | `python.tools.pip_audit.enabled` | Production |
-| Black | Wired (Always) | Not Wired | None | Central-only |
-| isort | Wired (Always) | Not Wired | None | Central-only |
-| mypy | Wired (Always) | Wired + Toggle | `python.tools.mypy.enabled` | Production |
-| mutmut | Wired (skip_mutation) | Not Wired | None | Central-only |
-| Hypothesis | Wired (Always) | Not Wired | None | Central-only |
+| pytest + coverage | Wired + Toggle | Wired + Toggle | `python.tools.pytest.enabled` | Production |
+| Ruff | Wired + Toggle | Wired + Toggle | `python.tools.ruff.enabled` | Production |
+| Bandit | Wired + Toggle | Wired + Toggle | `python.tools.bandit.enabled` | Production |
+| pip-audit | Wired + Toggle | Wired + Toggle | `python.tools.pip_audit.enabled` | Production |
+| Black | Wired + Toggle | Not Wired | `python.tools.black.enabled` | Central-only |
+| isort | Wired + Toggle | Not Wired | `python.tools.isort.enabled` | Central-only |
+| mypy | Wired + Toggle | Wired + Toggle | `python.tools.mypy.enabled` | Production |
+| mutmut | Wired + Toggle | Not Wired | `python.tools.mutmut.enabled` | Central-only |
+| Hypothesis | Wired + Toggle | Not Wired | `python.tools.hypothesis.enabled` | Central-only |
+| Semgrep | Wired + Toggle | Not Wired | `python.tools.semgrep.enabled` | Central-only |
+| Trivy | Wired + Toggle | Not Wired | `python.tools.trivy.enabled` | Central-only |
 | CodeQL | Not Wired | Wired + Toggle | `python.tools.codeql.enabled` | Reusable-only |
 
 ### Universal Tools (Central Mode Only)
 
 | Tool | Central Mode | Reusable Workflow | When Runs | Status |
 |------|--------------|-------------------|-----------|--------|
-| Semgrep | Wired (Always) | Not Wired | Always | Central-only |
-| Trivy | Wired (Conditional) | Not Wired | If Dockerfile exists | Central-only |
+| Semgrep | Wired + Toggle | Not Wired | If `*.tools.semgrep.enabled` | Central-only |
+| Trivy | Wired + Toggle | Not Wired | If `*.tools.trivy.enabled` + Dockerfile exists | Central-only |
 
 ---
 
 ## Execution Modes Explained
 
 ### Central Mode (`hub-run-all.yml`)
-- Hub clones your repo and runs ALL tools directly
-- Tools run unconditionally (no config toggle)
-- More tools available (PMD, Black, isort, mutmut, Semgrep, Trivy)
+- Hub clones your repo and runs tools directly
+- Tools are controlled by config toggles (`enabled: true/false`)
+- Config is loaded via `scripts/load_config.py` at runtime
+- More tools available (PMD, Black, isort, mutmut, Hypothesis, Semgrep, Trivy)
 - **Recommended for most users**
 
 ### Reusable Workflows (`java-ci.yml`, `python-ci.yml`)
@@ -588,12 +594,12 @@ thresholds:
 ## Gaps and TODO
 
 ### Tools Not Yet Wired to Reusable Workflows
-These tools run in central mode (`hub-run-all.yml`) but need to be added to reusable workflows:
+These tools run in central mode (`hub-run-all.yml`) with config toggles, but are NOT available in reusable workflows (`java-ci.yml`, `python-ci.yml`):
 
-> **Important:** The config keys listed below do NOT currently exist in `config/defaults.yaml`, and the workflow inputs do NOT exist in `java-ci.yml`/`python-ci.yml`. Users cannot toggle these tools in distributed/reusable mode until both the config keys AND workflow steps are added.
+> **Note:** Config keys exist in `config/defaults.yaml` and work in central mode. To enable these tools in distributed/reusable mode, workflow inputs and steps need to be added.
 
-| Tool | Workflow | Config Key Needed | Workflow Input Needed |
-|------|----------|-------------------|----------------------|
+| Tool | Reusable Workflow | Config Key (exists) | Workflow Input Needed |
+|------|-------------------|---------------------|----------------------|
 | PMD | java-ci.yml | `java.tools.pmd.enabled` | `run_pmd` |
 | Black | python-ci.yml | `python.tools.black.enabled` | `run_black` |
 | isort | python-ci.yml | `python.tools.isort.enabled` | `run_isort` |
@@ -627,7 +633,14 @@ These tools run in central mode (`hub-run-all.yml`) but need to be added to reus
 ## Recommended Configurations
 
 ### For Central Mode Users
-No configuration needed - all tools run automatically. Use `skip_mutation: true` for faster runs.
+Most tools are enabled by default. Customize via `config/repos/<repo>.yaml`:
+```yaml
+python:
+  tools:
+    mutmut: { enabled: false }  # Skip mutation testing
+    semgrep: { enabled: true }  # Enable SAST
+```
+Use `skip_mutation: true` workflow input for faster runs.
 
 ### For Reusable Workflow Users
 
@@ -687,3 +700,8 @@ java:
 - [MODES.md](../guides/MODES.md) - Central vs Distributed
 - [TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md) - Common issues
 - [RESEARCH.md](../development/RESEARCH.md) - Deep research on each tool
+
+## Tool gating
+- Tools run based on config run_* flags from merged config.
+- Defaults: expensive tools (mutation, semgrep, trivy, codeql) are off unless enabled.
+- Thresholds: prefer thresholds.* as source of truth; tool-level min_* are defaults.

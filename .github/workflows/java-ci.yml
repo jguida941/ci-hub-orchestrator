@@ -84,6 +84,14 @@ on:
         description: 'CVSS score to fail on'
         type: number
         default: 7
+      max_critical_vulns:
+        description: 'Maximum allowed critical vulnerabilities across scanners'
+        type: number
+        default: 0
+      max_high_vulns:
+        description: 'Maximum allowed high vulnerabilities across scanners'
+        type: number
+        default: 0
 
       # ---- Docker Settings ----
       docker_compose_file:
@@ -141,6 +149,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Set up JDK ${{ inputs.java_version }}
         uses: actions/setup-java@v4
@@ -204,7 +215,8 @@ jobs:
           COVERAGE=${{ steps.coverage.outputs.percentage }}
           MIN=${{ inputs.coverage_min }}
           if [ "$COVERAGE" -lt "$MIN" ]; then
-            echo "::warning::Coverage $COVERAGE% is below minimum $MIN%"
+            echo "::error::Coverage $COVERAGE% is below minimum $MIN%"
+            exit 1
           fi
 
       # ---- Generate Summary ----
@@ -285,6 +297,28 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
 
+      - name: Enforce OWASP Thresholds
+        if: inputs.run_owasp
+        run: |
+          REPORT=$(find . -name "dependency-check-report.json" -print -quit)
+          CRITICAL=0
+          HIGH=0
+          if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
+            CRITICAL=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "CRITICAL")] | length' "$REPORT" 2>/dev/null || echo 0)
+            HIGH=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "HIGH")] | length' "$REPORT" 2>/dev/null || echo 0)
+          else
+            echo "::warning::dependency-check-report.json not found; skipping vulnerability threshold enforcement"
+          fi
+
+          if [ "$CRITICAL" -gt "${{ inputs.max_critical_vulns }}" ]; then
+            echo "::error::Critical vulnerabilities ($CRITICAL) exceed max_critical_vulns ${{ inputs.max_critical_vulns }}"
+            exit 1
+          fi
+          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
+            echo "::error::High vulnerabilities ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+            exit 1
+          fi
+
       - name: Upload to Codecov
         if: inputs.run_jacoco
         uses: codecov/codecov-action@v4
@@ -356,6 +390,14 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
 
+      - name: Enforce PMD Violations
+        run: |
+          VIOLATIONS=${{ steps.pmd.outputs.violations || 0 }}
+          if [ "$VIOLATIONS" -gt 0 ]; then
+            echo "::error::PMD reported $VIOLATIONS violations"
+            exit 1
+          fi
+
   # ============================================================================
   # Semgrep SAST
   # ============================================================================
@@ -371,6 +413,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -410,6 +455,14 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
 
+      - name: Enforce Semgrep Threshold
+        run: |
+          FINDINGS=${{ steps.semgrep.outputs.findings || 0 }}
+          if [ "$FINDINGS" -gt 0 ]; then
+            echo "::error::Semgrep reported $FINDINGS findings"
+            exit 1
+          fi
+
   # ============================================================================
   # Trivy Container Scan
   # ============================================================================
@@ -425,6 +478,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Check for Dockerfile
         id: check-dockerfile
@@ -476,6 +532,20 @@ jobs:
           path: trivy-report.json
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
+
+      - name: Enforce Trivy Thresholds
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        run: |
+          CRIT=${{ steps.trivy-parse.outputs.critical || 0 }}
+          HIGH=${{ steps.trivy-parse.outputs.high || 0 }}
+          if [ "$CRIT" -gt "${{ inputs.max_critical_vulns }}" ]; then
+            echo "::error::Trivy critical findings ($CRIT) exceed max_critical_vulns ${{ inputs.max_critical_vulns }}"
+            exit 1
+          fi
+          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
+            echo "::error::Trivy high findings ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+            exit 1
+          fi
 
   # ============================================================================
   # Mutation Testing
@@ -532,7 +602,8 @@ jobs:
           SCORE=${{ steps.pitest.outputs.score }}
           MIN=${{ inputs.mutation_score_min }}
           if [ "$SCORE" -lt "$MIN" ]; then
-            echo "::warning::Mutation score $SCORE% is below minimum $MIN%"
+            echo "::error::Mutation score $SCORE% is below minimum $MIN%"
+            exit 1
           fi
 
       - name: Generate Mutation Summary

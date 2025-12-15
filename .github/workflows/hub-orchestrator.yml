@@ -74,65 +74,57 @@ jobs:
           import json
           import os
           import sys
-          import yaml
           from pathlib import Path
-          from jsonschema import Draft7Validator
+          from scripts.load_config import load_config, generate_workflow_inputs
 
-          def validate_config(cfg, schema, source: str) -> None:
-              validator = Draft7Validator(schema)
-              errors = list(validator.iter_errors(cfg))
-              if errors:
-                  print(f"Config validation failed for {source}:")
-                  for err in errors:
-                      path = ".".join([str(p) for p in err.path]) or "<root>"
-                      print(f"  - {path}: {err.message}")
+          hub_root = Path(".")
+          repos_dir = hub_root / "config" / "repos"
+          matrix_entries = []
+
+          # Optional filter
+          filter_repos = os.environ.get("INPUT_REPOS", "").strip()
+          filter_list = [r.strip() for r in filter_repos.split(",")] if filter_repos else None
+
+          for config_file in sorted(repos_dir.glob("*.yaml")):
+              repo_name = config_file.stem
+              try:
+                  cfg = load_config(repo_name=repo_name, hub_root=hub_root)
+              except SystemExit:
+                  raise
+              except Exception as exc:
+                  print(f"Failed to load config {config_file}: {exc}", file=sys.stderr)
                   sys.exit(1)
 
-          # Load schema once
-          schema_path = Path("schema/ci-hub-config.schema.json")
-          if not schema_path.exists():
-              print(f"Schema not found at {schema_path}", file=sys.stderr)
-              sys.exit(1)
-          schema = json.loads(schema_path.read_text())
+              repo_info = cfg.get("repo", {})
+              if not (repo_info.get("owner") and repo_info.get("name") and (repo_info.get("language") or cfg.get("language"))):
+                  print(f"Skipping {config_file}: missing repo.owner/name/language")
+                  continue
+              if filter_list and repo_info.get("name", repo_name) not in filter_list:
+                  continue
 
-          # Load all repo configs
-          repos_dir = Path("config/repos")
-          repos = []
+              inputs = generate_workflow_inputs(cfg)
+              entry = {
+                  "config_file": str(config_file),
+                  "name": repo_info.get("name", repo_name),
+                  "owner": repo_info.get("owner", "jguida941"),
+                  "language": repo_info.get("language", cfg.get("language", "java")),
+                  "default_branch": repo_info.get("default_branch", "main"),
+                  "subdir": repo_info.get("subdir", ""),
+                  "dispatch_enabled": repo_info.get("dispatch_enabled", True),
+                  "run_group": repo_info.get("run_group", "full"),
+              }
+              entry.update(inputs)
+              matrix_entries.append(entry)
 
-          if repos_dir.exists():
-              for config_file in repos_dir.glob("*.yaml"):
-                  with open(config_file) as f:
-                      config = yaml.safe_load(f)
-
-                  if config and "repo" in config:
-                      repo_info = config["repo"]
-                      validate_config(config, schema, str(config_file))
-                      repos.append({
-                          "name": repo_info.get("name", config_file.stem),
-                          "owner": repo_info.get("owner", "jguida941"),
-                          "language": repo_info.get("language", "java"),
-                          "default_branch": repo_info.get("default_branch", "main"),
-                          "subdir": repo_info.get("subdir", ""),
-                          "dispatch_enabled": repo_info.get("dispatch_enabled", True),
-                          "config_file": str(config_file),
-                      })
-
-          # Filter by input if provided
-          filter_repos = os.environ.get("INPUT_REPOS", "").strip()
-          if filter_repos:
-              filter_list = [r.strip() for r in filter_repos.split(",")]
-              repos = [r for r in repos if r["name"] in filter_list]
-
-          # Output for GitHub Actions matrix
-          matrix = {"include": repos}
+          matrix = {"include": matrix_entries}
 
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
               f.write(f"matrix={json.dumps(matrix)}\n")
-              f.write(f"count={len(repos)}\n")
+              f.write(f"count={len(matrix_entries)}\n")
 
-          print(f"Found {len(repos)} repositories:")
-          for r in repos:
-              print(f"  - {r['owner']}/{r['name']} ({r['language']})")
+          print(f"Found {len(matrix_entries)} repositories:")
+          for r in matrix_entries:
+              print(f"  - {r['owner']}/{r['name']} ({r['language']}) run_group={r.get('run_group','full')}")
           EOF
         env:
           INPUT_REPOS: ${{ inputs.repos }}

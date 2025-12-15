@@ -83,6 +83,18 @@ on:
         description: 'Minimum coverage percentage'
         type: number
         default: 70
+      mutation_score_min:
+        description: 'Minimum mutation score'
+        type: number
+        default: 70
+      max_critical_vulns:
+        description: 'Maximum allowed critical vulnerabilities across scanners'
+        type: number
+        default: 0
+      max_high_vulns:
+        description: 'Maximum allowed high vulnerabilities across scanners'
+        type: number
+        default: 0
 
       # ---- Reports ----
       retention_days:
@@ -117,6 +129,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Set up Python ${{ inputs.python_version }}
         uses: actions/setup-python@v5
         with:
@@ -130,32 +145,65 @@ jobs:
       - name: Run Ruff
         if: inputs.run_ruff
         run: |
-          ruff check . --output-format=github || true
-          ruff check . --statistics >> $GITHUB_STEP_SUMMARY || true
+          ruff check . --output-format=github
+          ruff check . --statistics >> $GITHUB_STEP_SUMMARY
 
       - name: Run Bandit
         if: inputs.run_bandit
+        id: bandit
         run: |
           bandit -r . -f json -o bandit-report.json || true
           bandit -r . -f txt >> $GITHUB_STEP_SUMMARY || true
+          HIGH=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json 2>/dev/null || echo 0)
+          MEDIUM=$(jq '[.results[] | select(.issue_severity == "MEDIUM")] | length' bandit-report.json 2>/dev/null || echo 0)
+          LOW=$(jq '[.results[] | select(.issue_severity == "LOW")] | length' bandit-report.json 2>/dev/null || echo 0)
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+          echo "low=$LOW" >> $GITHUB_OUTPUT
+
+      - name: Upload Bandit Report
+        if: always() && inputs.run_bandit
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
+      - name: Enforce Bandit Thresholds
+        if: inputs.run_bandit
+        run: |
+          HIGH=${{ steps.bandit.outputs.high || 0 }}
+          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
+            echo "::error::Bandit HIGH findings ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+            exit 1
+          fi
 
       - name: Run Black
         if: inputs.run_black
         id: black
         run: |
-          black --check . 2>&1 | tee black-output.txt || true
+          black --check . 2>&1 | tee black-output.txt
           WOULD_REFORMAT=$(grep -c "would reformat" black-output.txt 2>/dev/null || echo 0)
           echo "issues=$WOULD_REFORMAT" >> $GITHUB_OUTPUT
           echo "Black format check: $WOULD_REFORMAT files would be reformatted" >> $GITHUB_STEP_SUMMARY
+          if [ "$WOULD_REFORMAT" -gt 0 ]; then
+            echo "::error::Black would reformat $WOULD_REFORMAT files"
+            exit 1
+          fi
 
       - name: Run isort
         if: inputs.run_isort
         id: isort
         run: |
-          isort --check-only --diff . 2>&1 | tee isort-output.txt || true
+          isort --check-only --diff . 2>&1 | tee isort-output.txt
           ISSUES=$(grep -c "would reformat" isort-output.txt 2>/dev/null || echo 0)
           echo "issues=$ISSUES" >> $GITHUB_OUTPUT
           echo "isort import check: $ISSUES files would be reformatted" >> $GITHUB_STEP_SUMMARY
+          if [ "$ISSUES" -gt 0 ]; then
+            echo "::error::isort would reformat $ISSUES files"
+            exit 1
+          fi
 
       - name: Upload Bandit Report
         if: inputs.run_bandit
@@ -183,6 +231,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Set up Python ${{ inputs.python_version }}
         uses: actions/setup-python@v5
         with:
@@ -206,6 +257,7 @@ jobs:
 
       - name: Extract Coverage
         id: coverage
+        if: inputs.run_pytest
         run: |
           COVERAGE=0
           if [ -f "coverage.xml" ]; then
@@ -215,11 +267,13 @@ jobs:
           echo "Coverage: $COVERAGE%"
 
       - name: Check Coverage Threshold
+        if: inputs.run_pytest
         run: |
-          COVERAGE=${{ steps.coverage.outputs.percentage }}
+          COVERAGE=${{ steps.coverage.outputs.percentage || 0 }}
           MIN=${{ inputs.coverage_min }}
           if [ "$COVERAGE" -lt "$MIN" ]; then
-            echo "::warning::Coverage $COVERAGE% is below minimum $MIN%"
+            echo "::error::Coverage $COVERAGE% is below minimum $MIN%"
+            exit 1
           fi
 
       - name: Generate Test Summary
@@ -268,6 +322,9 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Set up Python ${{ inputs.python_version }}
         uses: actions/setup-python@v5
         with:
@@ -282,12 +339,33 @@ jobs:
           pip-audit >> $GITHUB_STEP_SUMMARY || true
 
       - name: Upload pip-audit Report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pip-audit-report
           path: pip-audit-report.json
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
+
+      - name: Enforce pip-audit Thresholds
+        run: |
+          CRITICAL=0
+          HIGH=0
+
+          if [ -f "pip-audit-report.json" ]; then
+            # pip-audit does not consistently emit severity; treat all findings as HIGH
+            HIGH=$(jq '[.dependencies[]?.vulnerabilities[]?] | length' pip-audit-report.json 2>/dev/null || echo 0)
+          fi
+
+          echo "critical=$CRITICAL, high=$HIGH"
+          if [ "$CRITICAL" -gt "${{ inputs.max_critical_vulns }}" ]; then
+            echo "::error::pip-audit critical findings ($CRITICAL) exceed max_critical_vulns ${{ inputs.max_critical_vulns }}"
+            exit 1
+          fi
+          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
+            echo "::error::pip-audit high findings ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+            exit 1
+          fi
 
   # ============================================================================
   # Type Checking
@@ -380,6 +458,15 @@ jobs:
         continue-on-error: true
         timeout-minutes: 15
 
+      - name: Enforce Mutation Threshold
+        run: |
+          SCORE=${{ steps.mutmut.outputs.score || 0 }}
+          MIN=${{ inputs.mutation_score_min }}
+          if [ "$SCORE" -lt "$MIN" ]; then
+            echo "::error::Mutation score $SCORE% is below minimum $MIN%"
+            exit 1
+          fi
+
       - name: Generate Mutation Summary
         if: always()
         run: |
@@ -443,6 +530,14 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
 
+      - name: Enforce Semgrep Threshold
+        run: |
+          FINDINGS=${{ steps.semgrep.outputs.findings || 0 }}
+          if [ "$FINDINGS" -gt 0 ]; then
+            echo "::error::Semgrep reported $FINDINGS findings"
+            exit 1
+          fi
+
   # ============================================================================
   # Trivy Container Scan
   # ============================================================================
@@ -458,6 +553,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Check for Dockerfile
         id: check-dockerfile
@@ -509,6 +607,20 @@ jobs:
           path: trivy-report.json
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
+
+      - name: Enforce Trivy Thresholds
+        if: steps.check-dockerfile.outputs.exists == 'true'
+        run: |
+          CRIT=${{ steps.trivy-parse.outputs.critical || 0 }}
+          HIGH=${{ steps.trivy-parse.outputs.high || 0 }}
+          if [ "$CRIT" -gt "${{ inputs.max_critical_vulns }}" ]; then
+            echo "::error::Trivy critical findings ($CRIT) exceed max_critical_vulns ${{ inputs.max_critical_vulns }}"
+            exit 1
+          fi
+          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
+            echo "::error::Trivy high findings ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+            exit 1
+          fi
 
   # ============================================================================
   # Docker Build & Test

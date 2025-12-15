@@ -232,3 +232,9 @@ If you use distributed execution (dispatching workflows in other repos), aggrega
 - Prefer reusable workflows (`workflow_call`) to keep results in the same run where possible
 - If cross-repo dispatch is required, pass a `hub_correlation_id` input and require child workflows to upload artifacts containing that id
 - Poll the GitHub Actions API for run completion and download artifacts before aggregating
+
+## Gating and run groups
+- Tool execution is driven by config run_* flags.
+- Use run_group (full/fixtures/smoke/...) to filter hub runs.
+- Central mode: hub-run-all merges defaults + config/repos + repo-local .ci-hub.yml.
+- Dispatch mode (current): hub config is the source of truth; repo-local .ci-hub.yml is ignored unless we later add a safe checkout+merge path.

@@ -30,18 +30,27 @@ def load_yaml(path: Path) -> Dict[str, Any]:
 def deep_merge(base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]:
     """
     Merge overlay onto base recursively (overlay wins), returning a new dict.
+    Deterministic order: preserve base key order, then append overlay-only keys
+    in overlay order. Lists are replaced (not merged).
     """
     result: Dict[str, Any] = {}
-    for key in base.keys() | overlay.keys():
-        if key in base and key in overlay:
-            if isinstance(base[key], dict) and isinstance(overlay[key], dict):
-                result[key] = deep_merge(base[key], overlay[key])
+
+    # Base keys (preserve order)
+    for key in base:
+        if key in overlay:
+            b, o = base[key], overlay[key]
+            if isinstance(b, dict) and isinstance(o, dict):
+                result[key] = deep_merge(b, o)
             else:
                 result[key] = overlay[key]
-        elif key in overlay:
-            result[key] = overlay[key]
         else:
             result[key] = base[key]
+
+    # Overlay-only keys (append in overlay order)
+    for key in overlay:
+        if key not in base:
+            result[key] = overlay[key]
+
     return result
 
 
@@ -65,8 +74,12 @@ def main() -> None:
 
     output_path = args.output or args.target
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as handle:
-        yaml.safe_dump(merged, handle, sort_keys=False)
+
+    # Atomic write
+    tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+    with tmp_path.open("w", encoding="utf-8") as handle:
+        yaml.safe_dump(merged, handle, sort_keys=False, default_flow_style=False, allow_unicode=True)
+    tmp_path.replace(output_path)
 
     print(f"Profile applied: {args.profile} -> {output_path}")
 

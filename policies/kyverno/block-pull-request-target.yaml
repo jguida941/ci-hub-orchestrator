@@ -1,0 +1,50 @@
+# ============================================================================
+# Kyverno Policy: Block pull_request_target Workflow Trigger
+# ============================================================================
+# This policy prevents a critical GitHub Actions security vulnerability.
+# The pull_request_target trigger runs with repository secrets and write access,
+# which can be exploited by malicious PRs to steal secrets or modify code.
+#
+# Usage: Apply to Kubernetes cluster running Kyverno
+#   kubectl apply -f block-pull-request-target.yaml
+#
+# See also:
+#   - https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
+#   - docs/adr/0012-kyverno-policies.md
+# ============================================================================
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: block-pull-request-target
+  annotations:
+    policies.kyverno.io/title: Block pull_request_target workflow trigger
+    policies.kyverno.io/category: Security
+    policies.kyverno.io/severity: high
+    policies.kyverno.io/subject: ConfigMap
+    policies.kyverno.io/description: >-
+      The pull_request_target workflow trigger runs with elevated permissions
+      and can execute untrusted code from pull requests, creating a critical
+      security vulnerability. This policy blocks any ConfigMap that contains
+      workflow definitions using pull_request_target.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  rules:
+    - name: check-workflow-triggers
+      match:
+        any:
+        - resources:
+            kinds:
+            - ConfigMap
+            namespaces:
+            - "*"
+            names:
+            - "workflow-*"
+      validate:
+        message: >-
+          Workflow contains dangerous pull_request_target trigger.
+          Use pull_request instead for security.
+          See: https://securitylab.github.com/research/github-actions-preventing-pwn-requests/
+        pattern:
+          data:
+            "workflow.yaml": "!*pull_request_target*"

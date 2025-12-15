@@ -61,6 +61,8 @@ Central mode runs MORE tools than distributed mode:
 **Java:** JaCoCo, Checkstyle, SpotBugs, PMD, OWASP DC, PITest, Semgrep, Trivy
 **Python:** pytest, Ruff, Bandit, pip-audit, Black, isort, mypy, mutmut, Hypothesis, Semgrep, Trivy
 
+> **Note:** All tools are controlled by config toggles (`enabled: true/false`). Most are enabled by default. Customize via `config/repos/<repo>.yaml`.
+
 See [TOOLS.md](../reference/TOOLS.md) for the full availability matrix.
 
 ### When to Use

@@ -214,3 +214,9 @@ For more issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 - [MODES.md](MODES.md) - Central vs Distributed explained
 - [templates/profiles/](../../templates/profiles/) - Pre-built profiles
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Fix common issues
+
+## Precedence and gating
+- Runtime merge: config/defaults.yaml -> config/repos/<repo>.yaml -> repo-local .ci-hub.yml (repo wins).
+- Dispatch mode today uses hub config only (repo-local .ci-hub.yml is NOT merged) until safe checkout/merge is implemented.
+- Profiles are generation helpers only; they are merged into hub config, then repo overrides win.
+- Tool steps are gated by config run_* flags (central mode) and will be once dispatch workflows are updated.
