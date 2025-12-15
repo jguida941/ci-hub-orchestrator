@@ -9,7 +9,6 @@ repo:
   name: java-spring-tutorials
   language: java
   default_branch: main
-  dispatch_enabled: false
 
 java:
   version: "21"

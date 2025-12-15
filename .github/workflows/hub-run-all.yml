@@ -136,13 +136,6 @@ jobs:
               if filter_groups and run_group not in filter_groups:
                   continue
 
-              dispatch_enabled = repo_info.get(
-                  "dispatch_enabled", cfg.get("dispatch_enabled", True)
-              )
-              if dispatch_enabled is False:
-                  print(f"::warning::Skipping {config_file}: dispatch_enabled=false")
-                  continue
-
               inputs = generate_workflow_inputs(cfg)
 
               entry: dict[str, object] = {
@@ -152,6 +145,7 @@ jobs:
                   "language": language,
                   "branch": repo_info.get("default_branch", "main"),
                   "subdir": repo_info.get("subdir", ""),
+                  "run_group": run_group,
               }
 
               for key in (

@@ -10,7 +10,6 @@ repo:
   name: contact-suite-spring-react
   language: java
   default_branch: master
-  dispatch_enabled: false
 
 # Override Java settings
 java:

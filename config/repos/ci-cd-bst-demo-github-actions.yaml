@@ -9,7 +9,6 @@ repo:
   name: ci-cd-bst-demo-github-actions
   language: python
   default_branch: main
-  dispatch_enabled: false
 
 python:
   version: "3.12"
