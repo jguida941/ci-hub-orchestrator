@@ -1,9 +1,15 @@
 # CI/CD Hub
 
-> Centralized CI/CD orchestration for Java and Python repositories. Run quality tools across many repos from one hub—target repos stay clean.
+> Centralized CI/CD orchestration for Java and Python repositories. Run quality tools across many repos from one hub - target repos stay clean.
 
 [![Hub Run All](https://github.com/jguida941/ci-hub-orchestrator/actions/workflows/hub-run-all.yml/badge.svg)](https://github.com/jguida941/ci-hub-orchestrator/actions/workflows/hub-run-all.yml)
 [![Config Validation](https://github.com/jguida941/ci-hub-orchestrator/actions/workflows/config-validate.yml/badge.svg)](https://github.com/jguida941/ci-hub-orchestrator/actions/workflows/config-validate.yml)
+[![Smoke Test](https://github.com/jguida941/ci-hub-orchestrator/actions/workflows/smoke-test.yml/badge.svg)](https://github.com/jguida941/ci-hub-orchestrator/actions/workflows/smoke-test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![Java 21](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/)
+[![GitHub issues](https://img.shields.io/github/issues/jguida941/ci-hub-orchestrator)](https://github.com/jguida941/ci-hub-orchestrator/issues)
+[![GitHub last commit](https://img.shields.io/github/last-commit/jguida941/ci-hub-orchestrator)](https://github.com/jguida941/ci-hub-orchestrator/commits/main)
 
 ---
 
