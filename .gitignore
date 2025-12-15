@@ -33,3 +33,7 @@ reports/*.html
 .env
 .env.local
 *.local.yaml
+
+# AI context files (local only)
+AGENTS.md
+CLAUDE.md

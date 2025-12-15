@@ -8,7 +8,7 @@ Links: requirements/P0.md (must-have), requirements/P1.md (should-have), require
 - [x] Schema validation: add schema checks to config loading/workflows; fail fast on bad YAML. (refs: requirements/P0.md §1.2) (config-validate workflow added, validate_config.py added)
 - [x] Docs: WORKFLOWS, CONFIG_REFERENCE, TOOLS, TEMPLATES, MODES, TROUBLESHOOTING all in place with content. (refs: requirements/P0.md §3.1)
 - [x] Templates: master `.ci-hub.yml`, hub repo-template, 12 profiles (minimal/fast/quality/coverage-gate/compliance/security × Java/Python). (refs: requirements/P0.md §3.2)
-- [ ] Smoke test: run hub on fixtures (Java + Python passing/failing), verify pass/fail detection, artifacts, summaries. (refs: requirements/P0.md §4)
+- [x] Smoke test: run hub on fixtures (Java + Python passing/failing), verify pass/fail detection, artifacts, summaries. (refs: requirements/P0.md §4)
 
 ## P1 (after P0 is green)
 - [x] ADRs: 8 ADRs complete (0001-central-vs-distributed, 0002-config-precedence, 0003-dispatch-orchestration, 0004-aggregation-reporting, 0005-dashboard-approach, 0006-quality-gates-thresholds, 0007-templates-and-profiles-strategy, 0008-hub-fixtures-strategy). (refs: requirements/P1.md §1)
