@@ -16,8 +16,8 @@ This folder contains acceptance criteria checklists for hub-release.
 
 | Document | Purpose |
 |----------|---------|
-| [docs/ROADMAP.md](../docs/ROADMAP.md) | Phased implementation plan |
-| [docs/RESEARCH.md](../docs/RESEARCH.md) | Research and best practices |
+| [docs/development/ROADMAP.md](../docs/development/ROADMAP.md) | Phased implementation plan |
+| [docs/development/RESEARCH.md](../docs/development/RESEARCH.md) | Research and best practices |
 | [plan.md](../plan.md) | Execution checklist |
 | [AGENTS.md](../AGENTS.md) | AI agent context |
 

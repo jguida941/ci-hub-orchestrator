@@ -129,7 +129,7 @@ Currently no automated tests. When adding:
 - Dispatch is now wired to pass computed inputs, honor `default_branch`, add permissions, and attempt run-id capture (needs verification).
 - Next: real aggregation (download/poll downstream results), schema validation, templates, smoke test.
 - Fixtures repo: `https://github.com/jguida941/ci-cd-hub-fixtures` (configs: `config/repos/fixtures-*.yaml`).
-- Reference: `requirements/` for checklists; `docs/ROADMAP.md` for phases.
+- Reference: `requirements/` for checklists; `docs/development/ROADMAP.md` for phases.
 
 ## MoSCoW Priorities
 
