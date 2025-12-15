@@ -46,7 +46,7 @@ java:
 
     # Mutation Testing (expensive - disabled by default)
     pitest:
-      enabled: false  # Enable via config when needed - slow for large codebases
+      enabled: true  # Mutation testing - can be slow for large codebases
       min_mutation_score: 70  # fail if below this %
       threads: 4
       timeout_multiplier: 2
@@ -123,7 +123,7 @@ python:
 
     # Mutation Testing (expensive - disabled by default)
     mutmut:
-      enabled: false  # Enable via config when needed - very slow for large codebases
+      enabled: true  # Mutation testing - can be slow for large codebases
       min_mutation_score: 70
       timeout_minutes: 15
 
