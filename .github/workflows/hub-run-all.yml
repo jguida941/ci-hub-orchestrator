@@ -256,7 +256,7 @@ jobs:
 
       - name: "[Java] Build & Test"
         if: matrix.language == 'java'
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           if [ -f "mvnw" ]; then
             chmod +x mvnw
@@ -269,7 +269,7 @@ jobs:
       - name: "[Java] Extract Test Results"
         if: matrix.language == 'java'
         id: java-tests
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           TOTAL=0; PASSED=0; FAILED=0; SKIPPED=0; RUNTIME=0
 
@@ -295,7 +295,7 @@ jobs:
       - name: "[Java] Extract Coverage"
         if: matrix.language == 'java' && matrix.run_jacoco == true
         id: java-coverage
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           COVERED=0; MISSED=0; PERCENT=0
 
@@ -317,7 +317,7 @@ jobs:
       - name: "[Java] Run PITest Mutation"
         if: matrix.language == 'java' && matrix.run_pitest == true && inputs.skip_mutation != true
         id: java-mutation
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           KILLED=0; SURVIVED=0; SCORE=0
 
@@ -381,7 +381,7 @@ jobs:
       - name: "[Java] OWASP Dependency Check"
         if: matrix.language == 'java' && matrix.run_owasp == true
         id: java-owasp
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           CRITICAL=0; HIGH=0; MEDIUM=0; LOW=0
 
@@ -406,7 +406,7 @@ jobs:
       - name: "[Java] SpotBugs"
         if: matrix.language == 'java' && matrix.run_spotbugs == true
         id: java-spotbugs
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           BUGS=0
 
@@ -427,7 +427,7 @@ jobs:
       - name: "[Java] Checkstyle"
         if: matrix.language == 'java' && matrix.run_checkstyle == true
         id: java-checkstyle
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           VIOLATIONS=0
 
@@ -456,7 +456,7 @@ jobs:
 
       - name: "[Python] Install Dependencies"
         if: matrix.language == 'python'
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           pip install --upgrade pip
           # Core testing
@@ -477,7 +477,7 @@ jobs:
       - name: "[Python] Run Tests with Coverage"
         if: matrix.language == 'python' && matrix.run_pytest == true
         id: python-tests
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           pytest --cov=. --cov-report=xml --cov-report=term --junitxml=pytest-junit.xml -v 2>&1 | tee test-output.txt || true
 
@@ -505,7 +505,7 @@ jobs:
       - name: "[Python] Ruff Lint + Security"
         if: matrix.language == 'python' && matrix.run_ruff == true
         id: python-ruff
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           ruff check . --output-format=json > ruff-report.json 2>/dev/null || true
           ERRORS=$(jq 'length' ruff-report.json 2>/dev/null || echo 0)
@@ -518,7 +518,7 @@ jobs:
       - name: "[Python] Bandit Security Scan"
         if: matrix.language == 'python' && matrix.run_bandit == true
         id: python-bandit
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           bandit -r . -f json -o bandit-report.json 2>/dev/null || true
 
@@ -537,7 +537,7 @@ jobs:
       - name: "[Python] pip-audit Dependency Check"
         if: matrix.language == 'python' && matrix.run_pip_audit == true
         id: python-pipaudit
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           pip-audit --format=json --output=pip-audit-report.json 2>/dev/null || true
 
@@ -552,7 +552,7 @@ jobs:
       - name: "[Python] Black Format Check"
         if: matrix.language == 'python' && matrix.run_black == true
         id: python-black
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           black --check . 2>&1 | tee black-output.txt || true
           WOULD_REFORMAT=$(grep -c "would reformat" black-output.txt 2>/dev/null)
@@ -563,7 +563,7 @@ jobs:
       - name: "[Python] mypy Type Check"
         if: matrix.language == 'python' && matrix.run_mypy == true
         id: python-mypy
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           mypy . --ignore-missing-imports 2>&1 | tee mypy-output.txt || true
           ERRORS=$(grep -c "error:" mypy-output.txt 2>/dev/null)
@@ -574,7 +574,7 @@ jobs:
       - name: "[Python] Hypothesis Property Tests"
         if: matrix.language == 'python' && matrix.run_hypothesis == true
         id: python-hypothesis
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           # Run tests with hypothesis statistics
           pytest --hypothesis-show-statistics -v 2>&1 | tee hypothesis-output.txt || true
@@ -586,7 +586,7 @@ jobs:
       - name: "[Python] mutmut Mutation Testing"
         if: matrix.language == 'python' && matrix.run_mutmut == true && inputs.skip_mutation != true
         id: python-mutmut
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           KILLED=0; SURVIVED=0; SCORE=0; TOTAL=0
 
@@ -629,7 +629,7 @@ jobs:
       - name: "[Python] isort Import Check"
         if: matrix.language == 'python' && matrix.run_isort == true
         id: python-isort
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           isort --check-only --diff . 2>&1 | tee isort-output.txt || true
           ISSUES=$(grep -c "would reformat" isort-output.txt 2>/dev/null)
@@ -643,7 +643,7 @@ jobs:
       - name: "[Java] PMD Static Analysis"
         if: matrix.language == 'java' && matrix.run_pmd == true
         id: java-pmd
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           VIOLATIONS=0
 
@@ -665,9 +665,9 @@ jobs:
       # CONTAINER & UNIVERSAL TOOLS
       # ========================================
       - name: "[All] Trivy Container Scan"
-        if: matrix.run_trivy == true && hashFiles('repo/Dockerfile') != ''
+        if: matrix.run_trivy == true
         id: trivy
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           # Install Trivy
           curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin
@@ -688,7 +688,7 @@ jobs:
       - name: "[All] Semgrep SAST"
         if: matrix.run_semgrep == true
         id: semgrep
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           pip install semgrep 2>/dev/null || true
 
@@ -708,7 +708,7 @@ jobs:
       # ========================================
       - name: "[All] Run Extra Tests from Config"
         id: extra-tests
-        working-directory: repo
+        working-directory: ${{ env.WORKDIR }}
         run: |
           echo "Running extra tests for ${{ matrix.name }}..."
 
