@@ -10,6 +10,8 @@ repo:
   name: contact-suite-spring-react
   language: java
   default_branch: master
+  dispatch_enabled: true
+  dispatch_workflow: java-ci-dispatch.yml  # Uses hub template
 
 # Override Java settings
 java:

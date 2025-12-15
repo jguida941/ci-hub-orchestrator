@@ -1,0 +1,300 @@
+# ============================================================================
+# CI/CD Hub - Python Dispatch Workflow Template
+# ============================================================================
+# Copy this file to your repo: .github/workflows/python-ci-dispatch.yml
+# This enables the hub orchestrator to dispatch CI runs to your repo.
+#
+# This workflow is ONLY triggered by hub dispatch - it won't run on push/PR.
+# Your existing workflows remain untouched.
+# ============================================================================
+
+name: "Hub: Python CI"
+
+on:
+  workflow_dispatch:
+    inputs:
+      python_version:
+        description: 'Python version'
+        required: false
+        type: string
+        default: '3.12'
+      run_pytest:
+        description: 'Run pytest with coverage'
+        required: false
+        type: boolean
+        default: true
+      run_ruff:
+        description: 'Run Ruff linter'
+        required: false
+        type: boolean
+        default: true
+      run_bandit:
+        description: 'Run Bandit security scan'
+        required: false
+        type: boolean
+        default: true
+      run_pip_audit:
+        description: 'Run pip-audit'
+        required: false
+        type: boolean
+        default: true
+      run_mypy:
+        description: 'Run mypy type checking'
+        required: false
+        type: boolean
+        default: false
+      run_codeql:
+        description: 'Run CodeQL analysis'
+        required: false
+        type: boolean
+        default: false
+      run_black:
+        description: 'Run Black format check'
+        required: false
+        type: boolean
+        default: true
+      run_isort:
+        description: 'Run isort import check'
+        required: false
+        type: boolean
+        default: true
+      run_mutmut:
+        description: 'Run mutmut mutation testing'
+        required: false
+        type: boolean
+        default: false
+      run_semgrep:
+        description: 'Run Semgrep SAST'
+        required: false
+        type: boolean
+        default: false
+      run_trivy:
+        description: 'Run Trivy scan'
+        required: false
+        type: boolean
+        default: false
+      run_docker:
+        description: 'Run Docker build/test'
+        required: false
+        type: boolean
+        default: false
+      coverage_min:
+        description: 'Minimum coverage threshold'
+        required: false
+        type: number
+        default: 70
+      retention_days:
+        description: 'Artifact retention days'
+        required: false
+        type: number
+        default: 30
+      workdir:
+        description: 'Working directory'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  test:
+    name: Test & Analyze
+    runs-on: ubuntu-latest
+    env:
+      WORKDIR: ${{ inputs.workdir || '.' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ inputs.python_version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install Dependencies
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          pip install --upgrade pip
+          # Core testing
+          pip install pytest pytest-cov
+          # Linting & formatting
+          pip install ruff black isort
+          # Security
+          pip install bandit pip-audit
+          # Type checking
+          pip install mypy
+          # Mutation testing
+          pip install mutmut
+          # Install repo dependencies
+          if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
+          if [ -f "requirements-dev.txt" ]; then pip install -r requirements-dev.txt; fi
+          if [ -f "pyproject.toml" ]; then pip install -e ".[dev]" 2>/dev/null || pip install -e . 2>/dev/null || true; fi
+
+      - name: Run pytest with coverage
+        if: inputs.run_pytest
+        working-directory: ${{ env.WORKDIR }}
+        id: pytest
+        continue-on-error: true
+        run: |
+          pytest --cov=. --cov-report=xml --cov-report=term -v 2>&1 | tee test-output.txt || true
+
+          COVERAGE=0
+          if [ -f "coverage.xml" ]; then
+            COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
+          fi
+          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "Coverage: $COVERAGE%"
+
+      - name: Run Ruff
+        if: inputs.run_ruff
+        working-directory: ${{ env.WORKDIR }}
+        continue-on-error: true
+        id: ruff
+        run: |
+          ruff check . --output-format=json > ruff-report.json 2>/dev/null || true
+          ERRORS=$(jq 'length' ruff-report.json 2>/dev/null || echo 0)
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "Ruff issues: $ERRORS"
+
+      - name: Run Black
+        if: inputs.run_black
+        working-directory: ${{ env.WORKDIR }}
+        continue-on-error: true
+        run: |
+          black --check . 2>&1 | tee black-output.txt || true
+
+      - name: Run isort
+        if: inputs.run_isort
+        working-directory: ${{ env.WORKDIR }}
+        continue-on-error: true
+        run: |
+          isort --check-only --diff . 2>&1 | tee isort-output.txt || true
+
+      - name: Run Bandit
+        if: inputs.run_bandit
+        working-directory: ${{ env.WORKDIR }}
+        continue-on-error: true
+        id: bandit
+        run: |
+          bandit -r . -f json -o bandit-report.json 2>/dev/null || true
+          HIGH=0
+          if [ -f "bandit-report.json" ]; then
+            HIGH=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json 2>/dev/null || echo 0)
+          fi
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "Bandit high severity: $HIGH"
+
+      - name: Run pip-audit
+        if: inputs.run_pip_audit
+        working-directory: ${{ env.WORKDIR }}
+        continue-on-error: true
+        id: pipaudit
+        run: |
+          pip-audit --format=json --output=pip-audit-report.json 2>/dev/null || true
+          VULNS=0
+          if [ -f "pip-audit-report.json" ]; then
+            VULNS=$(jq 'length' pip-audit-report.json 2>/dev/null || echo 0)
+          fi
+          echo "vulns=$VULNS" >> $GITHUB_OUTPUT
+          echo "pip-audit vulnerabilities: $VULNS"
+
+      - name: Run mypy
+        if: inputs.run_mypy
+        working-directory: ${{ env.WORKDIR }}
+        continue-on-error: true
+        run: |
+          mypy . --ignore-missing-imports 2>&1 | tee mypy-output.txt || true
+
+      - name: Run mutmut
+        if: inputs.run_mutmut
+        working-directory: ${{ env.WORKDIR }}
+        continue-on-error: true
+        timeout-minutes: 15
+        id: mutmut
+        run: |
+          KILLED=0; SURVIVED=0; SCORE=0
+
+          SRC_DIR="."
+          if [ -d "src" ]; then SRC_DIR="src"; fi
+
+          timeout 600 mutmut run --paths-to-mutate="$SRC_DIR" --runner="pytest -x -q" 2>&1 | tee mutmut-run.log || true
+
+          if command -v mutmut &> /dev/null; then
+            mutmut results > mutmut-results.txt 2>&1 || true
+            RESULTS=$(cat mutmut-results.txt 2>/dev/null || echo "")
+            KILLED=$(echo "$RESULTS" | grep -oP 'Killed:\s*\K\d+' || echo 0)
+            SURVIVED=$(echo "$RESULTS" | grep -oP 'Survived:\s*\K\d+' || echo 0)
+            TOTAL=$((KILLED + SURVIVED))
+            if [ "$TOTAL" -gt 0 ]; then
+              SCORE=$((KILLED * 100 / TOTAL))
+            fi
+          fi
+
+          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "Mutation Score: $SCORE%"
+
+      - name: Generate CI Report
+        if: always()
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          mkdir -p reports
+          cat > reports/report.json << EOF
+          {
+            "repo": "${{ github.repository }}",
+            "branch": "${{ github.ref_name }}",
+            "run_id": "${{ github.run_id }}",
+            "language": "python",
+            "results": {
+              "coverage": ${{ steps.pytest.outputs.coverage || 0 }},
+              "mutation_score": ${{ steps.mutmut.outputs.score || 0 }},
+              "high_vulns": ${{ steps.bandit.outputs.high || 0 }},
+              "dependency_vulns": ${{ steps.pipaudit.outputs.vulns || 0 }}
+            }
+          }
+          EOF
+
+      - name: Upload CI Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-report
+          path: |
+            ${{ env.WORKDIR }}/reports/
+            ${{ env.WORKDIR }}/coverage.xml
+            ${{ env.WORKDIR }}/*-report.json
+            ${{ env.WORKDIR }}/*-output.txt
+            ${{ env.WORKDIR }}/mutmut-*.txt
+            ${{ env.WORKDIR }}/mutmut-*.log
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
+      - name: Generate Summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          # Hub CI Report: ${{ github.repository }}
+
+          **Branch:** \`${{ github.ref_name }}\` | **Python:** \`${{ inputs.python_version }}\`
+
+          ## Results
+          | Metric | Value |
+          |--------|-------|
+          | Coverage | ${{ steps.pytest.outputs.coverage || 'N/A' }}% |
+          | Mutation Score | ${{ steps.mutmut.outputs.score || 'N/A' }}% |
+          | Ruff Issues | ${{ steps.ruff.outputs.errors || 'N/A' }} |
+          | Bandit High | ${{ steps.bandit.outputs.high || 'N/A' }} |
+          | Dependency Vulns | ${{ steps.pipaudit.outputs.vulns || 'N/A' }} |
+
+          ## Tools Run
+          - pytest: ${{ inputs.run_pytest }}
+          - Ruff: ${{ inputs.run_ruff }}
+          - Black: ${{ inputs.run_black }}
+          - isort: ${{ inputs.run_isort }}
+          - Bandit: ${{ inputs.run_bandit }}
+          - pip-audit: ${{ inputs.run_pip_audit }}
+          - mypy: ${{ inputs.run_mypy }}
+          - mutmut: ${{ inputs.run_mutmut }}
+          EOF

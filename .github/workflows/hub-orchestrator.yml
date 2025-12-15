@@ -103,14 +103,18 @@ jobs:
                   continue
 
               inputs = generate_workflow_inputs(cfg)
+              language = repo_info.get("language", cfg.get("language", "java"))
+              # Default dispatch workflow based on language, can be overridden per repo
+              default_workflow = "java-ci-dispatch.yml" if language == "java" else "python-ci-dispatch.yml"
               entry = {
                   "config_file": str(config_file),
                   "name": repo_info.get("name", repo_name),
                   "owner": repo_info.get("owner", "jguida941"),
-                  "language": repo_info.get("language", cfg.get("language", "java")),
+                  "language": language,
                   "default_branch": repo_info.get("default_branch", "main"),
                   "subdir": repo_info.get("subdir", ""),
                   "dispatch_enabled": repo_info.get("dispatch_enabled", True),
+                  "dispatch_workflow": repo_info.get("dispatch_workflow", default_workflow),
                   "run_group": repo_info.get("run_group", "full"),
               }
               entry.update(inputs)
@@ -335,7 +339,8 @@ jobs:
               inputs.workdir = subdir || '';
             }
 
-            const workflowId = language === 'java' ? 'java-ci.yml' : 'python-ci.yml';
+            // Use configurable workflow name from matrix, with fallback to defaults
+            const workflowId = '${{ matrix.dispatch_workflow }}' || (language === 'java' ? 'java-ci-dispatch.yml' : 'python-ci-dispatch.yml');
             const startedAt = Date.now();
 
             core.info(`Dispatching ${workflowId} on ${owner}/${repo}@${branch}`);

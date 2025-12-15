@@ -15,6 +15,7 @@ Existing:
 - [ADR-0010: Dispatch Token and Skip Flag](0010-dispatch-token-and-skip.md)
 - [ADR-0011: Dispatchable Workflow Requirement](0011-dispatchable-workflow-requirement.md)
 - [ADR-0012: Kyverno Policies](0012-kyverno-policies.md)
+- [ADR-0013: Dispatch Workflow Templates](0013-dispatch-workflow-templates.md)
 
 Template starter:
 ```markdown
@@ -27,5 +28,3 @@ Decision
 Consequences (positive/negative)
 Alternatives considered
 ```
-
-- ADR-0012: Kyverno Policies for Kubernetes Admission Control

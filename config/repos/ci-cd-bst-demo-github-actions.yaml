@@ -9,6 +9,8 @@ repo:
   name: ci-cd-bst-demo-github-actions
   language: python
   default_branch: main
+  dispatch_enabled: true
+  dispatch_workflow: python-ci-dispatch.yml  # Uses hub template
 
 python:
   version: "3.12"

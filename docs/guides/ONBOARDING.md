@@ -51,15 +51,52 @@ gh workflow run hub-run-all.yml
 
 ---
 
-## Advanced: Distributed Mode (15 minutes)
+## Advanced: Distributed Mode
 
 Use this if your repo needs its own runners, secrets, or you prefer repo-controlled CI.
 
-### Step 1: Add Hub Config (Optional)
+### Option A: Use Hub Dispatch Templates (Recommended - 5 minutes)
+
+Copy the official dispatch workflow template to your repo:
+
+```bash
+# For Java repos
+cp templates/java/java-ci-dispatch.yml /path/to/your-repo/.github/workflows/
+
+# For Python repos
+cp templates/python/python-ci-dispatch.yml /path/to/your-repo/.github/workflows/
+```
+
+Then push to your repo:
+```bash
+cd /path/to/your-repo
+git add .github/workflows/*-ci-dispatch.yml
+git commit -m "Add hub dispatch workflow"
+git push
+```
+
+Configure hub to dispatch to this repo:
+```yaml
+# config/repos/my-repo.yaml
+repo:
+  owner: your-github-handle
+  name: your-repo-name
+  language: java
+  dispatch_enabled: true
+  dispatch_workflow: java-ci-dispatch.yml
+```
+
+**Benefits:** Templates accept all hub inputs, won't interfere with existing workflows, and generate proper artifacts for aggregation.
+
+### Option B: Call Reusable Workflows (15 minutes)
+
+Alternatively, create your own workflow that calls the hub's reusable workflows.
+
+#### Step 1: Add Hub Config (Optional)
 
 Same as central mode - create `config/repos/my-repo.yaml` if you want the hub to track this repo.
 
-### Step 2: Add Workflow to Your Repo
+#### Step 2: Add Workflow to Your Repo
 
 Create `.github/workflows/ci.yml` in your repository:
 
@@ -212,6 +249,8 @@ For more issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 - [CONFIG_REFERENCE.md](../reference/CONFIG_REFERENCE.md) - All config options
 - [TOOLS.md](../reference/TOOLS.md) - What tools are available
 - [MODES.md](MODES.md) - Central vs Distributed explained
+- [DISPATCH_SETUP.md](DISPATCH_SETUP.md) - Full dispatch/orchestrator setup guide
+- [TEMPLATES.md](TEMPLATES.md) - All available templates
 - [templates/profiles/](../../templates/profiles/) - Pre-built profiles
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md) - Fix common issues
 

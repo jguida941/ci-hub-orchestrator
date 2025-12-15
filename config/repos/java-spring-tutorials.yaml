@@ -9,6 +9,8 @@ repo:
   name: java-spring-tutorials
   language: java
   default_branch: main
+  dispatch_enabled: true
+  dispatch_workflow: java-ci-dispatch.yml  # Uses hub template
 
 java:
   version: "21"

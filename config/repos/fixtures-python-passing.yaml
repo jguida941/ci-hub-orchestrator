@@ -4,7 +4,7 @@ repo:
   language: python
   default_branch: main
   subdir: python-passing
-  dispatch_enabled: false
+  dispatch_enabled: false  # Central-only (no dispatch workflow in fixtures repo)
   run_group: fixtures
 
 python:

@@ -130,9 +130,11 @@ The hub dispatches `workflow_dispatch` events to each target repo, triggering th
    - Token must be a PAT with repo scope, or fine-grained token with Actions permissions
 
 3. **Target Repos:**
-   - Must have `java-ci.yml` or `python-ci.yml` workflow file
-   - Workflow must accept `workflow_dispatch` trigger
-   - Workflow must produce `ci-report` artifact
+   - Must have a workflow file with `workflow_dispatch` trigger that accepts hub inputs
+   - **Option A (Recommended):** Use official templates from `templates/java/java-ci-dispatch.yml` or `templates/python/python-ci-dispatch.yml`
+   - **Option B:** Create your own workflow calling hub's reusable workflows
+   - Workflow must produce `ci-report` artifact for aggregation
+   - Configure workflow filename via `repo.dispatch_workflow` (defaults: `java-ci-dispatch.yml` / `python-ci-dispatch.yml`)
 
 4. **Hub Workflow:**
    - `hub-orchestrator.yml` permissions block:
@@ -161,14 +163,24 @@ Distributed mode uses REUSABLE WORKFLOWS, which have fewer tools:
 
 ### Setup Instructions
 
-1. **In each target repo**, add the CI workflow:
+1. **In each target repo**, add a dispatch workflow:
+
+   **Option A (Recommended):** Copy the official template:
+   ```bash
+   # Java
+   cp templates/java/java-ci-dispatch.yml /path/to/repo/.github/workflows/
+   # Python
+   cp templates/python/python-ci-dispatch.yml /path/to/repo/.github/workflows/
+   ```
+
+   **Option B:** Create your own workflow calling hub's reusable workflows:
    ```yaml
-   # .github/workflows/java-ci.yml (or python-ci.yml)
-   name: Java CI
+   # .github/workflows/java-ci-dispatch.yml
+   name: Hub CI
    on:
      workflow_dispatch:
        inputs:
-         # ... (see templates for full inputs)
+         # ... (see templates/java/java-ci-dispatch.yml for full inputs)
 
    jobs:
      ci:
@@ -187,12 +199,13 @@ Distributed mode uses REUSABLE WORKFLOWS, which have fewer tools:
      name: my-app
      language: java
      default_branch: main  # IMPORTANT: must be correct
+     dispatch_enabled: true
+     dispatch_workflow: java-ci-dispatch.yml  # or python-ci-dispatch.yml
    ```
 
 3. **Set up permissions:**
-   - Create a PAT with `repo` scope
-   - Add as `DISPATCH_TOKEN` secret in hub repo
-   - Update `hub-orchestrator.yml` to use it
+   - Create a PAT with `repo` and `workflow` scopes
+   - Add as `HUB_DISPATCH_TOKEN` secret in hub repo
 
 4. **Run the orchestrator:**
    - Manually: Actions → `Hub Orchestrator` → Run workflow
@@ -278,7 +291,7 @@ repo:
 | Issue | Cause | Fix |
 |-------|-------|-----|
 | Dispatch fails | Missing `actions:write` | Check token permissions |
-| Dispatch fails | Workflow not found | Add `java-ci.yml`/`python-ci.yml` to target |
+| Dispatch fails | Workflow not found | Add dispatch workflow to target (use templates or check `dispatch_workflow` config) |
 | Dispatch fails | Wrong branch | Set correct `default_branch` in config |
 | Run ID not captured | Timing issue | Best-effort; check workflow ran |
 | Aggregation incomplete | Artifact not found | Ensure workflow uploads `ci-report` |
@@ -289,6 +302,9 @@ repo:
 ## Related Documentation
 
 - [ADR-0001: Central vs Distributed](../adr/0001-central-vs-distributed.md) - Decision rationale
+- [ADR-0013: Dispatch Workflow Templates](../adr/0013-dispatch-workflow-templates.md) - Template approach
+- [DISPATCH_SETUP.md](DISPATCH_SETUP.md) - Full dispatch setup guide
 - [WORKFLOWS.md](WORKFLOWS.md) - Workflow details
+- [TEMPLATES.md](TEMPLATES.md) - Available templates
 - [TOOLS.md](../reference/TOOLS.md) - Tool availability by mode
 - [CONFIG_REFERENCE.md](../reference/CONFIG_REFERENCE.md) - Config options
