@@ -55,24 +55,24 @@ on:
         description: 'Run PITest mutation testing'
         required: false
         type: boolean
-        default: false
+        default: true
       run_semgrep:
         description: 'Run Semgrep SAST'
         required: false
         type: boolean
-        default: false
+        default: true
       run_trivy:
         description: 'Run Trivy scan'
         required: false
         type: boolean
-        default: false
+        default: true
       run_codeql:
         description: 'Run CodeQL analysis'
         required: false
         type: boolean
-        default: false
+        default: true
       run_docker:
-        description: 'Run Docker build/test'
+        description: 'Run Docker build/test (requires docker-compose.yml)'
         required: false
         type: boolean
         default: false
