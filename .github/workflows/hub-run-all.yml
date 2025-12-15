@@ -388,6 +388,8 @@ jobs:
 
           if [ -f "mvnw" ]; then
             ./mvnw -B -ntp org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=11 2>/dev/null || true
+          else
+            mvn -B -ntp org.owasp:dependency-check-maven:check -DfailBuildOnCVSS=11 2>/dev/null || true
           fi
 
           REPORT=$(find . -name "dependency-check-report.json" 2>/dev/null | head -1)
