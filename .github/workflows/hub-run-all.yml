@@ -594,8 +594,8 @@ jobs:
           KILLED=0; SURVIVED=0; SCORE=0; TOTAL=0
 
           # mutmut 3.x reads config from pyproject.toml [tool.mutmut] section
-          # --CI flag is required for GitHub Actions, --no-progress for cleaner output
-          timeout 600 mutmut run --CI --no-progress 2>&1 | tee mutmut-run.log || true
+          # Run mutmut - it reads paths_to_mutate from pyproject.toml
+          timeout 600 mutmut run 2>&1 | tee mutmut-run.log || true
 
           # Get results from mutmut 3.x
           if command -v mutmut &> /dev/null; then
