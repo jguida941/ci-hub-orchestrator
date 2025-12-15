@@ -28,43 +28,21 @@ The CI/CD Hub provides a single place to run builds, tests, code quality, and se
 
 ---
 
-## Architecture
+## How It Works
 
 ```mermaid
 flowchart LR
-    subgraph Input
-        Config[config/repos/*.yaml]
-    end
-
-    subgraph Hub[CI/CD Hub]
-        Central[hub-run-all.yml]
-        Distributed[hub-orchestrator.yml]
-    end
-
-    subgraph Pipelines
-        Java[java-ci.yml]
-        Python[python-ci.yml]
-    end
-
-    subgraph Output
-        Reports[Artifacts & Reports]
-    end
-
-    Config --> Central
-    Config --> Distributed
-    Central --> Java
-    Central --> Python
-    Distributed --> Java
-    Distributed --> Python
-    Java --> Reports
-    Python --> Reports
+    A[Your Repo Config] --> B{Hub}
+    B --> C[Java CI]
+    B --> D[Python CI]
+    C --> E[Reports]
+    D --> E
 ```
 
-**How it works:**
-1. Add your repo to `config/repos/*.yaml`
-2. Hub runs `hub-run-all.yml` (central) or `hub-orchestrator.yml` (distributed)
-3. Reusable `java-ci.yml` / `python-ci.yml` pipelines execute tools
-4. Reports and artifacts uploaded to GitHub Actions
+1. **Configure** - Add `config/repos/your-repo.yaml` with repo details and tool toggles
+2. **Run** - Hub executes `hub-run-all.yml` (clones your repo) or dispatches to your repo
+3. **Analyze** - Java/Python pipelines run 20+ quality tools (coverage, linting, security, etc.)
+4. **Report** - Artifacts, summaries, and metrics uploaded to GitHub Actions
 
 ---
 
