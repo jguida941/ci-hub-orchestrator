@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-12-15 (Evening)
+
+### Bug Fixes
+- Fixed SpotBugs, Checkstyle, PMD not running on repos without `mvnw` - added `mvn` fallback
+- Fixed mutmut 0% mutation score - tools now properly detect mutations
+
+### Hub Self-Check Workflow
+- Added `hub-self-check.yml` workflow that runs on push/PR to validate hub integrity
+- Jobs: syntax-check, unit-tests, validate-templates, validate-configs, verify-matrix-keys
+- Runs automatically when scripts, tests, templates, config, or schema files change
+
+### Test Coverage
+- Added `tests/test_templates.py` with 70 tests validating all templates against schema
+- Tests verify profile merging, dispatch template validity, and no stale repo name references
+- Total test count: 109 (39 original + 70 new)
+
+### Tool Defaults
+- Enabled ALL tools by default in Java dispatch template (pitest, semgrep, trivy, codeql)
+- Enabled ALL tools by default in Python dispatch template (mypy, mutmut, semgrep, trivy, codeql)
+- Updated fixture dispatch workflows to match with comprehensive tool status in summaries
+
+### Fixture Enhancements
+- Added `requirements.txt` to Python fixtures for pip-audit scanning
+- Updated workflow summaries to show all 12 tools with status indicators (✅ Ran / ⏭️ Skipped)
+- Temporarily disabled contact-suite-spring config (900 tests, too slow for testing)
+
+### Cross-Repo Authentication
+- Added HUB_DISPATCH_TOKEN support for downloading artifacts from dispatched workflow runs
+- Required for orchestrator to aggregate reports across repositories
+
+---
+
 ## 2025-12-15
 
 ### Repository Rename
