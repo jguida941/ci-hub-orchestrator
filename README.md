@@ -18,7 +18,7 @@ The CI/CD Hub provides a single place to run builds, tests, code quality, and se
 - **14 pre-built profiles** — Fast, quality, security, minimal, coverage-gate, compliance
 - **Monorepo support** — Target subdirectories within repos via `repo.subdir`
 - **Schema-validated configs** — JSON Schema validation with clear error messages
-- **Comprehensive tooling** — 10+ Java tools, 12+ Python tools
+- **Comprehensive tooling** — 10 Java tools, 13 Python tools
 
 ---
 
@@ -84,7 +84,8 @@ flowchart TB
 
 | Category | Tool | Purpose | Default |
 |----------|------|---------|---------|
-| **Coverage** | pytest-cov | Test coverage | Enabled |
+| **Testing** | pytest-cov | Test coverage | Enabled |
+| **Testing** | Hypothesis | Property-based testing | Enabled |
 | **Linting** | Ruff | Fast linter (replaces flake8) | Enabled |
 | **Format** | Black | Code formatter | Enabled |
 | **Format** | isort | Import sorting | Enabled |
