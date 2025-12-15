@@ -412,6 +412,8 @@ jobs:
 
           if [ -f "mvnw" ]; then
             ./mvnw -B -ntp com.github.spotbugs:spotbugs-maven-plugin:check 2>/dev/null || true
+          else
+            mvn -B -ntp com.github.spotbugs:spotbugs-maven-plugin:check 2>/dev/null || true
           fi
 
           for xml in $(find . -name "spotbugsXml.xml" 2>/dev/null); do
@@ -431,6 +433,8 @@ jobs:
 
           if [ -f "mvnw" ]; then
             ./mvnw -B -ntp checkstyle:check 2>/dev/null || true
+          else
+            mvn -B -ntp checkstyle:check 2>/dev/null || true
           fi
 
           for xml in $(find . -name "checkstyle-result.xml" 2>/dev/null); do
@@ -645,6 +649,8 @@ jobs:
 
           if [ -f "mvnw" ]; then
             ./mvnw -B -ntp pmd:check 2>/dev/null || true
+          else
+            mvn -B -ntp pmd:check 2>/dev/null || true
           fi
 
           for xml in $(find . -name "pmd.xml" 2>/dev/null); do
