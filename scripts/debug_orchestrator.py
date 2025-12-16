@@ -161,7 +161,6 @@ def check_hub_runs(token: str, limit: int = 3):
     # You may need to adjust this
     hub_repos = [
         ("jguida941", "ci-cd-hub"),
-        ("jguida941", "ci-cd-hub"),
     ]
 
     for owner, repo in hub_repos:
