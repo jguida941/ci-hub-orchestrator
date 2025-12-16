@@ -585,10 +585,11 @@ jobs:
           fi
 
           # Extract mutation score
+          # Note: PITest uses single quotes in XML (status='KILLED'), so we match both quote styles
           SCORE=0
           if [ -f "target/pit-reports/mutations.xml" ]; then
-            KILLED=$(grep -c 'status="KILLED"' target/pit-reports/mutations.xml 2>/dev/null || echo "0")
-            SURVIVED=$(grep -c 'status="SURVIVED"' target/pit-reports/mutations.xml 2>/dev/null || echo "0")
+            KILLED=$(grep -cE "status=['\"]KILLED['\"]" target/pit-reports/mutations.xml 2>/dev/null || echo "0")
+            SURVIVED=$(grep -cE "status=['\"]SURVIVED['\"]" target/pit-reports/mutations.xml 2>/dev/null || echo "0")
             TOTAL=$((KILLED + SURVIVED))
             if [ "$TOTAL" -gt 0 ]; then
               SCORE=$((KILLED * 100 / TOTAL))

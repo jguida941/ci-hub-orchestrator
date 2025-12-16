@@ -359,9 +359,10 @@ jobs:
           fi
 
           # Aggregate mutation results across all modules
+          # Note: PITest uses single quotes in XML (status='KILLED'), so we match both quote styles
           for xml in $(find . -name "mutations.xml" 2>/dev/null); do
-            KILLED=$((KILLED + $(grep -c 'status="KILLED"' "$xml" 2>/dev/null || echo 0)))
-            SURVIVED=$((SURVIVED + $(grep -c 'status="SURVIVED"' "$xml" 2>/dev/null || echo 0)))
+            KILLED=$((KILLED + $(grep -cE "status=['\"]KILLED['\"]" "$xml" 2>/dev/null || echo 0)))
+            SURVIVED=$((SURVIVED + $(grep -cE "status=['\"]SURVIVED['\"]" "$xml" 2>/dev/null || echo 0)))
           done
 
           KILLED=${KILLED:-0}; SURVIVED=${SURVIVED:-0}
