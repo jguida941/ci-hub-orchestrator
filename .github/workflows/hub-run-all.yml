@@ -332,6 +332,13 @@ jobs:
               # Normalize path (remove leading ./)
               MODULE_DIR="${MODULE_DIR#./}"
               [ -z "$MODULE_DIR" ] && MODULE_DIR="."
+
+              # Skip template directories (not real modules)
+              if [[ "$MODULE_DIR" == *"template"* ]]; then
+                echo "Skipping template directory: $MODULE_DIR"
+                continue
+              fi
+
               # Avoid duplicates
               if [[ ! " ${MODULES[*]} " =~ " ${MODULE_DIR} " ]]; then
                 MODULES+=("$MODULE_DIR")
@@ -360,9 +367,16 @@ jobs:
 
           # Aggregate mutation results across all modules
           # Note: PITest uses single quotes in XML (status='KILLED'), so we match both quote styles
-          for xml in $(find . -name "mutations.xml" 2>/dev/null); do
-            KILLED=$((KILLED + $(grep -cE "status=['\"]KILLED['\"]" "$xml" 2>/dev/null || echo 0)))
-            SURVIVED=$((SURVIVED + $(grep -cE "status=['\"]SURVIVED['\"]" "$xml" 2>/dev/null || echo 0)))
+          echo "Searching for mutations.xml files..."
+          MUTATION_FILES=$(find . -name "mutations.xml" 2>/dev/null | grep -v target/classes || true)
+          echo "Found mutation files: $MUTATION_FILES"
+
+          for xml in $MUTATION_FILES; do
+            K=$(grep -cE "status=['\"]KILLED['\"]" "$xml" 2>/dev/null || echo 0)
+            S=$(grep -cE "status=['\"]SURVIVED['\"]" "$xml" 2>/dev/null || echo 0)
+            echo "  $xml: killed=$K, survived=$S"
+            KILLED=$((KILLED + K))
+            SURVIVED=$((SURVIVED + S))
           done
 
           KILLED=${KILLED:-0}; SURVIVED=${SURVIVED:-0}
@@ -375,6 +389,7 @@ jobs:
             SCORE=$((KNUM * 100 / TOTAL))
           fi
 
+          echo "Mutation Score: $SCORE% (Killed: $KNUM, Survived: $SNUM)"
           echo "killed=$KNUM" >> $GITHUB_OUTPUT
           echo "survived=$SNUM" >> $GITHUB_OUTPUT
           echo "score=${SCORE:-0}" >> $GITHUB_OUTPUT
