@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Bug Fixes
 - **Fixed PITest mutation score showing 0%** - PITest XML uses single quotes (`status='KILLED'`) but grep patterns were looking for double quotes (`status="KILLED"`). Updated regex to match both quote styles: `grep -cE "status=['\"]KILLED['\"]"`
+- **Fixed PITest module detection** - Now skips `template` directories that have pom.xml with pitest but aren't actual Maven modules
+- **Added debug output** for mutation aggregation to show which mutations.xml files are found and their scores
 - Fixed in: `hub-run-all.yml`, `java-ci.yml`, `java-ci-dispatch.yml` (template and fixtures)
 
 ### Repository Cleanup
