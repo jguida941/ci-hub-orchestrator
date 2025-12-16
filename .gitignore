@@ -40,3 +40,10 @@ CLAUDE.md
 
 # Internal audit docs
 docs/development/audit.md
+
+# Artifacts (downloaded from CI runs)
+artifacts/
+
+# Cloned fixture repos
+hub-fixtures/
+ci-cd-hub-fixtures/
