@@ -101,6 +101,10 @@ on:
         description: 'Artifact retention days'
         type: number
         default: 30
+      artifact_prefix:
+        description: 'Prefix for artifact names (use when calling multiple times in same workflow)'
+        type: string
+        default: ''
 
     secrets:
       CODECOV_TOKEN:
@@ -182,7 +186,7 @@ jobs:
         if: always() && inputs.run_bandit
         uses: actions/upload-artifact@v4
         with:
-          name: bandit-report
+          name: ${{ inputs.artifact_prefix }}bandit-report
           path: bandit-report.json
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -317,7 +321,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: coverage-reports
+          name: ${{ inputs.artifact_prefix }}coverage-reports
           path: |
             coverage.xml
             htmlcov/
@@ -368,7 +372,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pip-audit-report
+          name: ${{ inputs.artifact_prefix }}pip-audit-report
           path: pip-audit-report.json
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -568,7 +572,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: semgrep-report
+          name: ${{ inputs.artifact_prefix }}semgrep-report
           path: semgrep-report.json
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -651,7 +655,7 @@ jobs:
         if: always() && steps.check-dockerfile.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-report
+          name: ${{ inputs.artifact_prefix }}trivy-report
           path: trivy-report.json
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -828,6 +832,6 @@ jobs:
       - name: Upload Combined Report
         uses: actions/upload-artifact@v4
         with:
-          name: ci-report
+          name: ${{ inputs.artifact_prefix }}ci-report
           path: report.json
           retention-days: ${{ inputs.retention_days }}

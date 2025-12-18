@@ -112,6 +112,10 @@ on:
         description: 'Working directory (monorepo subfolder, default repo root)'
         type: string
         default: '.'
+      artifact_prefix:
+        description: 'Prefix for artifact names (use when calling multiple times in same workflow)'
+        type: string
+        default: ''
 
     secrets:
       NVD_API_KEY:
@@ -271,7 +275,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-reports
+          name: ${{ inputs.artifact_prefix }}test-reports
           path: |
             **/target/surefire-reports/
             **/target/failsafe-reports/
@@ -282,7 +286,7 @@ jobs:
         if: always() && inputs.run_jacoco
         uses: actions/upload-artifact@v4
         with:
-          name: jacoco-reports
+          name: ${{ inputs.artifact_prefix }}jacoco-reports
           path: '**/target/site/jacoco/'
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -291,7 +295,7 @@ jobs:
         if: always() && inputs.run_checkstyle
         uses: actions/upload-artifact@v4
         with:
-          name: checkstyle-reports
+          name: ${{ inputs.artifact_prefix }}checkstyle-reports
           path: '**/target/checkstyle-result.xml'
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -300,7 +304,7 @@ jobs:
         if: always() && inputs.run_spotbugs
         uses: actions/upload-artifact@v4
         with:
-          name: spotbugs-reports
+          name: ${{ inputs.artifact_prefix }}spotbugs-reports
           path: |
             **/target/spotbugsXml.xml
             **/target/spotbugs.html
@@ -311,7 +315,7 @@ jobs:
         if: always() && inputs.run_owasp
         uses: actions/upload-artifact@v4
         with:
-          name: owasp-reports
+          name: ${{ inputs.artifact_prefix }}owasp-reports
           path: |
             **/target/dependency-check-report.html
             **/target/dependency-check-report.json
@@ -412,7 +416,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pmd-reports
+          name: ${{ inputs.artifact_prefix }}pmd-reports
           path: '**/target/pmd.xml'
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -481,7 +485,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: semgrep-report
+          name: ${{ inputs.artifact_prefix }}semgrep-report
           path: semgrep-report.json
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -564,7 +568,7 @@ jobs:
         if: always() && steps.check-dockerfile.outputs.exists == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-report
+          name: ${{ inputs.artifact_prefix }}trivy-report
           path: trivy-report.json
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -672,7 +676,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pitest-reports
+          name: ${{ inputs.artifact_prefix }}pitest-reports
           path: '**/target/pit-reports/'
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
@@ -891,6 +895,6 @@ jobs:
       - name: Upload Combined Report
         uses: actions/upload-artifact@v4
         with:
-          name: ci-report
+          name: ${{ inputs.artifact_prefix }}ci-report
           path: report.json
           retention-days: ${{ inputs.retention_days }}
