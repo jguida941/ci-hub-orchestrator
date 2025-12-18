@@ -92,6 +92,10 @@ on:
         description: 'Maximum allowed high vulnerabilities across scanners'
         type: number
         default: 0
+      max_semgrep_findings:
+        description: 'Maximum allowed Semgrep findings (default: 0 = fail on any)'
+        type: number
+        default: 0
 
       # ---- Docker Settings ----
       docker_compose_file:
@@ -493,8 +497,9 @@ jobs:
       - name: Enforce Semgrep Threshold
         run: |
           FINDINGS=${{ steps.semgrep.outputs.findings || 0 }}
-          if [ "$FINDINGS" -gt 0 ]; then
-            echo "::error::Semgrep reported $FINDINGS findings"
+          MAX_FINDINGS=${{ inputs.max_semgrep_findings || 0 }}
+          if [ "$FINDINGS" -gt "$MAX_FINDINGS" ]; then
+            echo "::error::Semgrep reported $FINDINGS findings (max: $MAX_FINDINGS)"
             exit 1
           fi
 
