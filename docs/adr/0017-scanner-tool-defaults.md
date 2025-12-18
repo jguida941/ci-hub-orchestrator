@@ -139,6 +139,24 @@ mvn verify checkstyle:checkstyle spotbugs:spotbugs dependency-check:check
 
 **Alternative**: Add `<executions>` to pom.xml to bind plugins to `verify` phase, but this requires changes to every project's pom.xml.
 
+### 7. Continue-on-Error Strategy
+
+**Problem**: When tests fail, Maven stops before running analysis plugins. This prevents report generation.
+
+**Solution**: Use Maven's `-fn` (fail-never) flag:
+
+```yaml
+- name: Build and Test
+  continue-on-error: true  # Let workflow continue
+  run: |
+    # -fn continues despite errors, allowing all reports to generate
+    mvn -B -ntp -fn verify checkstyle:checkstyle spotbugs:spotbugs || true
+```
+
+**Python equivalent**: `pytest ... || true` already handles this.
+
+**Rationale**: CI should capture all findings (test failures, static analysis issues, vulnerabilities) even when some checks fail. Threshold enforcement happens in later steps.
+
 ## Consequences
 
 ### Positive
