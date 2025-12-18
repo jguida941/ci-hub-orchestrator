@@ -2171,11 +2171,26 @@ Add a new section to docs with:
 | `java-failing` | OWASP finds vulnerabilities | `owasp_cvss_fail: 11` | 11 > max possible CVSS score (10), so never fails |
 | Both failing | High vulnerability counts | `max_critical_vulns: 999`, `max_high_vulns: 999` | Allow findings to be captured without failing |
 
-### Docker/Trivy Skipping
+### Docker/Trivy Fixtures (Completed 2025-12-18)
 
-| Fixture | Issue | Behavior | TODO |
-|---------|-------|----------|------|
-| All fixtures | No Dockerfile present | Trivy/Docker steps skip automatically | Create dedicated `python-docker/` and `java-docker/` fixtures later |
+**Decision:** Keep non-docker fixtures clean (no Dockerfiles) to validate non-container code quality paths. Created dedicated docker fixtures for Trivy/Docker testing.
+
+**Created:**
+- `python-with-docker/` - Python app with minimal Dockerfile
+- `java-with-docker/` - Java app with minimal Dockerfile
+
+**Caller workflow jobs added:**
+- `ci-docker` job in `hub-python-ci.yml` → `workdir: 'python-with-docker'`
+- `ci-docker` job in `hub-java-ci.yml` → `workdir: 'java-with-docker'`
+
+| Fixture | Has Dockerfile | run_trivy | run_docker | Purpose |
+|---------|----------------|-----------|------------|---------|
+| python-passing | No | skips | skips | Core code quality |
+| python-failing | No | skips | skips | Core code quality |
+| python-with-docker | Yes | runs | runs | Container scanning |
+| java-passing | No | skips | skips | Core code quality |
+| java-failing | No | skips | skips | Core code quality |
+| java-with-docker | Yes | runs | runs | Container scanning |
 
 ### New Inputs Added (Phase 1B)
 
@@ -2225,8 +2240,41 @@ ci-failing:
 1. **Debug mutmut** - Get mutation testing working for Python fixtures
 2. **Debug PITest** - Get mutation testing working for Java fixtures
 3. **Restore thresholds** - Once tools work, set appropriate thresholds for passing fixtures
-4. **Create Docker fixtures** - Add `python-docker/` and `java-docker/` directories with Dockerfiles
+4. ~~**Create Docker fixtures**~~ - ✅ Done 2025-12-18
 5. **Update documentation** - Remove relaxation notes when issues fixed
+
+---
+
+## Pending ADR Candidates
+
+These policy decisions should be formalized in ADRs before v1.0.0 release:
+
+| ADR Topic | Current State | Decision Needed |
+|-----------|---------------|-----------------|
+| **Pinning/versioning strategy** | Callers use `@phase1b-workflow-schema` branch | When to move `@main` → `@v1`, how to handle breaking changes, floating tags policy |
+| **Mutation testing policy** | `continue-on-error: true`, failures warn only | Should mutmut/pitest failures block the build or just warn? Default `run_mutmut`/`run_pitest` value? |
+| **Docker/Trivy fixture scope** | Dedicated docker fixtures created | Keep non-docker fixtures clean vs add Dockerfiles everywhere |
+| **Default tool gates** | Expensive scanners (`semgrep`, `trivy`, `codeql`) opt-in (default: false) | Lock in current defaults or change policy |
+| **workflow_version tracking** | Hardcoded in report.json | How to update on release, whether to automate |
+
+### Recommended ADR Actions
+
+1. **ADR-0015: Workflow Versioning & Release Policy**
+   - When to tag releases (v1.0.0, v1.1.0)
+   - Floating tag strategy (v1 → latest v1.x.x)
+   - Breaking change communication
+   - Deprecation timeline for old refs
+
+2. **ADR-0016: Mutation Testing Policy**
+   - Default enabled/disabled for mutmut/pitest
+   - Whether failures block or warn
+   - Minimum mutation score thresholds
+   - Timeout/performance considerations
+
+3. **ADR-0017: Scanner Tool Defaults**
+   - Which scanners on-by-default vs opt-in
+   - Rationale for expensive tool gating
+   - Guidance for repos enabling optional scanners
 
 ---
 
