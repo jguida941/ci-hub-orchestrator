@@ -54,9 +54,9 @@ on:
         type: boolean
         default: true
       run_mutmut:
-        description: 'Run mutmut mutation testing (expensive)'
+        description: 'Run mutmut mutation testing'
         type: boolean
-        default: false
+        default: true
       run_semgrep:
         description: 'Run Semgrep SAST (expensive)'
         type: boolean
@@ -124,6 +124,12 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    outputs:
+      ruff_errors: ${{ steps.ruff.outputs.errors }}
+      bandit_high: ${{ steps.bandit.outputs.high }}
+      bandit_medium: ${{ steps.bandit.outputs.medium }}
+      black_issues: ${{ steps.black.outputs.issues }}
+      isort_issues: ${{ steps.isort.outputs.issues }}
 
     steps:
       - name: Checkout
@@ -144,9 +150,18 @@ jobs:
 
       - name: Run Ruff
         if: inputs.run_ruff
+        id: ruff
         run: |
-          ruff check . --output-format=github
-          ruff check . --statistics >> $GITHUB_STEP_SUMMARY
+          ruff check . --output-format=json --output-file=ruff-report.json || true
+          ruff check . --output-format=github || true
+          ruff check . --statistics >> $GITHUB_STEP_SUMMARY || true
+
+          # Count errors
+          ERRORS=0
+          if [ -f "ruff-report.json" ]; then
+            ERRORS=$(jq '. | length' ruff-report.json 2>/dev/null || echo 0)
+          fi
+          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
 
       - name: Run Bandit
         if: inputs.run_bandit
@@ -173,9 +188,10 @@ jobs:
       - name: Enforce Bandit Thresholds
         if: inputs.run_bandit
         run: |
-          HIGH=${{ steps.bandit.outputs.high || 0 }}
-          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
-            echo "::error::Bandit HIGH findings ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+          HIGH="${{ steps.bandit.outputs.high || 0 }}"
+          MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
+          if [ "$HIGH" -gt "$MAX_HIGH" ]; then
+            echo "::error::Bandit HIGH findings ($HIGH) exceed max_high_vulns $MAX_HIGH"
             exit 1
           fi
 
@@ -205,15 +221,6 @@ jobs:
             exit 1
           fi
 
-      - name: Upload Bandit Report
-        if: inputs.run_bandit
-        uses: actions/upload-artifact@v4
-        with:
-          name: bandit-report
-          path: bandit-report.json
-          retention-days: ${{ inputs.retention_days }}
-          if-no-files-found: ignore
-
   # ============================================================================
   # Test
   # ============================================================================
@@ -223,6 +230,8 @@ jobs:
     outputs:
       status: ${{ steps.test.outcome }}
       coverage: ${{ steps.coverage.outputs.percentage }}
+      tests_passed: ${{ steps.test.outputs.tests_passed }}
+      tests_failed: ${{ steps.test.outputs.tests_failed }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -253,7 +262,20 @@ jobs:
         run: |
           # NOTE: Hypothesis property-based tests run automatically with pytest
           # No separate step needed - if your tests use @given decorators, they run here
-          pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term -v || true
+          pytest --cov=. --cov-report=xml --cov-report=html --cov-report=term --junitxml=test-results.xml -v || true
+
+          # Extract test counts from JUnit XML
+          PASSED=0
+          FAILED=0
+          if [ -f "test-results.xml" ]; then
+            TESTS=$(grep -oP 'tests="\K[0-9]+' test-results.xml | head -1 || echo 0)
+            FAILURES=$(grep -oP 'failures="\K[0-9]+' test-results.xml | head -1 || echo 0)
+            ERRORS=$(grep -oP 'errors="\K[0-9]+' test-results.xml | head -1 || echo 0)
+            FAILED=$((FAILURES + ERRORS))
+            PASSED=$((TESTS - FAILED))
+          fi
+          echo "tests_passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "tests_failed=$FAILED" >> $GITHUB_OUTPUT
 
       - name: Extract Coverage
         id: coverage
@@ -351,6 +373,8 @@ jobs:
         run: |
           CRITICAL=0
           HIGH=0
+          MAX_CRITICAL="${{ inputs.max_critical_vulns || 0 }}"
+          MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
 
           if [ -f "pip-audit-report.json" ]; then
             # pip-audit does not consistently emit severity; treat all findings as HIGH
@@ -358,12 +382,12 @@ jobs:
           fi
 
           echo "critical=$CRITICAL, high=$HIGH"
-          if [ "$CRITICAL" -gt "${{ inputs.max_critical_vulns }}" ]; then
-            echo "::error::pip-audit critical findings ($CRITICAL) exceed max_critical_vulns ${{ inputs.max_critical_vulns }}"
+          if [ "$CRITICAL" -gt "$MAX_CRITICAL" ]; then
+            echo "::error::pip-audit critical findings ($CRITICAL) exceed max_critical_vulns $MAX_CRITICAL"
             exit 1
           fi
-          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
-            echo "::error::pip-audit high findings ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+          if [ "$HIGH" -gt "$MAX_HIGH" ]; then
+            echo "::error::pip-audit high findings ($HIGH) exceed max_high_vulns $MAX_HIGH"
             exit 1
           fi
 
@@ -484,6 +508,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: inputs.run_semgrep
+    outputs:
+      findings: ${{ steps.semgrep.outputs.findings }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -546,6 +572,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: test
     if: inputs.run_trivy
+    outputs:
+      critical: ${{ steps.trivy-parse.outputs.critical }}
+      high: ${{ steps.trivy-parse.outputs.high }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -611,14 +640,16 @@ jobs:
       - name: Enforce Trivy Thresholds
         if: steps.check-dockerfile.outputs.exists == 'true'
         run: |
-          CRIT=${{ steps.trivy-parse.outputs.critical || 0 }}
-          HIGH=${{ steps.trivy-parse.outputs.high || 0 }}
-          if [ "$CRIT" -gt "${{ inputs.max_critical_vulns }}" ]; then
-            echo "::error::Trivy critical findings ($CRIT) exceed max_critical_vulns ${{ inputs.max_critical_vulns }}"
+          CRIT="${{ steps.trivy-parse.outputs.critical || 0 }}"
+          HIGH="${{ steps.trivy-parse.outputs.high || 0 }}"
+          MAX_CRITICAL="${{ inputs.max_critical_vulns || 0 }}"
+          MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
+          if [ "$CRIT" -gt "$MAX_CRITICAL" ]; then
+            echo "::error::Trivy critical findings ($CRIT) exceed max_critical_vulns $MAX_CRITICAL"
             exit 1
           fi
-          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
-            echo "::error::Trivy high findings ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+          if [ "$HIGH" -gt "$MAX_HIGH" ]; then
+            echo "::error::Trivy high findings ($HIGH) exceed max_high_vulns $MAX_HIGH"
             exit 1
           fi
 
@@ -682,7 +713,7 @@ jobs:
   report:
     name: Generate Report
     runs-on: ubuntu-latest
-    needs: [lint, test, security, mutation-test]
+    needs: [lint, test, security, mutation-test, semgrep, trivy]
     if: always()
 
     steps:
@@ -697,15 +728,15 @@ jobs:
           CRITICAL_VULNS=0
           HIGH_VULNS=0
           MEDIUM_VULNS=0
+          PIP_AUDIT_VULNS=0
 
           PIP_AUDIT_REPORT=$(find all-reports -name "pip-audit-report.json" 2>/dev/null | head -1)
           if [ -n "$PIP_AUDIT_REPORT" ] && [ -f "$PIP_AUDIT_REPORT" ]; then
             # pip-audit uses "vulnerabilities" array with "id" and "fix_versions"
             # Count vulnerabilities - pip-audit doesn't provide severity in older versions
-            # but newer versions have it in the aliases field
-            TOTAL_VULNS=$(jq '[.dependencies[]?.vulnerabilities[]?] | length' "$PIP_AUDIT_REPORT" 2>/dev/null || echo 0)
+            PIP_AUDIT_VULNS=$(jq '[.dependencies[]?.vulnerabilities[]?] | length' "$PIP_AUDIT_REPORT" 2>/dev/null || echo 0)
             # For now, treat all pip-audit findings as HIGH since severity not always present
-            HIGH_VULNS=$TOTAL_VULNS
+            HIGH_VULNS=$PIP_AUDIT_VULNS
           fi
 
           # Extract Trivy vulnerability counts if available
@@ -722,8 +753,15 @@ jobs:
 
           cat > report.json << EOF
           {
+            "schema_version": "2.0",
+            "metadata": {
+              "workflow_version": "v1.0.0",
+              "workflow_ref": "${{ github.repository }}/.github/workflows/python-ci.yml@${{ github.ref_name }}",
+              "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            },
             "repository": "${{ github.repository }}",
             "run_id": "${{ github.run_id }}",
+            "run_number": "${{ github.run_number }}",
             "commit": "${{ github.sha }}",
             "branch": "${{ github.ref_name }}",
             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
@@ -732,11 +770,24 @@ jobs:
               "test": "${{ needs.test.outputs.status }}",
               "coverage": ${{ needs.test.outputs.coverage || 0 }},
               "mutation_score": ${{ needs.mutation-test.outputs.score || 0 }},
+              "tests_passed": ${{ needs.test.outputs.tests_passed || 0 }},
+              "tests_failed": ${{ needs.test.outputs.tests_failed || 0 }},
               "critical_vulns": ${CRITICAL_VULNS},
               "high_vulns": ${HIGH_VULNS},
               "medium_vulns": ${MEDIUM_VULNS}
             },
-            "tools": {
+            "tool_metrics": {
+              "ruff_errors": ${{ needs.lint.outputs.ruff_errors || 0 }},
+              "bandit_high": ${{ needs.lint.outputs.bandit_high || 0 }},
+              "bandit_medium": ${{ needs.lint.outputs.bandit_medium || 0 }},
+              "black_issues": ${{ needs.lint.outputs.black_issues || 0 }},
+              "isort_issues": ${{ needs.lint.outputs.isort_issues || 0 }},
+              "pip_audit_vulns": ${PIP_AUDIT_VULNS},
+              "semgrep_findings": ${{ needs.semgrep.outputs.findings || 0 }},
+              "trivy_critical": ${{ needs.trivy.outputs.critical || 0 }},
+              "trivy_high": ${{ needs.trivy.outputs.high || 0 }}
+            },
+            "tools_ran": {
               "pytest": ${{ inputs.run_pytest }},
               "ruff": ${{ inputs.run_ruff }},
               "bandit": ${{ inputs.run_bandit }},

@@ -1547,11 +1547,11 @@ grep "uses:.*java-ci.yml@v1" templates/repo/hub-java-ci.yml
 
 | # | Task | File | Status |
 |---|------|------|--------|
-| 1.3 | Add `schema_version: "2.0"` to report | `python-ci.yml` | [ ] |
-| 1.4 | Add `tests_passed`, `tests_failed` to report | `python-ci.yml` | [ ] |
-| 1.5 | Add tool metrics: `ruff_errors`, `bandit_high`, `bandit_medium`, `black_issues`, `isort_issues`, `semgrep_findings`, `trivy_critical`, `trivy_high` | `python-ci.yml` | [ ] |
-| 1.6 | Mirror same schema for Java: `schema_version`, test counts, `checkstyle_issues`, `spotbugs_issues`, `pmd_violations`, `owasp_critical`, `owasp_high`, `semgrep_findings`, `trivy_critical`, `trivy_high` | `java-ci.yml` | [ ] |
-| 1.7 | Run `actionlint` locally to validate syntax | Both workflows | [ ] |
+| 1.3 | Add `schema_version: "2.0"` to report | `python-ci.yml` | [x] |
+| 1.4 | Add `tests_passed`, `tests_failed` to report | `python-ci.yml` | [x] |
+| 1.5 | Add tool metrics: `ruff_errors`, `bandit_high`, `bandit_medium`, `black_issues`, `isort_issues`, `semgrep_findings`, `trivy_critical`, `trivy_high` | `python-ci.yml` | [x] |
+| 1.6 | Mirror same schema for Java: `schema_version`, test counts, `checkstyle_issues`, `spotbugs_issues`, `pmd_violations`, `owasp_critical`, `owasp_high`, `semgrep_findings`, `trivy_critical`, `trivy_high` | `java-ci.yml` | [x] |
+| 1.7 | Run `actionlint` locally to validate syntax | Both workflows | [x] |
 
 ---
 
@@ -2146,7 +2146,7 @@ Add a new section to docs with:
 | Phase | Status | Notes |
 |-------|--------|-------|
 | 1A: ADR-0014 | ✅ Complete | 2025-12-17: Created ADR-0014, updated index, marked ADR-0013 superseded |
-| 1B: Workflow Code | 🟡 In Progress | Python CI partially done (test counts, lint outputs added) |
+| 1B: Workflow Code | ✅ Complete | Python CI + Java CI both have full schema, actionlint passed |
 | 1C: Defaults Fix | ⚪ Not Started | |
 | 2: Caller Templates | ⚪ Not Started | |
 | 3: Docs Cleanup | ⚪ Not Started | 12 files to update |

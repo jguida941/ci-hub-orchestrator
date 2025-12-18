@@ -47,9 +47,9 @@ on:
         type: boolean
         default: true
       run_pitest:
-        description: 'Run PITest mutation testing (expensive)'
+        description: 'Run PITest mutation testing'
         type: boolean
-        default: false
+        default: true
       run_codeql:
         description: 'Run CodeQL analysis (expensive)'
         type: boolean
@@ -143,6 +143,8 @@ jobs:
     outputs:
       status: ${{ steps.build.outcome }}
       coverage: ${{ steps.coverage.outputs.percentage }}
+      tests_passed: ${{ steps.test-counts.outputs.passed }}
+      tests_failed: ${{ steps.test-counts.outputs.failed }}
 
     steps:
       - name: Checkout
@@ -192,6 +194,24 @@ jobs:
         env:
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           MAVEN_OPTS: -Xmx1024m
+
+      - name: Extract Test Counts
+        id: test-counts
+        if: always()
+        run: |
+          PASSED=0
+          FAILED=0
+          # Parse surefire XML reports for test counts
+          for xml in $(find . -path "*/surefire-reports/*.xml" -name "TEST-*.xml" 2>/dev/null); do
+            TESTS=$(grep -oP 'tests="\K[0-9]+' "$xml" | head -1 || echo 0)
+            FAILURES=$(grep -oP 'failures="\K[0-9]+' "$xml" | head -1 || echo 0)
+            ERRORS=$(grep -oP 'errors="\K[0-9]+' "$xml" | head -1 || echo 0)
+            FAILED=$((FAILED + FAILURES + ERRORS))
+            PASSED=$((PASSED + TESTS - FAILURES - ERRORS))
+          done
+          echo "passed=$PASSED" >> $GITHUB_OUTPUT
+          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "Tests: $PASSED passed, $FAILED failed"
 
       - name: Extract Coverage
         id: coverage
@@ -303,6 +323,8 @@ jobs:
           REPORT=$(find . -name "dependency-check-report.json" -print -quit)
           CRITICAL=0
           HIGH=0
+          MAX_CRITICAL="${{ inputs.max_critical_vulns || 0 }}"
+          MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
           if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
             CRITICAL=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "CRITICAL")] | length' "$REPORT" 2>/dev/null || echo 0)
             HIGH=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "HIGH")] | length' "$REPORT" 2>/dev/null || echo 0)
@@ -310,12 +332,12 @@ jobs:
             echo "::warning::dependency-check-report.json not found; skipping vulnerability threshold enforcement"
           fi
 
-          if [ "$CRITICAL" -gt "${{ inputs.max_critical_vulns }}" ]; then
-            echo "::error::Critical vulnerabilities ($CRITICAL) exceed max_critical_vulns ${{ inputs.max_critical_vulns }}"
+          if [ "$CRITICAL" -gt "$MAX_CRITICAL" ]; then
+            echo "::error::Critical vulnerabilities ($CRITICAL) exceed max_critical_vulns $MAX_CRITICAL"
             exit 1
           fi
-          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
-            echo "::error::High vulnerabilities ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+          if [ "$HIGH" -gt "$MAX_HIGH" ]; then
+            echo "::error::High vulnerabilities ($HIGH) exceed max_high_vulns $MAX_HIGH"
             exit 1
           fi
 
@@ -336,6 +358,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     if: inputs.run_pmd
+    outputs:
+      violations: ${{ steps.pmd.outputs.violations }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -406,6 +430,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     if: inputs.run_semgrep
+    outputs:
+      findings: ${{ steps.semgrep.outputs.findings }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -471,6 +497,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build-test
     if: inputs.run_trivy
+    outputs:
+      critical: ${{ steps.trivy-parse.outputs.critical }}
+      high: ${{ steps.trivy-parse.outputs.high }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -536,14 +565,16 @@ jobs:
       - name: Enforce Trivy Thresholds
         if: steps.check-dockerfile.outputs.exists == 'true'
         run: |
-          CRIT=${{ steps.trivy-parse.outputs.critical || 0 }}
-          HIGH=${{ steps.trivy-parse.outputs.high || 0 }}
-          if [ "$CRIT" -gt "${{ inputs.max_critical_vulns }}" ]; then
-            echo "::error::Trivy critical findings ($CRIT) exceed max_critical_vulns ${{ inputs.max_critical_vulns }}"
+          CRIT="${{ steps.trivy-parse.outputs.critical || 0 }}"
+          HIGH="${{ steps.trivy-parse.outputs.high || 0 }}"
+          MAX_CRITICAL="${{ inputs.max_critical_vulns || 0 }}"
+          MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
+          if [ "$CRIT" -gt "$MAX_CRITICAL" ]; then
+            echo "::error::Trivy critical findings ($CRIT) exceed max_critical_vulns $MAX_CRITICAL"
             exit 1
           fi
-          if [ "$HIGH" -gt "${{ inputs.max_high_vulns }}" ]; then
-            echo "::error::Trivy high findings ($HIGH) exceed max_high_vulns ${{ inputs.max_high_vulns }}"
+          if [ "$HIGH" -gt "$MAX_HIGH" ]; then
+            echo "::error::Trivy high findings ($HIGH) exceed max_high_vulns $MAX_HIGH"
             exit 1
           fi
 
@@ -725,7 +756,7 @@ jobs:
   report:
     name: Generate Report
     runs-on: ubuntu-latest
-    needs: [build-test, mutation-test]
+    needs: [build-test, pmd, mutation-test, semgrep, trivy]
     if: always()
 
     steps:
@@ -740,28 +771,53 @@ jobs:
           CRITICAL_VULNS=0
           HIGH_VULNS=0
           MEDIUM_VULNS=0
+          OWASP_CRITICAL=0
+          OWASP_HIGH=0
 
           OWASP_REPORT=$(find all-reports -name "dependency-check-report.json" 2>/dev/null | head -1)
           if [ -n "$OWASP_REPORT" ] && [ -f "$OWASP_REPORT" ]; then
-            CRITICAL_VULNS=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "CRITICAL")] | length' "$OWASP_REPORT" 2>/dev/null || echo 0)
-            HIGH_VULNS=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "HIGH")] | length' "$OWASP_REPORT" 2>/dev/null || echo 0)
+            OWASP_CRITICAL=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "CRITICAL")] | length' "$OWASP_REPORT" 2>/dev/null || echo 0)
+            OWASP_HIGH=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "HIGH")] | length' "$OWASP_REPORT" 2>/dev/null || echo 0)
             MEDIUM_VULNS=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "MEDIUM")] | length' "$OWASP_REPORT" 2>/dev/null || echo 0)
+            CRITICAL_VULNS=$OWASP_CRITICAL
+            HIGH_VULNS=$OWASP_HIGH
           fi
 
           # Extract Trivy vulnerability counts if available
+          TRIVY_CRITICAL=0
+          TRIVY_HIGH=0
           TRIVY_REPORT=$(find all-reports -name "trivy-report.json" 2>/dev/null | head -1)
           if [ -n "$TRIVY_REPORT" ] && [ -f "$TRIVY_REPORT" ]; then
             TRIVY_CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
             TRIVY_HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
             TRIVY_MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
-            # Add Trivy counts to totals
             CRITICAL_VULNS=$((CRITICAL_VULNS + TRIVY_CRITICAL))
             HIGH_VULNS=$((HIGH_VULNS + TRIVY_HIGH))
             MEDIUM_VULNS=$((MEDIUM_VULNS + TRIVY_MEDIUM))
           fi
 
+          # Extract checkstyle issues from artifact
+          CHECKSTYLE_ISSUES=0
+          CHECKSTYLE_REPORT=$(find all-reports -name "checkstyle-result.xml" 2>/dev/null | head -1)
+          if [ -n "$CHECKSTYLE_REPORT" ] && [ -f "$CHECKSTYLE_REPORT" ]; then
+            CHECKSTYLE_ISSUES=$(grep -c "<error" "$CHECKSTYLE_REPORT" 2>/dev/null || echo 0)
+          fi
+
+          # Extract spotbugs issues from artifact
+          SPOTBUGS_ISSUES=0
+          SPOTBUGS_REPORT=$(find all-reports -name "spotbugsXml.xml" 2>/dev/null | head -1)
+          if [ -n "$SPOTBUGS_REPORT" ] && [ -f "$SPOTBUGS_REPORT" ]; then
+            SPOTBUGS_ISSUES=$(grep -c "<BugInstance" "$SPOTBUGS_REPORT" 2>/dev/null || echo 0)
+          fi
+
           cat > report.json << EOF
           {
+            "schema_version": "2.0",
+            "metadata": {
+              "workflow_version": "v1.0.0",
+              "workflow_ref": "${{ github.repository }}/.github/workflows/java-ci.yml@${{ github.ref_name }}",
+              "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+            },
             "repository": "${{ github.repository }}",
             "run_id": "${{ github.run_id }}",
             "run_number": "${{ github.run_number }}",
@@ -773,11 +829,23 @@ jobs:
               "build": "${{ needs.build-test.outputs.status }}",
               "coverage": ${{ needs.build-test.outputs.coverage || 0 }},
               "mutation_score": ${{ needs.mutation-test.outputs.score || 0 }},
+              "tests_passed": ${{ needs.build-test.outputs.tests_passed || 0 }},
+              "tests_failed": ${{ needs.build-test.outputs.tests_failed || 0 }},
               "critical_vulns": ${CRITICAL_VULNS},
               "high_vulns": ${HIGH_VULNS},
               "medium_vulns": ${MEDIUM_VULNS}
             },
-            "tools": {
+            "tool_metrics": {
+              "checkstyle_issues": ${CHECKSTYLE_ISSUES},
+              "spotbugs_issues": ${SPOTBUGS_ISSUES},
+              "pmd_violations": ${{ needs.pmd.outputs.violations || 0 }},
+              "owasp_critical": ${OWASP_CRITICAL},
+              "owasp_high": ${OWASP_HIGH},
+              "semgrep_findings": ${{ needs.semgrep.outputs.findings || 0 }},
+              "trivy_critical": ${{ needs.trivy.outputs.critical || 0 }},
+              "trivy_high": ${{ needs.trivy.outputs.high || 0 }}
+            },
+            "tools_ran": {
               "jacoco": ${{ inputs.run_jacoco }},
               "checkstyle": ${{ inputs.run_checkstyle }},
               "spotbugs": ${{ inputs.run_spotbugs }},
