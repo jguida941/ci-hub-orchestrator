@@ -113,6 +113,32 @@ Tools gracefully skip when preconditions aren't met:
 | OWASP | No pom.xml/build.gradle |
 | pip-audit | No requirements.txt/pyproject.toml |
 
+### 6. Java Maven Plugin Execution
+
+**Important**: Maven plugins like Checkstyle, SpotBugs, and OWASP must be explicitly invoked with goals, not just configured in pom.xml. The `-Dcheckstyle.skip=false` flag only works if the plugin is already bound to a build phase via `<executions>`.
+
+**Workflow must call plugin goals explicitly:**
+
+```yaml
+# WRONG: Only skips if plugin is already bound to a phase
+mvn verify -Dcheckstyle.skip=false -Dspotbugs.skip=false
+
+# CORRECT: Explicitly invoke plugin goals
+mvn verify checkstyle:checkstyle spotbugs:spotbugs dependency-check:check
+```
+
+**Goal mapping:**
+
+| Tool | Maven Goal |
+|------|------------|
+| Checkstyle | `checkstyle:checkstyle` |
+| SpotBugs | `spotbugs:spotbugs` |
+| PMD | `pmd:pmd` |
+| OWASP | `dependency-check:check` |
+| PITest | `pitest:mutationCoverage` |
+
+**Alternative**: Add `<executions>` to pom.xml to bind plugins to `verify` phase, but this requires changes to every project's pom.xml.
+
 ## Consequences
 
 ### Positive

@@ -179,18 +179,28 @@ jobs:
         id: build
         run: |
           if [ "${{ inputs.build_tool }}" = "maven" ]; then
+            MVN_CMD="mvn"
             if [ -f "mvnw" ]; then
               chmod +x mvnw
-              ./mvnw -B -ntp verify \
-                -Dcheckstyle.skip=${{ !inputs.run_checkstyle }} \
-                -Dspotbugs.skip=${{ !inputs.run_spotbugs }} \
-                -Ddependency-check.skip=${{ !inputs.run_owasp }}
-            else
-              mvn -B -ntp verify \
-                -Dcheckstyle.skip=${{ !inputs.run_checkstyle }} \
-                -Dspotbugs.skip=${{ !inputs.run_spotbugs }} \
-                -Ddependency-check.skip=${{ !inputs.run_owasp }}
+              MVN_CMD="./mvnw"
             fi
+
+            # Base command: verify includes test and package
+            GOALS="verify"
+
+            # Explicitly add plugin goals (skip flags don't work without phase bindings)
+            if [ "${{ inputs.run_checkstyle }}" = "true" ]; then
+              GOALS="$GOALS checkstyle:checkstyle"
+            fi
+            if [ "${{ inputs.run_spotbugs }}" = "true" ]; then
+              GOALS="$GOALS spotbugs:spotbugs"
+            fi
+            if [ "${{ inputs.run_owasp }}" = "true" ]; then
+              GOALS="$GOALS dependency-check:check"
+            fi
+
+            echo "Running: $MVN_CMD -B -ntp $GOALS"
+            $MVN_CMD -B -ntp $GOALS
           else
             if [ -f "gradlew" ]; then
               chmod +x gradlew
