@@ -141,21 +141,66 @@ mvn verify checkstyle:checkstyle spotbugs:spotbugs dependency-check:check
 
 ### 7. Continue-on-Error Strategy
 
-**Problem**: When tests fail, Maven stops before running analysis plugins. This prevents report generation.
+**Problem**: When tests fail, Maven stops before running analysis plugins. Even with `-fn` (fail-never), explicit goals appended to the command line don't run after lifecycle failure.
 
-**Solution**: Use Maven's `-fn` (fail-never) flag:
+**Solution**: Split the build into two phases:
 
 ```yaml
 - name: Build and Test
   continue-on-error: true  # Let workflow continue
   run: |
-    # -fn continues despite errors, allowing all reports to generate
-    mvn -B -ntp -fn verify checkstyle:checkstyle spotbugs:spotbugs || true
+    # Phase 1: Run build lifecycle (may fail on tests)
+    mvn -B -ntp verify || echo "Build completed with errors"
+
+    # Phase 2: Run analysis tools separately with -DskipTests
+    # This ensures they run even if tests failed above
+    mvn -B -ntp -DskipTests checkstyle:checkstyle spotbugs:spotbugs dependency-check:check
 ```
+
+**Why two phases?**
+- Maven's `-fn` flag doesn't prevent explicit goals from being skipped when lifecycle fails
+- Running analysis goals separately with `-DskipTests` ensures they execute regardless of test results
+- Each phase uses `|| echo "..."` or `|| true` to allow the workflow to continue
 
 **Python equivalent**: `pytest ... || true` already handles this.
 
 **Rationale**: CI should capture all findings (test failures, static analysis issues, vulnerabilities) even when some checks fail. Threshold enforcement happens in later steps.
+
+### 7a. OWASP NVD API Handling
+
+**Problem**: OWASP Dependency Check requires NVD (National Vulnerability Database) updates. Without an API key, the NVD returns 403/404 errors, causing the plugin to fail.
+
+**Solution**: Use `-Ddependencycheck.failOnError=false` to allow report generation even with NVD issues:
+
+```yaml
+mvn -B -ntp -DskipTests -Ddependencycheck.failOnError=false dependency-check:check
+```
+
+**Notes**:
+- Without an NVD API key, the database may be stale or empty
+- The report will still be generated with whatever data is available
+- For production CI, obtain an NVD API key (free) and set as `NVD_API_KEY` secret
+- See: https://nvd.nist.gov/developers/request-an-api-key
+
+### 7b. PITest and -DskipTests
+
+**Problem**: PITest mutation testing was showing 0% because the command included `-DskipTests`:
+
+```bash
+# WRONG: PITest skips because tests are disabled
+mvn test-compile org.pitest:pitest-maven:mutationCoverage -DskipTests
+```
+
+PITest needs to run tests to detect which mutations are killed.
+
+**Solution**: Remove `-DskipTests` from PITest invocation:
+
+```bash
+# CORRECT: PITest runs tests internally to detect killed mutations
+mvn test-compile org.pitest:pitest-maven:mutationCoverage
+```
+
+**Note**: `test-compile` ensures test classes exist before PITest runs.
 
 ### 8. Dependent Job Execution with `if: always()`
 

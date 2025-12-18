@@ -192,23 +192,28 @@ jobs:
               MVN_CMD="./mvnw"
             fi
 
-            # Base command: verify includes test and package
-            GOALS="verify"
+            # Step 1: Run the build lifecycle (may fail on tests)
+            echo "Running: $MVN_CMD -B -ntp verify"
+            $MVN_CMD -B -ntp verify || echo "Build/test phase completed with errors (expected for failing fixtures)"
 
-            # Explicitly add plugin goals (skip flags don't work without phase bindings)
+            # Step 2: Run analysis tools separately with -DskipTests
+            # This ensures they run even if tests failed above
+            ANALYSIS_GOALS=""
             if [ "${{ inputs.run_checkstyle }}" = "true" ]; then
-              GOALS="$GOALS checkstyle:checkstyle"
+              ANALYSIS_GOALS="$ANALYSIS_GOALS checkstyle:checkstyle"
             fi
             if [ "${{ inputs.run_spotbugs }}" = "true" ]; then
-              GOALS="$GOALS spotbugs:spotbugs"
+              ANALYSIS_GOALS="$ANALYSIS_GOALS spotbugs:spotbugs"
             fi
             if [ "${{ inputs.run_owasp }}" = "true" ]; then
-              GOALS="$GOALS dependency-check:check"
+              # -Ddependencycheck.failOnError=false allows report generation even if NVD unavailable
+              ANALYSIS_GOALS="$ANALYSIS_GOALS dependency-check:check"
             fi
 
-            # -fn (fail-never) continues build despite errors, allowing all reports to generate
-            echo "Running: $MVN_CMD -B -ntp -fn $GOALS"
-            $MVN_CMD -B -ntp -fn $GOALS || true
+            if [ -n "$ANALYSIS_GOALS" ]; then
+              echo "Running analysis tools: $MVN_CMD -B -ntp -DskipTests -Ddependencycheck.failOnError=false $ANALYSIS_GOALS"
+              $MVN_CMD -B -ntp -DskipTests -Ddependencycheck.failOnError=false $ANALYSIS_GOALS || echo "Some analysis tools completed with errors"
+            fi
           else
             if [ -f "gradlew" ]; then
               chmod +x gradlew
@@ -648,9 +653,10 @@ jobs:
           if [ "${{ inputs.build_tool }}" = "maven" ]; then
             if [ -f "mvnw" ]; then
               chmod +x mvnw
-              ./mvnw -B -ntp test-compile org.pitest:pitest-maven:mutationCoverage -DskipTests || PITEST_EXIT=$?
+              # Note: Do NOT use -DskipTests with PITest - it needs to run tests to detect killed mutations
+              ./mvnw -B -ntp test-compile org.pitest:pitest-maven:mutationCoverage || PITEST_EXIT=$?
             else
-              mvn -B -ntp test-compile org.pitest:pitest-maven:mutationCoverage -DskipTests || PITEST_EXIT=$?
+              mvn -B -ntp test-compile org.pitest:pitest-maven:mutationCoverage || PITEST_EXIT=$?
             fi
           fi
 
