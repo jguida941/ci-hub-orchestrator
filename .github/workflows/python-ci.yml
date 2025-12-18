@@ -465,12 +465,19 @@ jobs:
           SRC_DIR="."
           if [ -d "src" ]; then SRC_DIR="src"; fi
 
-          # Run mutmut (limited for speed)
-          timeout 600 mutmut run --paths-to-mutate="$SRC_DIR" --runner="pytest -x -q" 2>/dev/null || true
+          echo "Running mutmut on: $SRC_DIR"
+          ls -la "$SRC_DIR" || echo "Cannot list $SRC_DIR"
+
+          # Run mutmut - show output for debugging
+          timeout 600 mutmut run --paths-to-mutate="$SRC_DIR" --runner="pytest -x -q" || {
+            echo "::warning::mutmut run failed or timed out"
+          }
 
           # Get results
           if command -v mutmut &> /dev/null; then
-            RESULTS=$(mutmut results 2>/dev/null || echo "")
+            echo "Getting mutmut results..."
+            RESULTS=$(mutmut results || echo "")
+            echo "Raw results: $RESULTS"
             KILLED=$(echo "$RESULTS" | grep -oP 'Killed: \K\d+' || echo 0)
             SURVIVED=$(echo "$RESULTS" | grep -oP 'Survived: \K\d+' || echo 0)
             TOTAL=$((KILLED + SURVIVED))
@@ -484,7 +491,7 @@ jobs:
             echo "survived=$SURVIVED"
             echo "score=$SCORE"
           } >> "$GITHUB_OUTPUT"
-          echo "Mutation Score: $SCORE%"
+          echo "Mutation Score: $SCORE% (killed=$KILLED, survived=$SURVIVED)"
         continue-on-error: true
         timeout-minutes: 15
 

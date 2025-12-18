@@ -613,25 +613,37 @@ jobs:
       - name: Run PITest
         id: pitest
         run: |
+          PITEST_EXIT=0
           if [ "${{ inputs.build_tool }}" = "maven" ]; then
             if [ -f "mvnw" ]; then
               chmod +x mvnw
-              ./mvnw -B -ntp test-compile org.pitest:pitest-maven:mutationCoverage -DskipTests || true
+              ./mvnw -B -ntp test-compile org.pitest:pitest-maven:mutationCoverage -DskipTests || PITEST_EXIT=$?
             else
-              mvn -B -ntp test-compile org.pitest:pitest-maven:mutationCoverage -DskipTests || true
+              mvn -B -ntp test-compile org.pitest:pitest-maven:mutationCoverage -DskipTests || PITEST_EXIT=$?
             fi
+          fi
+
+          if [ "$PITEST_EXIT" -ne 0 ]; then
+            echo "::warning::PITest exited with code $PITEST_EXIT"
           fi
 
           # Extract mutation score
           # Note: PITest uses single quotes in XML (status='KILLED'), so we match both quote styles
           SCORE=0
+          echo "Looking for pit-reports/mutations.xml..."
+          find . -name "mutations.xml" -type f 2>/dev/null || echo "No mutations.xml found"
+
           if [ -f "target/pit-reports/mutations.xml" ]; then
-            KILLED=$(grep -cE "status=['\"]KILLED['\"]" target/pit-reports/mutations.xml 2>/dev/null || echo "0")
-            SURVIVED=$(grep -cE "status=['\"]SURVIVED['\"]" target/pit-reports/mutations.xml 2>/dev/null || echo "0")
+            echo "Found mutations.xml"
+            KILLED=$(grep -cE "status=['\"]KILLED['\"]" target/pit-reports/mutations.xml || echo "0")
+            SURVIVED=$(grep -cE "status=['\"]SURVIVED['\"]" target/pit-reports/mutations.xml || echo "0")
             TOTAL=$((KILLED + SURVIVED))
             if [ "$TOTAL" -gt 0 ]; then
               SCORE=$((KILLED * 100 / TOTAL))
             fi
+            echo "Killed: $KILLED, Survived: $SURVIVED"
+          else
+            echo "::warning::mutations.xml not found - PITest may not have run"
           fi
           echo "score=$SCORE" >> "$GITHUB_OUTPUT"
           echo "Mutation Score: $SCORE%"
