@@ -135,6 +135,62 @@ max_ruff_errors: 999
 
 **Template approach**: Users can use the fixture caller workflows as templates. The `ci-passing` job shows strict production settings; the `ci-failing` job shows relaxed testing settings.
 
+### 3c. Automated Report Validation
+
+To ensure CI pipelines are working correctly, fixture workflows include validation jobs that assert report.json contents. Validation FAILS (not warns) when expectations aren't met.
+
+**Validation job structure**:
+
+```yaml
+validate-passing:
+  name: "Validate Passing Report"
+  runs-on: ubuntu-latest
+  needs: ci-passing
+  if: always()
+  steps:
+    - name: Download Report
+      uses: actions/download-artifact@v4
+      with:
+        name: python-passing-ci-report
+        path: ./report
+
+    - name: Validate Report Structure
+      run: |
+        REPORT="./report/report.json"
+        ERRORS=0
+        # Assert schema_version == "2.0"
+        # Assert tests_passed > 0, tests_failed == 0
+        # Assert coverage >= 70%
+        # Assert ALL tools_ran.* == true for enabled tools
+        # Assert ALL tool_metrics.* are populated (not null)
+        # Assert lint/security issues == 0
+        if [ "$ERRORS" -gt 0 ]; then exit 1; fi
+```
+
+**Validation checks by fixture type**:
+
+| Check | Passing Fixture | Failing Fixture |
+|-------|-----------------|-----------------|
+| `schema_version` | Must be "2.0" | Must be "2.0" |
+| `tests_passed` | > 0 | > 0 |
+| `tests_failed` | Must be 0 | Any (expected failures) |
+| `coverage` | >= 70% | Any value |
+| `tools_ran.*` | ALL enabled tools must be `true` | ALL enabled tools must be `true` |
+| `tool_metrics.*` | ALL must be populated (not null) | ALL must be populated (not null) |
+| `tool_metrics.black_issues` | Must be 0 | Must be > 0 (FAIL if no issues) |
+| `tool_metrics.ruff_errors` | Must be 0 | > 0 (expected) |
+| `tool_metrics.checkstyle_errors` | Must be 0 (Java) | > 0 (expected, Java) |
+
+**Python tools validated**: pytest, ruff, bandit, pip_audit, mypy, black, isort, mutmut, semgrep, trivy, docker, codeql
+
+**Java tools validated**: jacoco, checkstyle, spotbugs, owasp, pitest, pmd, semgrep, trivy, docker, codeql
+
+**Key principles**:
+1. Validation FAILS when expectations aren't met - no silent warnings
+2. Failing fixtures MUST detect issues - if they don't, the fixture was cleaned unintentionally
+3. Failing fixtures stay confined to the fixtures repo - never copy relaxed thresholds to production
+4. Production callers use passing fixture as template with strict thresholds
+
 ### 4. Enabling Expensive Tools
 
 To enable expensive tools, callers explicitly set flags:
