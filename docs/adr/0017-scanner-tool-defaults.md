@@ -86,7 +86,54 @@ run_docker: false       # Expensive + needs Dockerfile
 | `max_critical_vulns` | 0 | Zero tolerance for critical |
 | `max_high_vulns` | 0 | Zero tolerance for high |
 | `max_semgrep_findings` | 0 | Fail on any finding (when enabled) |
+| `max_black_issues` | 0 | Zero tolerance for formatting |
+| `max_isort_issues` | 0 | Zero tolerance for import order |
+| `max_ruff_errors` | 0 | Zero tolerance for lint errors |
 | `owasp_cvss_fail` | 7.0 | High severity |
+
+### 3a. Relaxed Thresholds for Test Fixtures
+
+The `*-failing` fixtures use relaxed thresholds to verify tool detection works correctly:
+
+```yaml
+# Relaxed thresholds (accept failures for testing detection)
+coverage_min: 0
+mutation_score_min: 0
+max_critical_vulns: 999
+max_high_vulns: 999
+max_semgrep_findings: 999
+max_black_issues: 999
+max_isort_issues: 999
+max_ruff_errors: 999
+```
+
+**Purpose**: Failing fixtures intentionally contain issues (bad formatting, lint errors, security issues). Relaxed thresholds allow the CI to complete and generate full reports showing detected issues.
+
+### 3b. Production Verification Strategy
+
+**Problem**: How do users verify their CI pipeline is correctly detecting issues?
+
+**Solution - Dual Fixture Approach**:
+
+1. **Passing Fixture** (`*-passing`): Clean code that should pass all checks with strict thresholds
+2. **Failing Fixture** (`*-failing`): Intentionally bad code with relaxed thresholds
+
+**What users should check**:
+
+| Fixture | Expected Behavior |
+|---------|-------------------|
+| `*-passing` | All jobs pass, no issues detected |
+| `*-failing` | All jobs complete, issues detected in reports |
+
+**Verification checklist for failing fixture**:
+- [ ] Black reports formatting issues (`black_issues > 0`)
+- [ ] Ruff reports lint errors (`ruff_errors > 0`)
+- [ ] Bandit reports security issues (`bandit_high > 0` or `bandit_medium > 0`)
+- [ ] Coverage shows low % (`coverage < 70`)
+- [ ] Semgrep reports findings (when enabled)
+- [ ] Report artifacts contain issue counts
+
+**Template approach**: Users can use the fixture caller workflows as templates. The `ci-passing` job shows strict production settings; the `ci-failing` job shows relaxed testing settings.
 
 ### 4. Enabling Expensive Tools
 

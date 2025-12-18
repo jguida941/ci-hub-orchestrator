@@ -99,6 +99,18 @@ on:
         description: 'Maximum allowed Semgrep findings (default: 0 = fail on any)'
         type: number
         default: 0
+      max_black_issues:
+        description: 'Maximum allowed Black formatting issues (default: 0 = fail on any)'
+        type: number
+        default: 0
+      max_isort_issues:
+        description: 'Maximum allowed isort import issues (default: 0 = fail on any)'
+        type: number
+        default: 0
+      max_ruff_errors:
+        description: 'Maximum allowed Ruff errors (default: 0 = fail on any)'
+        type: number
+        default: 0
 
       # ---- Reports ----
       retention_days:
@@ -174,12 +186,23 @@ jobs:
           fi
           echo "errors=$ERRORS" >> "$GITHUB_OUTPUT"
 
+      - name: Enforce Ruff Threshold
+        if: inputs.run_ruff
+        run: |
+          ERRORS="${{ steps.ruff.outputs.errors || 0 }}"
+          MAX="${{ inputs.max_ruff_errors || 0 }}"
+          if [ "$ERRORS" -gt "$MAX" ]; then
+            echo "::error::Ruff errors ($ERRORS) exceed max_ruff_errors $MAX"
+            exit 1
+          fi
+
       - name: Run Bandit
         if: inputs.run_bandit
         id: bandit
         run: |
-          bandit -r . -f json -o bandit-report.json || true
-          bandit -r . -f txt >> "$GITHUB_STEP_SUMMARY" || true
+          # Exclude test directories - assert statements in tests are expected (B101 false positives)
+          bandit -r . --exclude ./tests,./test -f json -o bandit-report.json || true
+          bandit -r . --exclude ./tests,./test -f txt >> "$GITHUB_STEP_SUMMARY" || true
           HIGH=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json 2>/dev/null || echo 0)
           MEDIUM=$(jq '[.results[] | select(.issue_severity == "MEDIUM")] | length' bandit-report.json 2>/dev/null || echo 0)
           LOW=$(jq '[.results[] | select(.issue_severity == "LOW")] | length' bandit-report.json 2>/dev/null || echo 0)
@@ -212,12 +235,18 @@ jobs:
         if: inputs.run_black
         id: black
         run: |
-          black --check . 2>&1 | tee black-output.txt
+          black --check . 2>&1 | tee black-output.txt || true
           WOULD_REFORMAT=$(grep -c "would reformat" black-output.txt 2>/dev/null || echo 0)
           echo "issues=$WOULD_REFORMAT" >> "$GITHUB_OUTPUT"
           echo "Black format check: $WOULD_REFORMAT files would be reformatted" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$WOULD_REFORMAT" -gt 0 ]; then
-            echo "::error::Black would reformat $WOULD_REFORMAT files"
+
+      - name: Enforce Black Threshold
+        if: inputs.run_black
+        run: |
+          ISSUES="${{ steps.black.outputs.issues || 0 }}"
+          MAX="${{ inputs.max_black_issues || 0 }}"
+          if [ "$ISSUES" -gt "$MAX" ]; then
+            echo "::error::Black formatting issues ($ISSUES) exceed max_black_issues $MAX"
             exit 1
           fi
 
@@ -225,12 +254,18 @@ jobs:
         if: inputs.run_isort
         id: isort
         run: |
-          isort --check-only --diff . 2>&1 | tee isort-output.txt
+          isort --check-only --diff . 2>&1 | tee isort-output.txt || true
           ISSUES=$(grep -c "would reformat" isort-output.txt 2>/dev/null || echo 0)
           echo "issues=$ISSUES" >> "$GITHUB_OUTPUT"
           echo "isort import check: $ISSUES files would be reformatted" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$ISSUES" -gt 0 ]; then
-            echo "::error::isort would reformat $ISSUES files"
+
+      - name: Enforce isort Threshold
+        if: inputs.run_isort
+        run: |
+          ISSUES="${{ steps.isort.outputs.issues || 0 }}"
+          MAX="${{ inputs.max_isort_issues || 0 }}"
+          if [ "$ISSUES" -gt "$MAX" ]; then
+            echo "::error::isort import issues ($ISSUES) exceed max_isort_issues $MAX"
             exit 1
           fi
 

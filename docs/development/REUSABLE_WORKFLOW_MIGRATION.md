@@ -2441,6 +2441,16 @@ Parses report.json → aggregate_reports.py → hub-report.json
 | Add historical trend charts | ⚪ Not Started | Requires storing history |
 | Drill-down per repo | ⚪ Not Started | Detailed view |
 
+**Validation checklist (what to verify after a run):**
+- `report.json` exists and parses (`jq . report.json`).
+- `schema_version` is "2.0".
+- `results.tests_passed`/`tests_failed` are populated (not null).
+- `tool_metrics` are populated for enabled tools (ruff/bandit/black/isort/pip_audit/semgrep/trivy for Python; checkstyle/spotbugs/pmd/owasp/semgrep/trivy for Java).
+- `tools_ran` matches inputs (true when enabled, false when skipped).
+- Threshold gates behave: coverage/mutation/owasp/trivy/semgrep fail when over limits (except fixtures with relaxed thresholds).
+- Artifacts exist with expected names (ci-report plus tool artifacts).
+
+
 **What Works:**
 - `aggregate_reports.py --format html` generates dashboard
 - Dark theme, responsive layout
@@ -2457,6 +2467,15 @@ Parses report.json → aggregate_reports.py → hub-report.json
 - [ ] GitHub Pages deployment
 - [ ] Historical trends
 - [ ] Accessible via public URL
+
+**Validation checklist (what to verify after a run):**
+- `report.json` exists and parses (`jq . report.json`).
+- `schema_version` is `"2.0"`.
+- `results.tests_passed`/`tests_failed` are populated (not null).
+- `tool_metrics` are populated for enabled tools (ruff/bandit/black/isort/pip_audit/semgrep/trivy for Python; checkstyle/spotbugs/pmd/owasp/semgrep/trivy for Java).
+- `tools_ran` matches inputs (true when enabled, false when skipped).
+- Threshold gates behave: coverage/mutation/owasp/trivy/semgrep fail when over limits (except fixtures with documented relaxed thresholds).
+- Artifacts exist with expected names (ci-report plus tool artifacts).
 
 ### Part 6: Polish & Release (from ROADMAP Phase 8)
 
