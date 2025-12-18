@@ -627,10 +627,11 @@ jobs:
                   try:
                       artifacts = gh_get(f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts")
                       ci_artifacts = artifacts.get("artifacts", [])
-                      # Prefer ci-report, otherwise first artifact
-                      artifact = next((a for a in ci_artifacts if a.get("name") == "ci-report"), None)
+                      # Prefer artifact ending with ci-report (handles prefix like 'python-passing-ci-report')
+                      artifact = next((a for a in ci_artifacts if a.get("name", "").endswith("ci-report")), None)
                       if not artifact and ci_artifacts:
-                          artifact = ci_artifacts[0]
+                          # Fallback to first artifact containing 'report'
+                          artifact = next((a for a in ci_artifacts if "report" in a.get("name", "")), ci_artifacts[0])
                       if artifact:
                           with tempfile.TemporaryDirectory() as tmpdir:
                               extracted = download_artifact(artifact["archive_download_url"], Path(tmpdir))

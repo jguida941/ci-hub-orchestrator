@@ -211,6 +211,22 @@ mvn test-compile org.pitest:pitest-maven:mutationCoverage
 
 **Note**: `test-compile` ensures test classes exist before PITest runs.
 
+### 7c. PITest Requires Passing Tests ("Green Suite")
+
+**Important**: PITest requires all tests to pass before mutation testing can run. If any tests fail, PITest exits with error:
+
+```
+7 tests did not pass without mutation when calculating line coverage.
+Mutation testing requires a green suite.
+```
+
+**Implications for fixtures**:
+- `java-passing` / `python-passing`: PITest/mutmut runs and generates mutation scores
+- `java-failing` / `python-failing`: PITest/mutmut cannot run (tests intentionally fail)
+- This is expected behavior, not a bug
+
+**Rationale**: Mutation testing detects "killed" mutations by checking if tests fail when code is mutated. If tests already fail, there's no baseline to compare against.
+
 ### 8. Dependent Job Execution with `if: always()`
 
 **Problem**: When using `continue-on-error: true` on steps, the individual steps continue but the **job** is still marked as `failure` if any step fails. This causes dependent jobs (with `needs: build-test`) to be **skipped** by default.
@@ -275,6 +291,43 @@ run_codeql: true
 run_docker: true
 run_mypy: true  # Python
 ```
+
+## TODO: User-Facing Documentation
+
+Once workflows are stable, create user-facing documentation with:
+
+### Tool Versions Reference
+
+| Language | Tool | Plugin/Package | Version |
+|----------|------|----------------|---------|
+| Java | OWASP Dependency Check | dependency-check-maven | 12.1.9 |
+| Java | SpotBugs | spotbugs-maven-plugin | 4.8.3.1 |
+| Java | PITest | pitest-maven | 1.15.3 |
+| Java | Checkstyle | maven-checkstyle-plugin | 3.3.1 |
+| Java | PMD | maven-pmd-plugin | 3.21.2 |
+| Java | JaCoCo | jacoco-maven-plugin | 0.8.11 |
+| Python | pytest | pytest | latest |
+| Python | Ruff | ruff | latest |
+| Python | Bandit | bandit | latest |
+| Python | pip-audit | pip-audit | latest |
+| Python | mutmut | mutmut | latest |
+| Universal | Semgrep | semgrep | latest |
+| Universal | Trivy | aquasecurity/trivy-action | 0.28.0 |
+| Universal | CodeQL | github/codeql-action | v3 |
+
+### Documentation Deliverables
+
+1. **Quick Start Guide**: Minimal caller workflow example
+2. **Tool Reference**: All tools, versions, and what they check
+3. **Threshold Reference**: Default values and how to customize
+4. **Troubleshooting**: Common issues (PITest green suite, OWASP rate limiting, etc.)
+5. **Upgrade Notes**: When tool versions change
+
+### Version Pinning Strategy
+
+- Java Maven plugins: Pinned in fixture pom.xml files (callers use their own versions)
+- GitHub Actions: Pinned to major versions (@v3, @v4) for stability
+- Python tools: Use latest via pip (caller's environment)
 
 ## Related ADRs
 

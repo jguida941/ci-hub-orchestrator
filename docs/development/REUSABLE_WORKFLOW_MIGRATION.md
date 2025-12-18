@@ -1,8 +1,24 @@
 # Reusable Workflow Migration Plan
 
-**Status:** Planning
+> **This is the primary execution plan for CI/CD Hub.** Supersedes ROADMAP.md phases 4-8.
+
+**Status:** Phase 1B In Progress
 **Created:** 2025-12-15
+**Last Updated:** 2025-12-18
 **Goal:** Migrate from dispatch templates to GitHub reusable workflows + CLI tool for automatic repo onboarding
+
+## Quick Status
+
+| Part | Description | Status |
+|------|-------------|--------|
+| **Part 1** | Reusable Workflows | 🔄 Phase 1B active (blocking Part 4) |
+| **Part 2** | CLI Tool (`cihub`) | ⚪ Not started |
+| **Part 3** | Test Fixtures Expansion | ⚪ Not started |
+| **Part 4** | Aggregation | ✅ Mostly done (needs Part 1 for correct reports) |
+| **Part 5** | Dashboard | 🟡 Partial (HTML exists, needs GitHub Pages) |
+| **Part 6** | Polish & Release | ⚪ Not started |
+
+**Critical Path:** Part 1 → Part 4 unlocks → Part 5 completes → Release
 
 ---
 
@@ -2149,17 +2165,22 @@ Add a new section to docs with:
 
 ### Mutation Testing Issues
 
-| Fixture | Issue | Relaxation | Root Cause | TODO |
-|---------|-------|------------|------------|------|
-| `python-passing` | Mutation score always 0% | `mutation_score_min: 0` | `mutmut` not detecting/running tests properly - needs debugging | Fix mutmut config and restore `mutation_score_min: 70` |
-| `python-failing` | Mutation score always 0% | `mutation_score_min: 0` | Same as above | Same fix needed |
-| `java-passing` | PITest not running | `mutation_score_min: 0` in workflow | PITest needs proper configuration | Verify PITest plugin is configured correctly |
-| `java-failing` | PITest not running | `mutation_score_min: 0` in workflow | Same as above | Same fix needed |
+| Fixture | Issue | Relaxation | Root Cause | Status |
+|---------|-------|------------|------------|--------|
+| `python-passing` | Mutation score always 0% | `mutation_score_min: 0` | `mutmut` not detecting/running tests properly | Still investigating |
+| `python-failing` | Cannot run mutation testing | `mutation_score_min: 0` | Tests intentionally fail - mutmut requires green suite | Expected behavior |
+| `java-passing` | ✅ **FIXED** - 92% mutation score | Default thresholds | Was using `-DskipTests` with PITest | **RESOLVED 2025-12-18** |
+| `java-failing` | Cannot run mutation testing | `mutation_score_min: 0` | Tests intentionally fail - PITest requires green suite | Expected behavior |
 
-**mutmut Investigation Needed:**
+**PITest Fix (2025-12-18):**
+- **Problem:** PITest was invoked with `-DskipTests`, which skips mutation detection
+- **Solution:** Removed `-DskipTests` from PITest invocation, runs in separate job
+- **Result:** java-passing now shows 92% mutation score
+- **Note:** java-failing cannot run PITest (intentional - "green suite" requirement)
+
+**mutmut Investigation Still Needed:**
 - `mutmut run` appears to exit with 0 but shows no mutations
 - Likely issue: test discovery not working, or source path detection broken
-- Need to add more debug output to see what files mutmut is analyzing
 - May need explicit `--paths-to-mutate` with absolute paths
 
 ### Security Scanner Thresholds
@@ -2238,10 +2259,31 @@ ci-failing:
 ### Action Items After Testing Complete
 
 1. **Debug mutmut** - Get mutation testing working for Python fixtures
-2. **Debug PITest** - Get mutation testing working for Java fixtures
+2. ~~**Debug PITest**~~ - ✅ FIXED 2025-12-18 (removed `-DskipTests`, now 92%)
 3. **Restore thresholds** - Once tools work, set appropriate thresholds for passing fixtures
 4. ~~**Create Docker fixtures**~~ - ✅ Done 2025-12-18
 5. **Update documentation** - Remove relaxation notes when issues fixed
+6. **Fix OWASP** - Upgraded to dependency-check-maven 12.1.9 (testing in progress)
+
+### Documentation Deliverables (Before v1.0.0)
+
+Once workflows are stable, create user-facing documentation:
+
+1. **Quick Start Guide** - Minimal caller workflow example
+2. **Tool Versions Reference** - All tools, versions, what they check:
+   | Tool | Plugin/Package | Version |
+   |------|----------------|---------|
+   | OWASP Dependency Check | dependency-check-maven | 12.1.9 |
+   | SpotBugs | spotbugs-maven-plugin | 4.8.3.1 |
+   | PITest | pitest-maven | 1.15.3 |
+   | Checkstyle | maven-checkstyle-plugin | 3.3.1 |
+   | PMD | maven-pmd-plugin | 3.21.2 |
+   | JaCoCo | jacoco-maven-plugin | 0.8.11 |
+   | Trivy | aquasecurity/trivy-action | 0.28.0 |
+   | CodeQL | github/codeql-action | v3 |
+3. **Threshold Reference** - Default values and how to customize
+4. **Troubleshooting Guide** - Common issues (PITest green suite, OWASP rate limiting, etc.)
+5. **Upgrade Notes** - When tool versions change
 
 ---
 
@@ -2289,16 +2331,32 @@ These policy decisions should be formalized in ADRs before v1.0.0 release:
 
 | Phase | Status | Notes |
 |-------|--------|-------|
-| 1A: ADR-0014 | ✅ Complete | 2025-12-17: Created ADR-0014, updated index, marked ADR-0013 superseded |
-| 1B: Workflow Code | ✅ Complete | Python CI + Java CI both have full schema, actionlint passed |
-| 1C: Defaults Fix | ⚪ Not Started | |
+| 1A: ADR-0014 | ✅ Complete | 2025-12-17: Created ADR-0014, updated index |
+| 1A+: ADRs 0015-0018 | ✅ Complete | 2025-12-18: Versioning, mutation, scanner defaults, fixtures strategy |
+| 1B: Workflow Code | 🔄 Active | See detailed status below |
+| 1C: Defaults Fix | ⚪ Not Started | `coverage_min: 80` → `70` |
 | 2: Caller Templates | ⚪ Not Started | |
 | 3: Docs Cleanup | ⚪ Not Started | 12 files to update |
 | 3.5a: Docs Walkthrough | ⚪ Not Started | 8 docs to validate end-to-end |
 | 3.5b: Release Pipeline | ⚪ Not Started | |
-| 4: Test & Validate | ⚪ Not Started | |
+| 4: Test & Validate | 🔄 Active | Running fixture tests |
 | 5: Orchestrator Rollout | ⚪ Not Started | |
 | 6: Deprecate Old | ⚪ Not Started | |
+
+**Phase 1B Detailed Status (2025-12-18):**
+
+| Fix | Status | Notes |
+|-----|--------|-------|
+| Report schema 12+ fields | ✅ Done | Both Python CI and Java CI |
+| Lint/CodeQL workdir scoping | ✅ Done | Uses `inputs.workdir` |
+| Trivy scan-ref and output path | ✅ Done | Fixed paths |
+| Maven explicit goal execution | ✅ Done | `checkstyle:checkstyle`, `spotbugs:spotbugs`, etc. |
+| Split Maven build phases | ✅ Done | Lifecycle first, then analysis with `-DskipTests` |
+| PITest fix | ✅ Done | Removed `-DskipTests`, now 92% mutation score |
+| `if: always()` on dependent jobs | ✅ Done | Jobs run even when build-test fails |
+| OWASP dependency-check | 🔄 Testing | Upgraded to 12.1.9 |
+| Orchestrator artifact matching | ✅ Done | Match `*ci-report` not exact `ci-report` |
+| mutmut Python | ❌ Broken | Still showing 0%, needs investigation |
 
 ### Part 2: CLI Tool (`cihub`)
 
@@ -2323,6 +2381,91 @@ These policy decisions should be formalized in ADRs before v1.0.0 release:
 | Java fixtures | ⚪ Not Started | 17/21, Maven/Gradle |
 | Monorepo fixtures | ⚪ Not Started | Mixed languages, nested |
 | Edge case fixtures | ⚪ Not Started | Empty, no-config, ambiguous |
+
+### Part 4: Aggregation (from ROADMAP Phase 4)
+
+**Prerequisite:** Part 1 complete (reusable workflows generating correct reports)
+
+**Status:** ✅ Mostly implemented - blocked by Part 1 (bad report.json from old templates)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Define `hub-report.json` schema | ✅ Done | In `hub-orchestrator.yml` |
+| `aggregate_reports.py` script | ✅ Done | Loads reports, generates summary |
+| HTML dashboard generation | ✅ Done | In `aggregate_reports.py` |
+| Orchestrator `aggregate-reports` job | ✅ Done | In `hub-orchestrator.yml` |
+| Poll for distributed run completion | ✅ Done | 30 min timeout, exponential backoff |
+| Download artifacts from distributed runs | ✅ Done | Downloads `ci-report` artifact |
+| Parse `report.json` from artifacts | ✅ Done | Extracts metrics |
+| Historical data collection | ⚪ Not Started | Store over time |
+
+**How It Works (Already Implemented):**
+```
+Orchestrator dispatches → Repos run CI → Generate ci-report artifact
+     ↓
+Orchestrator polls until complete (30 min max)
+     ↓
+Downloads ci-report artifact from each repo
+     ↓
+Parses report.json → aggregate_reports.py → hub-report.json
+```
+
+**Why It Wasn't Working:**
+- Old dispatch templates generated broken `report.json` (4 fields vs 12+)
+- Part 1 fixes this - reusable workflows generate correct schema
+
+**What's Missing:**
+- Historical trends (store data over time)
+- Part 1 completion (to get correct reports)
+
+**Deliverables:**
+- [x] `aggregate_reports.py` script
+- [x] Orchestrator polling/download
+- [x] Basic `hub-report.json` generation
+- [ ] Historical data collection
+
+### Part 5: Dashboard (from ROADMAP Phase 5)
+
+**Prerequisite:** Part 4 complete (aggregation working)
+
+**Status:** Partially implemented - HTML generation exists in `aggregate_reports.py`
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Create dashboard HTML/JS | ✅ Done | In `aggregate_reports.py` |
+| Overview with all repos | ✅ Done | Table with status, coverage, mutation |
+| Summary cards | ✅ Done | Total repos, avg coverage, avg mutation |
+| Configure GitHub Pages | ⚪ Not Started | gh-pages branch |
+| Generate metrics.json on each run | ⚪ Not Started | Data for JS charts |
+| Publish to gh-pages branch | ⚪ Not Started | Auto-publish workflow |
+| Add historical trend charts | ⚪ Not Started | Requires storing history |
+| Drill-down per repo | ⚪ Not Started | Detailed view |
+
+**What Works:**
+- `aggregate_reports.py --format html` generates dashboard
+- Dark theme, responsive layout
+- Summary cards (total repos, avg coverage, avg mutation)
+- Table with per-repo status
+
+**What's Missing:**
+- GitHub Pages publishing workflow
+- Historical trend charts
+- Per-repo drill-down
+
+**Deliverables:**
+- [x] Static dashboard HTML generation
+- [ ] GitHub Pages deployment
+- [ ] Historical trends
+- [ ] Accessible via public URL
+
+### Part 6: Polish & Release (from ROADMAP Phase 8)
+
+| Task | Status | Notes |
+|------|--------|-------|
+| Update existing docs with tool versions | ⚪ Not Started | TOOLS.md, TROUBLESHOOTING.md |
+| Create CHANGELOG.md | ⚪ Not Started | All changes since start |
+| Update README.md | ⚪ Not Started | Current state |
+| Tag and publish v1.0.0 | ⚪ Not Started | First stable release |
 
 ### Enhancements
 
