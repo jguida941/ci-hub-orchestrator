@@ -441,7 +441,7 @@ jobs:
     name: Mutation Testing
     runs-on: ubuntu-latest
     needs: test
-    if: inputs.run_mutmut
+    if: always() && inputs.run_mutmut
     outputs:
       score: ${{ steps.mutmut.outputs.score }}
     defaults:
@@ -546,7 +546,7 @@ jobs:
     name: Semgrep SAST
     runs-on: ubuntu-latest
     needs: test
-    if: inputs.run_semgrep
+    if: always() && inputs.run_semgrep
     outputs:
       findings: ${{ steps.semgrep.outputs.findings }}
     defaults:
@@ -613,7 +613,7 @@ jobs:
     name: Trivy Container Scan
     runs-on: ubuntu-latest
     needs: test
-    if: inputs.run_trivy
+    if: always() && inputs.run_trivy
     outputs:
       critical: ${{ steps.trivy-parse.outputs.critical }}
       high: ${{ steps.trivy-parse.outputs.high }}
@@ -707,7 +707,7 @@ jobs:
     name: Docker Build
     runs-on: ubuntu-latest
     needs: test
-    if: inputs.run_docker
+    if: always() && inputs.run_docker
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}

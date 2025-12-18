@@ -157,6 +157,33 @@ mvn verify checkstyle:checkstyle spotbugs:spotbugs dependency-check:check
 
 **Rationale**: CI should capture all findings (test failures, static analysis issues, vulnerabilities) even when some checks fail. Threshold enforcement happens in later steps.
 
+### 8. Dependent Job Execution with `if: always()`
+
+**Problem**: When using `continue-on-error: true` on steps, the individual steps continue but the **job** is still marked as `failure` if any step fails. This causes dependent jobs (with `needs: build-test`) to be **skipped** by default.
+
+**Solution**: Add `if: always() && inputs.run_<tool>` to dependent jobs:
+
+```yaml
+mutation-test:
+  name: Mutation Testing
+  runs-on: ubuntu-latest
+  needs: build-test
+  if: always() && inputs.run_pitest  # Runs even if build-test fails
+```
+
+**Jobs requiring `if: always()`**:
+- `mutation-test` - PITest/mutmut runs after build, needs test classes
+- `pmd` - PMD analysis runs after build
+- `semgrep` - SAST scan runs after build
+- `trivy` - Container scan runs after build
+- `docker-build` - Docker build runs after build
+
+**Why not use `if: always()` alone?**
+- `if: always()` alone would run the job even when it's disabled via inputs
+- `if: always() && inputs.run_<tool>` respects the user's tool toggle while still running when build fails
+
+**Note**: The `report` job already uses `if: always()` to generate the final report regardless of upstream failures.
+
 ## Consequences
 
 ### Positive
