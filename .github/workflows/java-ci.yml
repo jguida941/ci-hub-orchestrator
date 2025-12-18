@@ -202,15 +202,15 @@ jobs:
           PASSED=0
           FAILED=0
           # Parse surefire XML reports for test counts
-          for xml in $(find . -path "*/surefire-reports/*.xml" -name "TEST-*.xml" 2>/dev/null); do
+          while IFS= read -r xml; do
             TESTS=$(grep -oP 'tests="\K[0-9]+' "$xml" | head -1 || echo 0)
             FAILURES=$(grep -oP 'failures="\K[0-9]+' "$xml" | head -1 || echo 0)
             ERRORS=$(grep -oP 'errors="\K[0-9]+' "$xml" | head -1 || echo 0)
             FAILED=$((FAILED + FAILURES + ERRORS))
             PASSED=$((PASSED + TESTS - FAILURES - ERRORS))
-          done
-          echo "passed=$PASSED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          done < <(find . -path "*/surefire-reports/*.xml" -name "TEST-*.xml" 2>/dev/null)
+          echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
           echo "Tests: $PASSED passed, $FAILED failed"
 
       - name: Extract Coverage
@@ -226,7 +226,7 @@ jobs:
               COVERAGE=$((COVERAGE * 100 / (COVERAGE + MISSED)))
             fi
           fi
-          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
           echo "Coverage: $COVERAGE%"
 
       - name: Check Coverage Threshold
@@ -243,27 +243,28 @@ jobs:
       - name: Generate Build Summary
         if: always()
         run: |
-          echo "## Build Results for ${{ github.repository }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Java Version | ${{ inputs.java_version }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Build Tool | ${{ inputs.build_tool }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-
-          echo "### Tools Executed" >> $GITHUB_STEP_SUMMARY
-          echo "| Tool | Enabled |" >> $GITHUB_STEP_SUMMARY
-          echo "|------|---------|" >> $GITHUB_STEP_SUMMARY
-          echo "| JaCoCo | ${{ inputs.run_jacoco }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Checkstyle | ${{ inputs.run_checkstyle }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| SpotBugs | ${{ inputs.run_spotbugs }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| PMD | ${{ inputs.run_pmd }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| OWASP | ${{ inputs.run_owasp }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| PITest | ${{ inputs.run_pitest }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Semgrep | ${{ inputs.run_semgrep }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Trivy | ${{ inputs.run_trivy }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Docker | ${{ inputs.run_docker }} |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Build Results for ${{ github.repository }}"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Java Version | ${{ inputs.java_version }} |"
+            echo "| Build Tool | ${{ inputs.build_tool }} |"
+            echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |"
+            echo ""
+            echo "### Tools Executed"
+            echo "| Tool | Enabled |"
+            echo "|------|---------|"
+            echo "| JaCoCo | ${{ inputs.run_jacoco }} |"
+            echo "| Checkstyle | ${{ inputs.run_checkstyle }} |"
+            echo "| SpotBugs | ${{ inputs.run_spotbugs }} |"
+            echo "| PMD | ${{ inputs.run_pmd }} |"
+            echo "| OWASP | ${{ inputs.run_owasp }} |"
+            echo "| PITest | ${{ inputs.run_pitest }} |"
+            echo "| Semgrep | ${{ inputs.run_semgrep }} |"
+            echo "| Trivy | ${{ inputs.run_trivy }} |"
+            echo "| Docker | ${{ inputs.run_docker }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # ---- Upload Artifacts ----
       - name: Upload Test Reports
@@ -389,21 +390,23 @@ jobs:
 
           # Count violations
           VIOLATIONS=0
-          for xml in $(find . -name "pmd.xml" 2>/dev/null); do
+          while IFS= read -r xml; do
             COUNT=$(grep -c "<violation" "$xml" 2>/dev/null || echo 0)
             VIOLATIONS=$((VIOLATIONS + COUNT))
-          done
+          done < <(find . -name "pmd.xml" 2>/dev/null)
 
-          echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+          echo "violations=$VIOLATIONS" >> "$GITHUB_OUTPUT"
           echo "PMD Violations: $VIOLATIONS"
         continue-on-error: true
 
       - name: Generate PMD Summary
         if: always()
         run: |
-          echo "## PMD Static Analysis Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Violations:** ${{ steps.pmd.outputs.violations }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## PMD Static Analysis Results"
+            echo ""
+            echo "**Violations:** ${{ steps.pmd.outputs.violations }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload PMD Reports
         if: always()
@@ -461,16 +464,18 @@ jobs:
             FINDINGS=$(jq '.results | length' semgrep-report.json 2>/dev/null || echo 0)
           fi
 
-          echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+          echo "findings=$FINDINGS" >> "$GITHUB_OUTPUT"
           echo "Semgrep Findings: $FINDINGS"
         continue-on-error: true
 
       - name: Generate Semgrep Summary
         if: always()
         run: |
-          echo "## Semgrep SAST Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Findings:** ${{ steps.semgrep.outputs.findings }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Semgrep SAST Results"
+            echo ""
+            echo "**Findings:** ${{ steps.semgrep.outputs.findings }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Semgrep Report
         if: always()
@@ -515,9 +520,9 @@ jobs:
         id: check-dockerfile
         run: |
           if [ -f "Dockerfile" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "No Dockerfile found - skipping Trivy container scan"
           fi
 
@@ -541,17 +546,19 @@ jobs:
             CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-report.json 2>/dev/null || echo 0)
             HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-report.json 2>/dev/null || echo 0)
           fi
-          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
-          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
+          echo "high=$HIGH" >> "$GITHUB_OUTPUT"
           echo "Trivy: $CRITICAL critical, $HIGH high"
 
       - name: Generate Trivy Summary
         if: always() && steps.check-dockerfile.outputs.exists == 'true'
         run: |
-          echo "## Trivy Container Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Critical:** ${{ steps.trivy-parse.outputs.critical }}" >> $GITHUB_STEP_SUMMARY
-          echo "**High:** ${{ steps.trivy-parse.outputs.high }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Trivy Container Scan Results"
+            echo ""
+            echo "**Critical:** ${{ steps.trivy-parse.outputs.critical }}"
+            echo "**High:** ${{ steps.trivy-parse.outputs.high }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Trivy Report
         if: always() && steps.check-dockerfile.outputs.exists == 'true'
@@ -626,7 +633,7 @@ jobs:
               SCORE=$((KILLED * 100 / TOTAL))
             fi
           fi
-          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "score=$SCORE" >> "$GITHUB_OUTPUT"
           echo "Mutation Score: $SCORE%"
 
       - name: Check Mutation Threshold
@@ -641,11 +648,13 @@ jobs:
       - name: Generate Mutation Summary
         if: always()
         run: |
-          echo "## Mutation Testing Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Mutation Score:** ${{ steps.pitest.outputs.score }}%" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Threshold:** ${{ inputs.mutation_score_min }}%" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Mutation Testing Results"
+            echo ""
+            echo "**Mutation Score:** ${{ steps.pitest.outputs.score }}%"
+            echo ""
+            echo "**Threshold:** ${{ inputs.mutation_score_min }}%"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload PITest Reports
         if: always()

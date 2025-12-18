@@ -154,27 +154,29 @@ jobs:
         run: |
           ruff check . --output-format=json --output-file=ruff-report.json || true
           ruff check . --output-format=github || true
-          ruff check . --statistics >> $GITHUB_STEP_SUMMARY || true
+          ruff check . --statistics >> "$GITHUB_STEP_SUMMARY" || true
 
           # Count errors
           ERRORS=0
           if [ -f "ruff-report.json" ]; then
             ERRORS=$(jq '. | length' ruff-report.json 2>/dev/null || echo 0)
           fi
-          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "errors=$ERRORS" >> "$GITHUB_OUTPUT"
 
       - name: Run Bandit
         if: inputs.run_bandit
         id: bandit
         run: |
           bandit -r . -f json -o bandit-report.json || true
-          bandit -r . -f txt >> $GITHUB_STEP_SUMMARY || true
+          bandit -r . -f txt >> "$GITHUB_STEP_SUMMARY" || true
           HIGH=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json 2>/dev/null || echo 0)
           MEDIUM=$(jq '[.results[] | select(.issue_severity == "MEDIUM")] | length' bandit-report.json 2>/dev/null || echo 0)
           LOW=$(jq '[.results[] | select(.issue_severity == "LOW")] | length' bandit-report.json 2>/dev/null || echo 0)
-          echo "high=$HIGH" >> $GITHUB_OUTPUT
-          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
-          echo "low=$LOW" >> $GITHUB_OUTPUT
+          {
+            echo "high=$HIGH"
+            echo "medium=$MEDIUM"
+            echo "low=$LOW"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Upload Bandit Report
         if: always() && inputs.run_bandit
@@ -201,8 +203,8 @@ jobs:
         run: |
           black --check . 2>&1 | tee black-output.txt
           WOULD_REFORMAT=$(grep -c "would reformat" black-output.txt 2>/dev/null || echo 0)
-          echo "issues=$WOULD_REFORMAT" >> $GITHUB_OUTPUT
-          echo "Black format check: $WOULD_REFORMAT files would be reformatted" >> $GITHUB_STEP_SUMMARY
+          echo "issues=$WOULD_REFORMAT" >> "$GITHUB_OUTPUT"
+          echo "Black format check: $WOULD_REFORMAT files would be reformatted" >> "$GITHUB_STEP_SUMMARY"
           if [ "$WOULD_REFORMAT" -gt 0 ]; then
             echo "::error::Black would reformat $WOULD_REFORMAT files"
             exit 1
@@ -214,8 +216,8 @@ jobs:
         run: |
           isort --check-only --diff . 2>&1 | tee isort-output.txt
           ISSUES=$(grep -c "would reformat" isort-output.txt 2>/dev/null || echo 0)
-          echo "issues=$ISSUES" >> $GITHUB_OUTPUT
-          echo "isort import check: $ISSUES files would be reformatted" >> $GITHUB_STEP_SUMMARY
+          echo "issues=$ISSUES" >> "$GITHUB_OUTPUT"
+          echo "isort import check: $ISSUES files would be reformatted" >> "$GITHUB_STEP_SUMMARY"
           if [ "$ISSUES" -gt 0 ]; then
             echo "::error::isort would reformat $ISSUES files"
             exit 1
@@ -274,8 +276,8 @@ jobs:
             FAILED=$((FAILURES + ERRORS))
             PASSED=$((TESTS - FAILED))
           fi
-          echo "tests_passed=$PASSED" >> $GITHUB_OUTPUT
-          echo "tests_failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "tests_passed=$PASSED" >> "$GITHUB_OUTPUT"
+          echo "tests_failed=$FAILED" >> "$GITHUB_OUTPUT"
 
       - name: Extract Coverage
         id: coverage
@@ -285,7 +287,7 @@ jobs:
           if [ -f "coverage.xml" ]; then
             COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
           fi
-          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
           echo "Coverage: $COVERAGE%"
 
       - name: Check Coverage Threshold
@@ -301,13 +303,15 @@ jobs:
       - name: Generate Test Summary
         if: always()
         run: |
-          echo "## Python Test Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Python Version | ${{ inputs.python_version }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |" >> $GITHUB_STEP_SUMMARY
-          echo "| Minimum | ${{ inputs.coverage_min }}% |" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Python Test Results"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Python Version | ${{ inputs.python_version }} |"
+            echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |"
+            echo "| Minimum | ${{ inputs.coverage_min }}% |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Coverage Reports
         if: always()
@@ -358,7 +362,7 @@ jobs:
       - name: Run pip-audit
         run: |
           pip-audit --format=json --output=pip-audit-report.json || true
-          pip-audit >> $GITHUB_STEP_SUMMARY || true
+          pip-audit >> "$GITHUB_STEP_SUMMARY" || true
 
       - name: Upload pip-audit Report
         if: always()
@@ -475,9 +479,11 @@ jobs:
             fi
           fi
 
-          echo "killed=$KILLED" >> $GITHUB_OUTPUT
-          echo "survived=$SURVIVED" >> $GITHUB_OUTPUT
-          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          {
+            echo "killed=$KILLED"
+            echo "survived=$SURVIVED"
+            echo "score=$SCORE"
+          } >> "$GITHUB_OUTPUT"
           echo "Mutation Score: $SCORE%"
         continue-on-error: true
         timeout-minutes: 15
@@ -494,11 +500,13 @@ jobs:
       - name: Generate Mutation Summary
         if: always()
         run: |
-          echo "## Mutation Testing Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Mutation Score:** ${{ steps.mutmut.outputs.score }}%" >> $GITHUB_STEP_SUMMARY
-          echo "**Killed:** ${{ steps.mutmut.outputs.killed }}" >> $GITHUB_STEP_SUMMARY
-          echo "**Survived:** ${{ steps.mutmut.outputs.survived }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Mutation Testing Results"
+            echo ""
+            echo "**Mutation Score:** ${{ steps.mutmut.outputs.score }}%"
+            echo "**Killed:** ${{ steps.mutmut.outputs.killed }}"
+            echo "**Survived:** ${{ steps.mutmut.outputs.survived }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # Semgrep SAST
@@ -536,16 +544,18 @@ jobs:
             FINDINGS=$(jq '.results | length' semgrep-report.json 2>/dev/null || echo 0)
           fi
 
-          echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+          echo "findings=$FINDINGS" >> "$GITHUB_OUTPUT"
           echo "Semgrep Findings: $FINDINGS"
         continue-on-error: true
 
       - name: Generate Semgrep Summary
         if: always()
         run: |
-          echo "## Semgrep SAST Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Findings:** ${{ steps.semgrep.outputs.findings }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Semgrep SAST Results"
+            echo ""
+            echo "**Findings:** ${{ steps.semgrep.outputs.findings }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Semgrep Report
         if: always()
@@ -590,9 +600,9 @@ jobs:
         id: check-dockerfile
         run: |
           if [ -f "Dockerfile" ]; then
-            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "exists=false" >> "$GITHUB_OUTPUT"
             echo "No Dockerfile found - skipping Trivy container scan"
           fi
 
@@ -616,17 +626,19 @@ jobs:
             CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' trivy-report.json 2>/dev/null || echo 0)
             HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-report.json 2>/dev/null || echo 0)
           fi
-          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
-          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "critical=$CRITICAL" >> "$GITHUB_OUTPUT"
+          echo "high=$HIGH" >> "$GITHUB_OUTPUT"
           echo "Trivy: $CRITICAL critical, $HIGH high"
 
       - name: Generate Trivy Summary
         if: always() && steps.check-dockerfile.outputs.exists == 'true'
         run: |
-          echo "## Trivy Container Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Critical:** ${{ steps.trivy-parse.outputs.critical }}" >> $GITHUB_STEP_SUMMARY
-          echo "**High:** ${{ steps.trivy-parse.outputs.high }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Trivy Container Scan Results"
+            echo ""
+            echo "**Critical:** ${{ steps.trivy-parse.outputs.critical }}"
+            echo "**High:** ${{ steps.trivy-parse.outputs.high }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Trivy Report
         if: always() && steps.check-dockerfile.outputs.exists == 'true'
