@@ -177,6 +177,9 @@ jobs:
 
       - name: Build and Test
         id: build
+        # continue-on-error allows workflow to continue when tests fail,
+        # enabling report generation and threshold enforcement
+        continue-on-error: true
         run: |
           if [ "${{ inputs.build_tool }}" = "maven" ]; then
             MVN_CMD="mvn"
@@ -199,8 +202,9 @@ jobs:
               GOALS="$GOALS dependency-check:check"
             fi
 
-            echo "Running: $MVN_CMD -B -ntp $GOALS"
-            $MVN_CMD -B -ntp $GOALS
+            # -fn (fail-never) continues build despite errors, allowing all reports to generate
+            echo "Running: $MVN_CMD -B -ntp -fn $GOALS"
+            $MVN_CMD -B -ntp -fn $GOALS || true
           else
             if [ -f "gradlew" ]; then
               chmod +x gradlew
