@@ -47,3 +47,4 @@ artifacts/
 # Cloned fixture repos
 hub-fixtures/
 ci-cd-hub-fixtures/
+scripts/ci-report/

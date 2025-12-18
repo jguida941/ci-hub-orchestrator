@@ -160,13 +160,74 @@ Process:
 
 ## Relaxed Thresholds Documentation
 
-| Fixture | Relaxation | Reason |
-|---------|------------|--------|
-| `*-passing` | `mutation_score_min: 0` | mutmut config detection being fixed |
-| `*-failing` | All thresholds relaxed | Intentionally has issues |
-| `*-with-docker` | Code quality thresholds relaxed | Focus is Docker/Trivy |
+### Python Fixtures
 
-**TODO**: Remove relaxations when tools are fully working.
+**python-passing:**
+```yaml
+mutation_score_min: 0  # mutmut config detection being fixed
+# All other thresholds at default (coverage_min: 70, etc.)
+```
+
+**python-failing:**
+```yaml
+coverage_min: 0           # Intentional low coverage
+mutation_score_min: 0     # Expected to have low score
+max_critical_vulns: 999   # Allow findings to be captured
+max_high_vulns: 999       # Allow findings to be captured
+max_semgrep_findings: 999 # Semgrep finds issues - we want to see them, not fail
+```
+
+**python-with-docker:**
+```yaml
+max_high_vulns: 10        # Focus is Docker/Trivy, not code quality
+max_semgrep_findings: 10  # Focus is Docker/Trivy, not code quality
+# run_mutmut: false       # Skip mutation testing for speed
+```
+
+### Java Fixtures
+
+**java-passing:**
+```yaml
+# Default thresholds (coverage_min: 70, etc.)
+# mutation_score_min: 0 handled by workflow's non-blocking pitest
+```
+
+**java-failing:**
+```yaml
+coverage_min: 0           # Intentional low coverage
+mutation_score_min: 0     # Expected to have low score
+owasp_cvss_fail: 11       # 11 > max CVSS (10), so never fails - allows capturing
+max_critical_vulns: 999   # Allow findings to be captured
+max_high_vulns: 999       # Allow findings to be captured
+max_semgrep_findings: 999 # Semgrep finds issues - we want to see them, not fail
+```
+
+**java-with-docker:**
+```yaml
+max_high_vulns: 10        # Focus is Docker/Trivy, not code quality
+max_semgrep_findings: 10  # Focus is Docker/Trivy, not code quality
+# run_pitest: false       # Skip mutation testing for speed
+```
+
+### Summary Table
+
+| Fixture | coverage | mutation | critical | high | semgrep | owasp |
+|---------|----------|----------|----------|------|---------|-------|
+| python-passing | 70 | 0* | 0 | 0 | 0 | N/A |
+| python-failing | 0 | 0 | 999 | 999 | 999 | N/A |
+| python-docker | 70 | N/A | 0 | 10 | 10 | N/A |
+| java-passing | 70 | 0* | 0 | 0 | 0 | 7 |
+| java-failing | 0 | 0 | 999 | 999 | 999 | 11 |
+| java-docker | 70 | N/A | 0 | 10 | 10 | 7 |
+
+`*` = Relaxed due to tool configuration issues (TODO: restore to 70 when fixed)
+`N/A` = Tool disabled for this fixture
+
+### TODO: Restore When Fixed
+
+1. **mutation_score_min** on passing fixtures: Set to 70 once mutmut/pitest configuration is working
+2. **Investigate** why python-docker has bandit/semgrep findings (inherited from python-passing copy)
+3. **Consider** whether docker fixtures should run all tools or just Docker/Trivy
 
 ## Related ADRs
 

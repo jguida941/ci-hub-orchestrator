@@ -138,6 +138,9 @@ jobs:
       bandit_medium: ${{ steps.bandit.outputs.medium }}
       black_issues: ${{ steps.black.outputs.issues }}
       isort_issues: ${{ steps.isort.outputs.issues }}
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -735,6 +738,9 @@ jobs:
     if: inputs.run_codeql
     permissions:
       security-events: write
+    defaults:
+      run:
+        working-directory: ${{ inputs.workdir }}
 
     steps:
       - name: Checkout
@@ -744,6 +750,8 @@ jobs:
         uses: github/codeql-action/init@v3
         with:
           languages: python
+          # Scope analysis to workdir only
+          source-root: ${{ inputs.workdir }}
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
