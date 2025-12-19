@@ -450,18 +450,21 @@ jobs:
         run: |
           VIOLATIONS=0
 
+          # Use checkstyle:checkstyle to generate full XML report (not :check which only counts errors)
           if [ -f "mvnw" ]; then
-            ./mvnw -B -ntp checkstyle:check 2>/dev/null || true
+            ./mvnw -B -ntp -DskipTests checkstyle:checkstyle 2>&1 | tee checkstyle-output.txt || true
           else
-            mvn -B -ntp checkstyle:check 2>/dev/null || true
+            mvn -B -ntp -DskipTests checkstyle:checkstyle 2>&1 | tee checkstyle-output.txt || true
           fi
 
+          # Count all issues from XML reports (includes both warnings and errors)
           for xml in $(find . -name "checkstyle-result.xml" 2>/dev/null); do
             COUNT=$(grep -c "<error" "$xml" 2>/dev/null || echo 0)
             VIOLATIONS=$((VIOLATIONS + COUNT))
           done
 
           echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+          echo "Checkstyle: $VIOLATIONS issues found"
         continue-on-error: true
 
       # ========================================
