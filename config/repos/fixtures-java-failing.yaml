@@ -5,6 +5,7 @@ repo:
   default_branch: main
   subdir: java-failing
   run_group: fixtures
+  dispatch_workflow: hub-java-ci.yml  # Use new reusable workflow caller
 
 java:
   version: "21"

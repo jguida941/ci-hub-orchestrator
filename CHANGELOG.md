@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-12-18 - Schema 2.0 & Reusable Workflow Migration
+
+### Schema 2.0 Report Format
+- **Aggregator upgraded for schema 2.0** - Now extracts `tool_metrics`, `tools_ran`, and `tests_passed`/`tests_failed` from reports
+- **Added `--schema-mode` flag** - Supports `warn` (default, includes all reports with warning) and `strict` (skips non-2.0 reports, exits 1 if any skipped)
+- **New helper functions** - `detect_language()` detects Java/Python from report fields, `get_status()` handles both build/test status fields
+- **HTML dashboard enhanced** - Added Language and Tests columns to repository table
+- **Comprehensive test coverage** - 28 tests covering helpers, load_reports modes, summary generation, and HTML output
+
+### Orchestrator Migration
+- **Dispatch defaults changed to hub-*-ci.yml** - Orchestrator now defaults to reusable workflow callers (`hub-python-ci.yml`/`hub-java-ci.yml`)
+- **All repo configs updated** - Explicit `dispatch_workflow` field in all configs (fixtures use new callers, smoke-tests/bst-demo/java-spring use old names until migrated)
+
+### New Files
+- `scripts/validate_report.sh` - Bash script for validating report.json against schema 2.0 requirements
+- `docs/adr/0019-report-validation-policy.md` - ADR documenting fixture validation strategy (passing vs failing, expect-clean)
+- `docs/adr/0020-schema-backward-compatibility.md` - ADR documenting schema migration strategy and --schema-mode flag
+
+### Unreleased (from CHANGES.md)
+- Replaced `hub-run-all.yml` matrix builder with `scripts/load_config.py` to honor `run_group`, dispatch toggles, and all tool flags/thresholds from schema-validated configs
+- Added `scripts/verify_hub_matrix_keys.py` to fail fast when workflows reference matrix keys that the builder does not emit
+- Hardened reusable workflows: Java/Python CI now enforce coverage, mutation, dependency, SAST, and formatting gates based on run_* flags and threshold inputs
+- Stabilized smoke test verifier script (no early exit, no eval) and anchored checks for workflow/config presence
+- Added `hub-self-check` workflow (matrix verifier, smoke setup check, matrix dry-run) and unit tests for config loading/generation
+- Installed `jq` in reusable workflows and reordered gates to upload artifacts even when enforcement fails
+
+---
+
 ## 2025-12-15 (Night)
 
 ### Bug Fixes

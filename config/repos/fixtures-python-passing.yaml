@@ -5,6 +5,7 @@ repo:
   default_branch: main
   subdir: python-passing
   run_group: fixtures
+  dispatch_workflow: hub-python-ci.yml  # Use new reusable workflow caller
 
 python:
   version: "3.12"

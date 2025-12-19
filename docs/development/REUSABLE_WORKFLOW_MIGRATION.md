@@ -404,12 +404,12 @@ if not dispatch_workflow:
 3. Remove old `python-ci-dispatch.yml` after confirming
 
 **Tasks:**
-- [ ] ~~Add `dispatch_workflow` field to repo config schema~~ (ALREADY EXISTS - use existing field)
-- [ ] Update orchestrator to respect per-repo override
-- [ ] Keep `python-ci-dispatch.yml` as default during migration
+- [x] ~~Add `dispatch_workflow` field to repo config schema~~ (ALREADY EXISTS - use existing field)
+- [x] Update orchestrator to respect per-repo override
+- [x] Keep `python-ci-dispatch.yml` as default during migration (smoke-test configs use old names)
 - [ ] Document migration path for each repo
-- [ ] Test with one repo (fixtures) before others
-- [ ] After all repos migrated, change default to `hub-ci.yml`
+- [x] Test with one repo (fixtures) before others
+- [x] After all repos migrated, change default to `hub-ci.yml` (fixtures use new hub-*-ci.yml)
 
 ---
 
@@ -1688,11 +1688,11 @@ grep "uses:.*java-ci.yml@v1" templates/repo/hub-java-ci.yml
 
 | # | Task | Status |
 |---|------|--------|
-| 5.1 | Add per-repo `dispatch_workflow` override support (already in schema) | [ ] |
-| 5.2 | Keep default as old workflow during migration | [ ] |
-| 5.3 | Migrate fixture repos first (add `hub-ci.yml`, set override) | [ ] |
+| 5.1 | Add per-repo `dispatch_workflow` override support (already in schema) | [x] |
+| 5.2 | Keep default as old workflow during migration (smoke-tests use old names) | [x] |
+| 5.3 | Migrate fixture repos first (add `hub-ci.yml`, set override) | [x] |
 | 5.4 | Migrate remaining repos one-by-one | [ ] |
-| 5.5 | After all migrated: change default to `hub-ci.yml` | [ ] |
+| 5.5 | After all migrated: change default to `hub-ci.yml` (orchestrator defaults updated) | [x] |
 
 **Note:** Option B (workflow existence check) requires `gh api` or `curl` in the orchestrator job.
 
@@ -2476,6 +2476,32 @@ Parses report.json → aggregate_reports.py → hub-report.json
 - `tools_ran` matches inputs (true when enabled, false when skipped).
 - Threshold gates behave: coverage/mutation/owasp/trivy/semgrep fail when over limits (except fixtures with documented relaxed thresholds).
 - Artifacts exist with expected names (ci-report plus tool artifacts).
+
+**Production validation approach:**
+- Keep failing fixtures confined to the fixtures repo (not production callers); they exist to assert detection paths with relaxed thresholds.
+- Use passing fixtures (strict thresholds) as the reference for production templates.
+- ✅ **Reusable validation script:** `scripts/validate_report.sh` (see ADR-0019)
+- Production callers should use strict thresholds; do not copy relaxed fixture thresholds.
+- Plan to upstream the report validation checks into production CI once fixture validation is stable.
+
+**Validation script usage:**
+
+```bash
+# Passing fixture - strict (zero issues expected)
+./scripts/validate_report.sh --report ./report/report.json --stack python --expect-clean
+
+# Failing fixture - must detect issues
+./scripts/validate_report.sh --report ./report/report.json --stack java --expect-issues --verbose
+```
+
+**Script features:**
+- `--stack python|java` selects appropriate metrics
+- `--expect-clean` validates zero issues (passing fixtures)
+- `--expect-issues` validates issue detection (failing fixtures)
+- `--coverage-min <n>` sets coverage threshold (default: 70)
+- `--verbose` shows all checks, not just failures
+- GitHub Actions annotation format (`::error::`, `::warning::`)
+- Exit 0 (pass) or 1 (fail) for CI integration
 
 ### Part 6: Polish & Release (from ROADMAP Phase 8)
 

@@ -15,42 +15,89 @@ from datetime import datetime
 from pathlib import Path
 
 
-def load_reports(reports_dir: Path) -> list[dict]:
-    """Load all report JSON files from the reports directory."""
+def load_reports(reports_dir: Path, schema_mode: str = "warn") -> tuple[list[dict], int]:
+    """Load all report JSON files from the reports directory.
+
+    Args:
+        reports_dir: Directory containing report.json files
+        schema_mode: "warn" to warn on non-2.0 schema, "strict" to skip them
+
+    Returns:
+        Tuple of (reports list, skipped count)
+    """
     reports = []
+    skipped = 0
 
     if not reports_dir.exists():
-        return reports
+        return reports, skipped
 
     for report_file in reports_dir.glob("**/report.json"):
         try:
             with open(report_file) as f:
                 report = json.load(f)
                 report["_source_file"] = str(report_file)
+
+                # Validate schema version
+                schema_version = report.get("schema_version")
+                if schema_version != "2.0":
+                    if schema_mode == "strict":
+                        print(f"Skipping {report_file}: schema_version={schema_version}, expected '2.0'")
+                        skipped += 1
+                        continue
+                    else:
+                        print(f"Warning: {report_file} has schema_version={schema_version}, expected '2.0'")
+
                 reports.append(report)
         except (json.JSONDecodeError, OSError) as e:
             print(f"Warning: Could not load {report_file}: {e}")
 
-    return reports
+    return reports, skipped
+
+
+def detect_language(report: dict) -> str:
+    """Detect language from report fields."""
+    if report.get("java_version"):
+        return "java"
+    if report.get("python_version"):
+        return "python"
+    # Fallback to tools_ran inspection
+    tools_ran = report.get("tools_ran", {})
+    if tools_ran.get("jacoco") or tools_ran.get("checkstyle") or tools_ran.get("spotbugs"):
+        return "java"
+    if tools_ran.get("pytest") or tools_ran.get("ruff") or tools_ran.get("bandit"):
+        return "python"
+    return "unknown"
+
+
+def get_status(report: dict) -> str:
+    """Get build/test status from report (handles both Java and Python)."""
+    results = report.get("results", {})
+    # Python uses 'test', Java uses 'build'
+    status = results.get("test") or results.get("build") or "unknown"
+    return status
 
 
 def generate_summary(reports: list[dict]) -> dict:
     """Generate a summary from all reports."""
     summary = {
         "generated_at": datetime.utcnow().isoformat() + "Z",
+        "schema_version": "2.0",
         "total_repos": len(reports),
         "languages": {},
         "coverage": {"total": 0, "count": 0, "average": 0},
         "mutation": {"total": 0, "count": 0, "average": 0},
+        "tests": {"total_passed": 0, "total_failed": 0},
         "repos": [],
     }
 
     for report in reports:
         repo_name = report.get("repository", "unknown")
         results = report.get("results", {})
+        tool_metrics = report.get("tool_metrics", {})
+        tools_ran = report.get("tools_ran", {})
 
-        # Track languages
-        lang = report.get("java_version") and "java" or "python"
+        # Track languages using helper
+        lang = detect_language(report)
         summary["languages"][lang] = summary["languages"].get(lang, 0) + 1
 
         # Coverage
@@ -65,17 +112,35 @@ def generate_summary(reports: list[dict]) -> dict:
             summary["mutation"]["total"] += mutation
             summary["mutation"]["count"] += 1
 
-        # Repo details
-        summary["repos"].append(
-            {
-                "name": repo_name,
-                "branch": report.get("branch", "unknown"),
-                "status": results.get("build", "unknown"),
-                "coverage": coverage,
-                "mutation_score": mutation,
-                "timestamp": report.get("timestamp", "unknown"),
-            }
-        )
+        # Test counts
+        tests_passed = results.get("tests_passed", 0)
+        tests_failed = results.get("tests_failed", 0)
+        summary["tests"]["total_passed"] += tests_passed
+        summary["tests"]["total_failed"] += tests_failed
+
+        # Repo details with schema 2.0 fields
+        repo_detail = {
+            "name": repo_name,
+            "branch": report.get("branch", "unknown"),
+            "language": lang,
+            "status": get_status(report),
+            "coverage": coverage,
+            "mutation_score": mutation,
+            "tests_passed": tests_passed,
+            "tests_failed": tests_failed,
+            "timestamp": report.get("timestamp", "unknown"),
+            "schema_version": report.get("schema_version", "unknown"),
+        }
+
+        # Include tool_metrics if present
+        if tool_metrics:
+            repo_detail["tool_metrics"] = tool_metrics
+
+        # Include tools_ran if present
+        if tools_ran:
+            repo_detail["tools_ran"] = tools_ran
+
+        summary["repos"].append(repo_detail)
 
     # Calculate averages
     if summary["coverage"]["count"] > 0:
@@ -96,12 +161,17 @@ def generate_html_dashboard(summary: dict) -> str:
     repos_html = ""
     for repo in summary["repos"]:
         status_class = "success" if repo["status"] == "success" else "failure"
+        tests_passed = repo.get("tests_passed", 0)
+        tests_failed = repo.get("tests_failed", 0)
+        tests_class = "success" if tests_failed == 0 else "failure"
         repos_html += f"""
         <tr>
             <td>{repo['name']}</td>
+            <td>{repo.get('language', 'unknown')}</td>
             <td>{repo['branch']}</td>
             <td class="{status_class}">{repo['status']}</td>
             <td>{repo['coverage']}%</td>
+            <td class="{tests_class}">{tests_passed}/{tests_passed + tests_failed}</td>
             <td>{repo['mutation_score']}%</td>
             <td>{repo['timestamp']}</td>
         </tr>
@@ -182,6 +252,10 @@ def generate_html_dashboard(summary: dict) -> str:
             <div class="card-value">{len(summary['languages'])}</div>
             <div class="card-label">Languages</div>
         </div>
+        <div class="card">
+            <div class="card-value">{summary['tests']['total_passed']}/{summary['tests']['total_passed'] + summary['tests']['total_failed']}</div>
+            <div class="card-label">Tests Passed</div>
+        </div>
     </div>
 
     <h2>Repository Status</h2>
@@ -189,9 +263,11 @@ def generate_html_dashboard(summary: dict) -> str:
         <thead>
             <tr>
                 <th>Repository</th>
+                <th>Language</th>
                 <th>Branch</th>
                 <th>Status</th>
                 <th>Coverage</th>
+                <th>Tests</th>
                 <th>Mutation</th>
                 <th>Last Run</th>
             </tr>
@@ -228,12 +304,20 @@ def main():
         default="html",
         help="Output format",
     )
+    parser.add_argument(
+        "--schema-mode",
+        choices=["warn", "strict"],
+        default="warn",
+        help="Schema validation mode: 'warn' logs warning but includes report, 'strict' skips non-2.0 reports",
+    )
 
     args = parser.parse_args()
 
     # Load reports
-    reports = load_reports(args.reports_dir)
+    reports, skipped = load_reports(args.reports_dir, schema_mode=args.schema_mode)
     print(f"Loaded {len(reports)} reports")
+    if skipped > 0:
+        print(f"Skipped {skipped} reports with non-2.0 schema")
 
     # Generate summary
     summary = generate_summary(reports)
@@ -249,6 +333,12 @@ def main():
 
     print(f"Generated {args.format} report: {args.output}")
 
+    # Exit with error if strict mode and reports were skipped
+    if args.schema_mode == "strict" and skipped > 0:
+        return 1
+    return 0
+
 
 if __name__ == "__main__":
-    main()
+    import sys
+    sys.exit(main())

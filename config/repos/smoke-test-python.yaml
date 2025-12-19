@@ -11,6 +11,7 @@ repo:
   language: python
   default_branch: main
   run_group: smoke
+  dispatch_workflow: hub-python-ci.yml  # Reusable workflow caller
 
 python:
   version: "3.12"

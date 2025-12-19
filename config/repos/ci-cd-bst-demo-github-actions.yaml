@@ -10,7 +10,7 @@ repo:
   language: python
   default_branch: main
   dispatch_enabled: true
-  dispatch_workflow: python-ci-dispatch.yml  # Uses hub template
+  dispatch_workflow: hub-python-ci.yml  # Reusable workflow caller
 
 python:
   version: "3.12"
