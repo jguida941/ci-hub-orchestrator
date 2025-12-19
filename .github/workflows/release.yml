@@ -29,10 +29,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install actionlint
+      - name: Install actionlint (pinned version with checksum)
+        env:
+          ACTIONLINT_VERSION: "1.7.4"
+          ACTIONLINT_CHECKSUM: "b7da4979e1fc3ec680bf1e2b589ce22bade833c347ba7e234f9a6c3b7a9f6086"
         run: |
-          bash <(curl -s https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          curl -sLO "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          echo "${ACTIONLINT_CHECKSUM}  actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" | sha256sum -c -
+          tar -xzf "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz" actionlint
           sudo mv actionlint /usr/local/bin/
+          rm "actionlint_${ACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          actionlint --version
 
       - name: Validate reusable workflows
         run: |
