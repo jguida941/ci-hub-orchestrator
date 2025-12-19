@@ -839,14 +839,66 @@ jobs:
       - name: Generate QA Metrics Report
         id: report
         run: |
+          # Configuration Summary (matches reusable workflow format)
           cat >> $GITHUB_STEP_SUMMARY << 'EOF'
-          # QA Metrics: ${{ matrix.owner }}/${{ matrix.name }}
+          # Configuration Summary
 
-          **Branch:** `${{ matrix.branch }}` | **Language:** `${{ matrix.language }}` | **Run:** #${{ github.run_number }}
+          EOF
+
+          if [ "${{ matrix.language }}" = "java" ]; then
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## Tools Enabled
+          | Category | Tool | Enabled |
+          |----------|------|---------|
+          | Build | maven | true |
+          | Testing | JaCoCo Coverage | ${{ matrix.run_jacoco || 'true' }} |
+          | Testing | PITest | ${{ matrix.run_pitest || 'true' }} |
+          | Linting | Checkstyle | ${{ matrix.run_checkstyle || 'true' }} |
+          | Linting | PMD | ${{ matrix.run_pmd || 'true' }} |
+          | Linting | SpotBugs | ${{ matrix.run_spotbugs || 'true' }} |
+          | Security | OWASP Dependency-Check | ${{ matrix.run_owasp || 'true' }} |
+          | Security | Semgrep | ${{ matrix.run_semgrep || 'false' }} |
+          | Security | Trivy | ${{ matrix.run_trivy || 'false' }} |
+
+          ## Environment
+          | Setting | Value |
+          |---------|-------|
+          | Repository | ${{ matrix.owner }}/${{ matrix.name }} |
+          | Branch | ${{ matrix.branch }} |
+          | Language | Java |
+          | Run Number | #${{ github.run_number }} |
 
           ---
 
           EOF
+          else
+            cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## Tools Enabled
+          | Category | Tool | Enabled |
+          |----------|------|---------|
+          | Testing | pytest | ${{ matrix.run_pytest || 'true' }} |
+          | Testing | mutmut | ${{ matrix.run_mutmut || 'true' }} |
+          | Linting | Ruff | ${{ matrix.run_ruff || 'true' }} |
+          | Linting | Black | ${{ matrix.run_black || 'true' }} |
+          | Linting | isort | ${{ matrix.run_isort || 'true' }} |
+          | Linting | mypy | ${{ matrix.run_mypy || 'false' }} |
+          | Security | Bandit | ${{ matrix.run_bandit || 'true' }} |
+          | Security | pip-audit | ${{ matrix.run_pip_audit || 'true' }} |
+          | Security | Semgrep | ${{ matrix.run_semgrep || 'false' }} |
+          | Security | Trivy | ${{ matrix.run_trivy || 'false' }} |
+
+          ## Environment
+          | Setting | Value |
+          |---------|-------|
+          | Repository | ${{ matrix.owner }}/${{ matrix.name }} |
+          | Branch | ${{ matrix.branch }} |
+          | Language | Python |
+          | Run Number | #${{ github.run_number }} |
+
+          ---
+
+          EOF
+          fi
 
           if [ "${{ matrix.language }}" = "java" ]; then
             # Calculate progress bar
@@ -871,7 +923,12 @@ jobs:
           | **Trivy** | ${{ steps.trivy.outputs.critical || 0 }} crit, ${{ steps.trivy.outputs.high || 0 }} high | Container scan |
 
           ### Dependency Severity
-          🔴 Critical: ${{ steps.java-owasp.outputs.critical || 0 }} | 🟠 High: ${{ steps.java-owasp.outputs.high || 0 }} | 🟡 Medium: ${{ steps.java-owasp.outputs.medium || 0 }} | 🟢 Low: ${{ steps.java-owasp.outputs.low || 0 }}
+          | Severity | Count |
+          |----------|-------|
+          | 🔴 Critical | ${{ steps.java-owasp.outputs.critical || 0 }} |
+          | 🟠 High | ${{ steps.java-owasp.outputs.high || 0 }} |
+          | 🟡 Medium | ${{ steps.java-owasp.outputs.medium || 0 }} |
+          | 🟢 Low | ${{ steps.java-owasp.outputs.low || 0 }} |
 
           EOF
 
@@ -899,7 +956,11 @@ jobs:
           | **Trivy** | ${{ steps.trivy.outputs.critical || 0 }} crit, ${{ steps.trivy.outputs.high || 0 }} high | Container scan |
 
           ### Security Summary
-          High: ${{ steps.python-bandit.outputs.high || 0 }} | Medium: ${{ steps.python-bandit.outputs.medium || 0 }} | Low: ${{ steps.python-bandit.outputs.low || 0 }}
+          | Severity | Count |
+          |----------|-------|
+          | 🔴 High | ${{ steps.python-bandit.outputs.high || 0 }} |
+          | 🟡 Medium | ${{ steps.python-bandit.outputs.medium || 0 }} |
+          | 🟢 Low | ${{ steps.python-bandit.outputs.low || 0 }} |
 
           EOF
           fi
