@@ -280,26 +280,13 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Build Results for ${{ github.repository }}"
+            echo "## Build Results"
             echo ""
             echo "| Metric | Value |"
             echo "|--------|-------|"
-            echo "| Java Version | ${{ inputs.java_version }} |"
-            echo "| Build Tool | ${{ inputs.build_tool }} |"
             echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |"
-            echo ""
-            echo "### Tools Executed"
-            echo "| Tool | Enabled |"
-            echo "|------|---------|"
-            echo "| JaCoCo | ${{ inputs.run_jacoco }} |"
-            echo "| Checkstyle | ${{ inputs.run_checkstyle }} |"
-            echo "| SpotBugs | ${{ inputs.run_spotbugs }} |"
-            echo "| PMD | ${{ inputs.run_pmd }} |"
-            echo "| OWASP | ${{ inputs.run_owasp }} |"
-            echo "| PITest | ${{ inputs.run_pitest }} |"
-            echo "| Semgrep | ${{ inputs.run_semgrep }} |"
-            echo "| Trivy | ${{ inputs.run_trivy }} |"
-            echo "| Docker | ${{ inputs.run_docker }} |"
+            echo "| Tests Passed | ${{ steps.test-counts.outputs.tests_passed }} |"
+            echo "| Tests Failed | ${{ steps.test-counts.outputs.tests_failed }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # ---- Upload Artifacts ----
@@ -832,6 +819,45 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: all-reports/
+
+      - name: Generate Configuration Summary
+        run: |
+          {
+            echo "## Configuration Summary"
+            echo ""
+            echo "### Tools Enabled"
+            echo "| Tool | Enabled |"
+            echo "|------|---------|"
+            echo "| jacoco | ${{ inputs.run_jacoco }} |"
+            echo "| checkstyle | ${{ inputs.run_checkstyle }} |"
+            echo "| spotbugs | ${{ inputs.run_spotbugs }} |"
+            echo "| pmd | ${{ inputs.run_pmd }} |"
+            echo "| owasp | ${{ inputs.run_owasp }} |"
+            echo "| pitest | ${{ inputs.run_pitest }} |"
+            echo "| semgrep | ${{ inputs.run_semgrep }} |"
+            echo "| trivy | ${{ inputs.run_trivy }} |"
+            echo "| docker | ${{ inputs.run_docker }} |"
+            echo "| codeql | ${{ inputs.run_codeql }} |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| coverage_min | ${{ inputs.coverage_min }}% |"
+            echo "| mutation_score_min | ${{ inputs.mutation_score_min }}% |"
+            echo "| owasp_cvss_fail | ${{ inputs.owasp_cvss_fail }} |"
+            echo "| max_critical_vulns | ${{ inputs.max_critical_vulns }} |"
+            echo "| max_high_vulns | ${{ inputs.max_high_vulns }} |"
+            echo "| max_semgrep_findings | ${{ inputs.max_semgrep_findings }} |"
+            echo "| max_pmd_violations | ${{ inputs.max_pmd_violations }} |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| java_version | ${{ inputs.java_version }} |"
+            echo "| build_tool | ${{ inputs.build_tool }} |"
+            echo "| workdir | ${{ inputs.workdir }} |"
+            echo "| retention_days | ${{ inputs.retention_days }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Generate Combined Report
         run: |
