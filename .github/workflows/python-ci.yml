@@ -907,6 +907,47 @@ jobs:
         with:
           path: all-reports/
 
+      - name: Generate Configuration Summary
+        run: |
+          {
+            echo "## Configuration Summary"
+            echo ""
+            echo "### Tools Enabled"
+            echo "| Tool | Enabled |"
+            echo "|------|---------|"
+            echo "| pytest | ${{ inputs.run_pytest }} |"
+            echo "| ruff | ${{ inputs.run_ruff }} |"
+            echo "| bandit | ${{ inputs.run_bandit }} |"
+            echo "| pip-audit | ${{ inputs.run_pip_audit }} |"
+            echo "| mypy | ${{ inputs.run_mypy }} |"
+            echo "| black | ${{ inputs.run_black }} |"
+            echo "| isort | ${{ inputs.run_isort }} |"
+            echo "| mutmut | ${{ inputs.run_mutmut }} |"
+            echo "| semgrep | ${{ inputs.run_semgrep }} |"
+            echo "| trivy | ${{ inputs.run_trivy }} |"
+            echo "| docker | ${{ inputs.run_docker }} |"
+            echo "| codeql | ${{ inputs.run_codeql }} |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| coverage_min | ${{ inputs.coverage_min }}% |"
+            echo "| mutation_score_min | ${{ inputs.mutation_score_min }}% |"
+            echo "| max_critical_vulns | ${{ inputs.max_critical_vulns }} |"
+            echo "| max_high_vulns | ${{ inputs.max_high_vulns }} |"
+            echo "| max_semgrep_findings | ${{ inputs.max_semgrep_findings }} |"
+            echo "| max_black_issues | ${{ inputs.max_black_issues }} |"
+            echo "| max_isort_issues | ${{ inputs.max_isort_issues }} |"
+            echo "| max_ruff_errors | ${{ inputs.max_ruff_errors }} |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| python_version | ${{ inputs.python_version }} |"
+            echo "| workdir | ${{ inputs.workdir }} |"
+            echo "| retention_days | ${{ inputs.retention_days }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Generate Combined Report
         run: |
           # Extract vulnerability counts from pip-audit report
