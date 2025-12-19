@@ -56,7 +56,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install pytest
+          pip install pytest pyyaml jsonschema
 
       - name: Run tests
         run: |
