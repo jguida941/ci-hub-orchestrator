@@ -29,7 +29,7 @@ flowchart LR
 | Workflow | Purpose | Trigger |
 |----------|---------|---------|
 | `hub-run-all.yml` | Central mode: clone each repo, run all tools, upload reports | push to main, schedule, manual |
-| `hub-orchestrator.yml` | Dispatch mode: trigger reusable workflows in target repos | manual |
+| `hub-orchestrator.yml` | Dispatch mode: trigger reusable workflows (`hub-*.yml`) in target repos | manual |
 | `smoke-test.yml` | Sanity check fast profiles against fixture repos | manual |
 | `config-validate.yml` | Validate `config/repos/*.yaml` against schema | push/PR |
 | `java-ci.yml` / `python-ci.yml` | Reusable workflows for dispatch mode | called by orchestrator |
@@ -50,7 +50,9 @@ gh workflow run hub-run-all.yml -R jguida941/ci-cd-hub -f repos=java-spring-tuto
 ### Dispatch mode (optional)
 1) Create a PAT with scopes `repo` and `workflow`.  
 2) Add it as secret `HUB_DISPATCH_TOKEN` in the hub repo.  
-3) Set `repo.dispatch_enabled: true` and ensure the target repo has `workflow_dispatch` calling `java-ci.yml` or `python-ci.yml`.
+3) Ensure the target repo has a thin caller workflow (`.github/workflows/hub-python-ci.yml` or `hub-java-ci.yml`) pointing to `@v1`.  
+4) Set `repo.dispatch_workflow: hub-python-ci.yml` (or `hub-java-ci.yml`) in `config/repos/<repo>.yaml` and `dispatch_enabled: true`.  
+5) The orchestrator defaults to `hub-*.yml` and falls back only if a different `dispatch_workflow` is set.
 
 ## Adding a Repository
 Create `config/repos/<name>.yaml`:
@@ -73,11 +75,12 @@ thresholds:
 ```
 
 ## Fixtures and Smoke Tests
-- Fixtures repo: `jguida941/ci-cd-hub-fixtures` with subdirs `python-passing`, `python-failing`, `java-passing`, `java-failing`.
+- Fixtures repo: `jguida941/ci-cd-hub-fixtures` with subdirs `python-passing`, `python-failing`, `python-with-docker`, `java-passing`, `java-failing`, `java-with-docker`.
 - Smoke configs use `run_group: smoke`. Fixtures use `run_group: fixtures`.
 - Use `run_group` input on `hub-run-all.yml` to avoid unintentionally running every set.
 
 ## Reports and Artifacts
+- Report schema: `schema_version: "2.0"` with `tool_metrics` and `tools_ran` objects. Use `scripts/validate_report.sh` (`--stack python|java`, `--expect-clean|--expect-issues`) to validate `report.json`.
 - Job names and artifacts include config basename and subdir to disambiguate duplicate repos.
 - Uploaded artifacts include test results, coverage, mutation, dependency, static analysis, and Semgrep/Trivy outputs.
 - Mutation testing:
