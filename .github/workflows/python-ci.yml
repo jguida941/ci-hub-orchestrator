@@ -253,7 +253,13 @@ jobs:
         run: |
           isort --check-only --diff . 2>&1 | tee isort-output.txt || true
           # Count ERROR lines (isort says "ERROR: <file> Imports are incorrectly sorted")
-          ISSUES=$(grep -c "^ERROR:" isort-output.txt 2>/dev/null || echo 0)
+          ISSUES=0
+          if [ -f isort-output.txt ]; then
+            COUNT=$(grep -c "^ERROR:" isort-output.txt 2>/dev/null || true)
+            if [ -n "$COUNT" ] && [ "$COUNT" -gt 0 ]; then
+              ISSUES=$COUNT
+            fi
+          fi
           echo "issues=$ISSUES" >> "$GITHUB_OUTPUT"
 
       - name: Enforce isort Threshold
@@ -272,52 +278,53 @@ jobs:
           {
             echo "## Lint Results"
             echo ""
-            echo "| Tool | Status | Issues | Threshold |"
-            echo "|------|--------|--------|-----------|"
+            echo "| Tool | Status | Issues | Max Allowed |"
+            echo "|------|--------|--------|-------------|"
 
             # Ruff
-            RUFF_ISSUES="${{ steps.ruff.outputs.errors || 'N/A' }}"
+            RUFF_ISSUES="${{ steps.ruff.outputs.errors }}"
             RUFF_MAX="${{ inputs.max_ruff_errors }}"
-            if [ "$RUFF_ISSUES" = "N/A" ] || [ "${{ inputs.run_ruff }}" != "true" ]; then
+            if [ -z "$RUFF_ISSUES" ]; then
               echo "| Ruff | ⏭️ Skipped | - | - |"
             elif [ "$RUFF_ISSUES" -le "$RUFF_MAX" ]; then
-              echo "| Ruff | ✅ Pass | $RUFF_ISSUES | $RUFF_MAX |"
+              echo "| Ruff | ✅ Pass | $RUFF_ISSUES errors | $RUFF_MAX |"
             else
-              echo "| Ruff | ❌ Fail | $RUFF_ISSUES | $RUFF_MAX |"
+              echo "| Ruff | ❌ Fail | $RUFF_ISSUES errors | $RUFF_MAX |"
             fi
 
             # Bandit
-            BANDIT_HIGH="${{ steps.bandit.outputs.high || 'N/A' }}"
-            BANDIT_MED="${{ steps.bandit.outputs.medium || '0' }}"
-            BANDIT_LOW="${{ steps.bandit.outputs.low || '0' }}"
-            if [ "$BANDIT_HIGH" = "N/A" ] || [ "${{ inputs.run_bandit }}" != "true" ]; then
+            BANDIT_HIGH="${{ steps.bandit.outputs.high }}"
+            BANDIT_MED="${{ steps.bandit.outputs.medium }}"
+            BANDIT_LOW="${{ steps.bandit.outputs.low }}"
+            BANDIT_MAX="${{ inputs.max_high_vulns }}"
+            if [ -z "$BANDIT_HIGH" ]; then
               echo "| Bandit | ⏭️ Skipped | - | - |"
-            elif [ "$BANDIT_HIGH" -le "${{ inputs.max_high_vulns }}" ]; then
-              echo "| Bandit | ✅ Pass | H:$BANDIT_HIGH M:$BANDIT_MED L:$BANDIT_LOW | H≤${{ inputs.max_high_vulns }} |"
+            elif [ "$BANDIT_HIGH" -le "$BANDIT_MAX" ]; then
+              echo "| Bandit | ✅ Pass | High:$BANDIT_HIGH Med:$BANDIT_MED Low:$BANDIT_LOW | High≤$BANDIT_MAX |"
             else
-              echo "| Bandit | ❌ Fail | H:$BANDIT_HIGH M:$BANDIT_MED L:$BANDIT_LOW | H≤${{ inputs.max_high_vulns }} |"
+              echo "| Bandit | ❌ Fail | High:$BANDIT_HIGH Med:$BANDIT_MED Low:$BANDIT_LOW | High≤$BANDIT_MAX |"
             fi
 
             # Black
-            BLACK_ISSUES="${{ steps.black.outputs.issues || 'N/A' }}"
+            BLACK_ISSUES="${{ steps.black.outputs.issues }}"
             BLACK_MAX="${{ inputs.max_black_issues }}"
-            if [ "$BLACK_ISSUES" = "N/A" ] || [ "${{ inputs.run_black }}" != "true" ]; then
+            if [ -z "$BLACK_ISSUES" ]; then
               echo "| Black | ⏭️ Skipped | - | - |"
             elif [ "$BLACK_ISSUES" -le "$BLACK_MAX" ]; then
-              echo "| Black | ✅ Pass | $BLACK_ISSUES | $BLACK_MAX |"
+              echo "| Black | ✅ Pass | $BLACK_ISSUES files | $BLACK_MAX |"
             else
-              echo "| Black | ❌ Fail | $BLACK_ISSUES | $BLACK_MAX |"
+              echo "| Black | ❌ Fail | $BLACK_ISSUES files | $BLACK_MAX |"
             fi
 
             # isort
-            ISORT_ISSUES="${{ steps.isort.outputs.issues || 'N/A' }}"
+            ISORT_ISSUES="${{ steps.isort.outputs.issues }}"
             ISORT_MAX="${{ inputs.max_isort_issues }}"
-            if [ "$ISORT_ISSUES" = "N/A" ] || [ "${{ inputs.run_isort }}" != "true" ]; then
+            if [ -z "$ISORT_ISSUES" ]; then
               echo "| isort | ⏭️ Skipped | - | - |"
             elif [ "$ISORT_ISSUES" -le "$ISORT_MAX" ]; then
-              echo "| isort | ✅ Pass | $ISORT_ISSUES | $ISORT_MAX |"
+              echo "| isort | ✅ Pass | $ISORT_ISSUES files | $ISORT_MAX |"
             else
-              echo "| isort | ❌ Fail | $ISORT_ISSUES | $ISORT_MAX |"
+              echo "| isort | ❌ Fail | $ISORT_ISSUES files | $ISORT_MAX |"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
