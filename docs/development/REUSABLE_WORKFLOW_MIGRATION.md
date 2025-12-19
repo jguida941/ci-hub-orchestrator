@@ -2,10 +2,25 @@
 
 > **This is the primary execution plan for CI/CD Hub.** Supersedes ROADMAP.md phases 4-8.
 
-**Status:** Phase 1B In Progress
+**Status:** Phase 3.5 - Releasing v1.0.0
 **Created:** 2025-12-15
 **Last Updated:** 2025-12-18
 **Goal:** Migrate from dispatch templates to GitHub reusable workflows + CLI tool for automatic repo onboarding
+
+## v1.0.0 Scope
+
+**Included in v1.0.0:**
+- Reusable workflows: `python-ci.yml`, `java-ci.yml`, `kyverno-ci.yml`
+- Caller templates: `templates/repo/hub-python-ci.yml`, `hub-java-ci.yml`
+- Report schema 2.0 with `tool_metrics`, `tools_ran`
+- Release workflow with actionlint validation
+- Semantic versioning with floating tags (`v1` → latest `v1.x.x`)
+
+**Deferred to v1.1.0:**
+- Profile templates (`templates/profiles/*.yaml`) - not validated for v1
+- CLI tool (`cihub`) for auto-onboarding
+- Phase 4: Full fixture repo migration
+- Dashboard/GitHub Pages
 
 ## Quick Status
 
