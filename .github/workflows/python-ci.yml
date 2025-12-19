@@ -351,7 +351,7 @@ jobs:
 
             # Ruff
             if [ "${{ inputs.run_ruff }}" != "true" ]; then
-              echo "| Ruff | ⏭️ Disabled | run_ruff=false | - |"
+              echo "| Ruff | ⏭️ Skipped | - | - |"
             else
               RUFF_ISSUES="${{ steps.ruff.outputs.errors || 0 }}"
               RUFF_MAX="${{ inputs.max_ruff_errors }}"
@@ -362,24 +362,9 @@ jobs:
               fi
             fi
 
-            # Bandit
-            if [ "${{ inputs.run_bandit }}" != "true" ]; then
-              echo "| Bandit | ⏭️ Disabled | run_bandit=false | - |"
-            else
-              BANDIT_HIGH="${{ steps.bandit.outputs.high || 0 }}"
-              BANDIT_MED="${{ steps.bandit.outputs.medium || 0 }}"
-              BANDIT_LOW="${{ steps.bandit.outputs.low || 0 }}"
-              BANDIT_MAX="${{ inputs.max_high_vulns }}"
-              if [ "${BANDIT_HIGH:-0}" -le "${BANDIT_MAX:-0}" ] 2>/dev/null; then
-                echo "| Bandit | ✅ Pass | ${BANDIT_HIGH:-0} high, ${BANDIT_MED:-0} med, ${BANDIT_LOW:-0} low | ${BANDIT_MAX:-0} |"
-              else
-                echo "| Bandit | ❌ Fail | ${BANDIT_HIGH:-0} high, ${BANDIT_MED:-0} med, ${BANDIT_LOW:-0} low | ${BANDIT_MAX:-0} |"
-              fi
-            fi
-
             # Black
             if [ "${{ inputs.run_black }}" != "true" ]; then
-              echo "| Black | ⏭️ Disabled | run_black=false | - |"
+              echo "| Black | ⏭️ Skipped | - | - |"
             else
               BLACK_ISSUES="${{ steps.black.outputs.issues || 0 }}"
               BLACK_MAX="${{ inputs.max_black_issues }}"
@@ -392,7 +377,7 @@ jobs:
 
             # isort
             if [ "${{ inputs.run_isort }}" != "true" ]; then
-              echo "| isort | ⏭️ Disabled | run_isort=false | - |"
+              echo "| isort | ⏭️ Skipped | - | - |"
             else
               ISORT_ISSUES="${{ steps.isort.outputs.issues || 0 }}"
               ISORT_MAX="${{ inputs.max_isort_issues }}"
@@ -401,6 +386,67 @@ jobs:
               else
                 echo "| isort | ❌ Fail | ${ISORT_ISSUES:-0} | ${ISORT_MAX:-0} |"
               fi
+            fi
+
+            # mypy
+            if [ "${{ inputs.run_mypy }}" != "true" ]; then
+              echo "| mypy | ⏭️ Skipped | - | - |"
+            else
+              echo "| mypy | ✅ Enabled | See mypy job | - |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Generate Security Summary
+        if: always()
+        run: |
+          {
+            echo ""
+            echo "## Security Results"
+            echo ""
+            echo "| Tool | Status | Issues |"
+            echo "|------|--------|--------|"
+
+            # Bandit
+            if [ "${{ inputs.run_bandit }}" != "true" ]; then
+              echo "| Bandit | ⏭️ Skipped | - |"
+            else
+              BANDIT_HIGH="${{ steps.bandit.outputs.high || 0 }}"
+              BANDIT_MED="${{ steps.bandit.outputs.medium || 0 }}"
+              BANDIT_LOW="${{ steps.bandit.outputs.low || 0 }}"
+              BANDIT_MAX="${{ inputs.max_high_vulns }}"
+              if [ "${BANDIT_HIGH:-0}" -le "${BANDIT_MAX:-0}" ] 2>/dev/null; then
+                echo "| Bandit | ✅ Pass | ${BANDIT_HIGH:-0} high, ${BANDIT_MED:-0} med, ${BANDIT_LOW:-0} low |"
+              else
+                echo "| Bandit | ❌ Fail | ${BANDIT_HIGH:-0} high, ${BANDIT_MED:-0} med, ${BANDIT_LOW:-0} low |"
+              fi
+            fi
+
+            # pip-audit (runs in separate job)
+            if [ "${{ inputs.run_pip_audit }}" = "true" ]; then
+              echo "| pip-audit | ✅ Enabled | See pip-audit job |"
+            else
+              echo "| pip-audit | ⏭️ Skipped | - |"
+            fi
+
+            # Semgrep (runs in separate job)
+            if [ "${{ inputs.run_semgrep }}" = "true" ]; then
+              echo "| Semgrep | ✅ Enabled | See Semgrep job |"
+            else
+              echo "| Semgrep | ⏭️ Skipped | - |"
+            fi
+
+            # Trivy (runs in separate job)
+            if [ "${{ inputs.run_trivy }}" = "true" ]; then
+              echo "| Trivy | ✅ Enabled | See Trivy job |"
+            else
+              echo "| Trivy | ⏭️ Skipped | - |"
+            fi
+
+            # CodeQL (runs in separate job)
+            if [ "${{ inputs.run_codeql }}" = "true" ]; then
+              echo "| CodeQL | ✅ Enabled | See CodeQL job |"
+            else
+              echo "| CodeQL | ⏭️ Skipped | - |"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -481,17 +527,17 @@ jobs:
             exit 1
           fi
 
-      - name: Generate Test Summary
+      - name: Generate Build Summary
         if: always()
         run: |
           {
-            echo "## Python Test Results"
+            echo "## Build Results"
             echo ""
             echo "| Metric | Value |"
             echo "|--------|-------|"
-            echo "| Python Version | ${{ inputs.python_version }} |"
-            echo "| Coverage | ${{ steps.coverage.outputs.percentage }}% |"
-            echo "| Minimum | ${{ inputs.coverage_min }}% |"
+            echo "| Tests Passed | ${{ steps.test.outputs.tests_passed }} |"
+            echo "| Tests Failed | ${{ steps.test.outputs.tests_failed }} |"
+            echo "| Total Coverage | ${{ steps.coverage.outputs.percentage }}% |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Coverage Reports

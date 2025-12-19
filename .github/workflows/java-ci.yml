@@ -314,6 +314,70 @@ jobs:
           echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
           echo "Tests: $PASSED passed, $FAILED failed"
 
+      - name: Extract Lint Results
+        id: lint-results
+        if: always()
+        run: |
+          # Checkstyle
+          CHECKSTYLE_ISSUES=0
+          if [ "${{ inputs.run_checkstyle }}" = "true" ]; then
+            while IFS= read -r report; do
+              if [ -f "$report" ]; then
+                COUNT=$(grep -c "<error" "$report" 2>/dev/null || echo 0)
+                CHECKSTYLE_ISSUES=$((CHECKSTYLE_ISSUES + COUNT))
+              fi
+            done < <(find . -name "checkstyle-result.xml" -type f 2>/dev/null)
+          fi
+          echo "checkstyle=$CHECKSTYLE_ISSUES" >> "$GITHUB_OUTPUT"
+
+          # SpotBugs
+          SPOTBUGS_ISSUES=0
+          if [ "${{ inputs.run_spotbugs }}" = "true" ]; then
+            while IFS= read -r report; do
+              if [ -f "$report" ]; then
+                COUNT=$(grep -c "<BugInstance" "$report" 2>/dev/null || echo 0)
+                SPOTBUGS_ISSUES=$((SPOTBUGS_ISSUES + COUNT))
+              fi
+            done < <(find . -name "spotbugsXml.xml" -type f 2>/dev/null)
+          fi
+          echo "spotbugs=$SPOTBUGS_ISSUES" >> "$GITHUB_OUTPUT"
+
+          # PMD - count from PMD report if it exists
+          PMD_ISSUES=0
+          if [ "${{ inputs.run_pmd }}" = "true" ]; then
+            while IFS= read -r report; do
+              if [ -f "$report" ]; then
+                COUNT=$(grep -c "<violation" "$report" 2>/dev/null || echo 0)
+                PMD_ISSUES=$((PMD_ISSUES + COUNT))
+              fi
+            done < <(find . -name "pmd.xml" -type f 2>/dev/null)
+          fi
+          echo "pmd=$PMD_ISSUES" >> "$GITHUB_OUTPUT"
+
+          echo "Lint: Checkstyle=$CHECKSTYLE_ISSUES, SpotBugs=$SPOTBUGS_ISSUES, PMD=$PMD_ISSUES"
+
+      - name: Extract Security Results
+        id: security-results
+        if: always()
+        run: |
+          # OWASP Dependency Check
+          OWASP_CRITICAL=0
+          OWASP_HIGH=0
+          OWASP_MEDIUM=0
+          if [ "${{ inputs.run_owasp }}" = "true" ]; then
+            OWASP_REPORT=$(find . -name "dependency-check-report.json" -type f 2>/dev/null | head -1)
+            if [ -n "$OWASP_REPORT" ] && [ -f "$OWASP_REPORT" ]; then
+              OWASP_CRITICAL=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "CRITICAL")] | length' "$OWASP_REPORT" 2>/dev/null || echo 0)
+              OWASP_HIGH=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "HIGH")] | length' "$OWASP_REPORT" 2>/dev/null || echo 0)
+              OWASP_MEDIUM=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "MEDIUM")] | length' "$OWASP_REPORT" 2>/dev/null || echo 0)
+            fi
+          fi
+          echo "owasp_critical=${OWASP_CRITICAL:-0}" >> "$GITHUB_OUTPUT"
+          echo "owasp_high=${OWASP_HIGH:-0}" >> "$GITHUB_OUTPUT"
+          echo "owasp_medium=${OWASP_MEDIUM:-0}" >> "$GITHUB_OUTPUT"
+
+          echo "Security: OWASP critical=$OWASP_CRITICAL, high=$OWASP_HIGH, medium=$OWASP_MEDIUM"
+
       - name: Extract Coverage
         id: coverage
         if: inputs.run_jacoco
@@ -382,8 +446,8 @@ jobs:
             echo ""
             echo "| Metric | Value |"
             echo "|--------|-------|"
-            echo "| Tests Passed | ${{ steps.test-counts.outputs.tests_passed }} |"
-            echo "| Tests Failed | ${{ steps.test-counts.outputs.tests_failed }} |"
+            echo "| Tests Passed | ${{ steps.test-counts.outputs.passed }} |"
+            echo "| Tests Failed | ${{ steps.test-counts.outputs.failed }} |"
             echo "| Total Coverage | ${{ steps.coverage.outputs.percentage }}% |"
 
             # Show per-module breakdown for multi-module projects
@@ -399,6 +463,104 @@ jobs:
                   echo "| $MODULE | $COV% |"
                 fi
               done < /tmp/module_coverage.txt
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Generate Lint Summary
+        if: always()
+        run: |
+          {
+            echo ""
+            echo "## Lint Results"
+            echo ""
+            echo "| Tool | Status | Issues | Max Allowed |"
+            echo "|------|--------|--------|-------------|"
+
+            # Checkstyle
+            if [ "${{ inputs.run_checkstyle }}" = "true" ]; then
+              ISSUES="${{ steps.lint-results.outputs.checkstyle }}"
+              MAX="${{ inputs.max_checkstyle_errors }}"
+              if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
+                echo "| Checkstyle | ✅ Pass | ${ISSUES:-0} | ${MAX:-0} |"
+              else
+                echo "| Checkstyle | ❌ Fail | ${ISSUES:-0} | ${MAX:-0} |"
+              fi
+            else
+              echo "| Checkstyle | ⏭️ Skipped | - | - |"
+            fi
+
+            # SpotBugs
+            if [ "${{ inputs.run_spotbugs }}" = "true" ]; then
+              ISSUES="${{ steps.lint-results.outputs.spotbugs }}"
+              MAX="${{ inputs.max_spotbugs_bugs }}"
+              if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
+                echo "| SpotBugs | ✅ Pass | ${ISSUES:-0} | ${MAX:-0} |"
+              else
+                echo "| SpotBugs | ❌ Fail | ${ISSUES:-0} | ${MAX:-0} |"
+              fi
+            else
+              echo "| SpotBugs | ⏭️ Skipped | - | - |"
+            fi
+
+            # PMD
+            if [ "${{ inputs.run_pmd }}" = "true" ]; then
+              ISSUES="${{ steps.lint-results.outputs.pmd }}"
+              MAX="${{ inputs.max_pmd_violations }}"
+              if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
+                echo "| PMD | ✅ Pass | ${ISSUES:-0} | ${MAX:-0} |"
+              else
+                echo "| PMD | ❌ Fail | ${ISSUES:-0} | ${MAX:-0} |"
+              fi
+            else
+              echo "| PMD | ⏭️ Skipped | - | - |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Generate Security Summary
+        if: always()
+        run: |
+          {
+            echo ""
+            echo "## Security Results"
+            echo ""
+            echo "| Tool | Status | Issues |"
+            echo "|------|--------|--------|"
+
+            # OWASP
+            if [ "${{ inputs.run_owasp }}" = "true" ]; then
+              CRITICAL="${{ steps.security-results.outputs.owasp_critical }}"
+              HIGH="${{ steps.security-results.outputs.owasp_high }}"
+              MEDIUM="${{ steps.security-results.outputs.owasp_medium }}"
+              MAX_CRIT="${{ inputs.max_critical_vulns }}"
+              MAX_HIGH="${{ inputs.max_high_vulns }}"
+              if [ "${CRITICAL:-0}" -le "${MAX_CRIT:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ] 2>/dev/null; then
+                echo "| OWASP | ✅ Pass | ${CRITICAL:-0} critical, ${HIGH:-0} high, ${MEDIUM:-0} medium |"
+              else
+                echo "| OWASP | ❌ Fail | ${CRITICAL:-0} critical, ${HIGH:-0} high, ${MEDIUM:-0} medium |"
+              fi
+            else
+              echo "| OWASP | ⏭️ Skipped | - |"
+            fi
+
+            # Semgrep (runs in separate job, show placeholder)
+            if [ "${{ inputs.run_semgrep }}" = "true" ]; then
+              echo "| Semgrep | ✅ Enabled | See Semgrep job |"
+            else
+              echo "| Semgrep | ⏭️ Skipped | - |"
+            fi
+
+            # Trivy (runs in separate job, show placeholder)
+            if [ "${{ inputs.run_trivy }}" = "true" ]; then
+              echo "| Trivy | ✅ Enabled | See Trivy job |"
+            else
+              echo "| Trivy | ⏭️ Skipped | - |"
+            fi
+
+            # CodeQL (runs in separate job, show placeholder)
+            if [ "${{ inputs.run_codeql }}" = "true" ]; then
+              echo "| CodeQL | ✅ Enabled | See CodeQL job |"
+            else
+              echo "| CodeQL | ⏭️ Skipped | - |"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
