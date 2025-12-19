@@ -194,6 +194,18 @@ jq_num() {
   jq -r "$path // 0" "$REPORT"
 }
 
+# Map metric name to tools_ran key (handles special cases)
+metric_to_tool() {
+  local metric="$1"
+  case "$metric" in
+    pip_audit_vulns) echo "pip_audit" ;;
+    bandit_high|bandit_medium) echo "bandit" ;;
+    owasp_critical|owasp_high) echo "owasp" ;;
+    trivy_critical|trivy_high) echo "trivy" ;;
+    *) echo "${metric%%_*}" ;;  # Default: first part before underscore
+  esac
+}
+
 # =============================================================================
 # Validation Functions
 # =============================================================================
@@ -223,8 +235,11 @@ validate_test_results() {
     fail "results.tests_passed is null - tests may not have run"
   elif [ "$tests_passed" -gt 0 ]; then
     pass "tests_passed: $tests_passed"
-  else
+  elif [ "$EXPECT_MODE" = "clean" ]; then
     fail "tests_passed is 0 - at least some tests should pass"
+  else
+    # For failing fixtures, 0 passing tests is acceptable (though unusual)
+    warn "tests_passed is 0 - unusual for failing fixture"
   fi
 
   # For clean builds, no test failures
@@ -310,16 +325,16 @@ validate_tool_metrics_populated() {
     val=$(jq_val ".tool_metrics.$metric")
     if [ "$val" = "null" ]; then
       # Check if tool was disabled via tools_ran
-      local tool_base tool_enabled
-      tool_base="${metric%%_*}"  # Get first part before underscore
-      tool_enabled=$(jq_val ".tools_ran.$tool_base")
+      local tool_key tool_enabled
+      tool_key=$(metric_to_tool "$metric")
+      tool_enabled=$(jq_val ".tools_ran.$tool_key")
 
       if [ "$tool_enabled" = "false" ]; then
         if [ "$VERBOSE" = true ]; then
-          info "tool_metrics.$metric is null (tool disabled)"
+          info "tool_metrics.$metric is null (tool $tool_key disabled)"
         fi
       else
-        fail "tool_metrics.$metric is null - should be populated"
+        fail "tool_metrics.$metric is null - should be populated (tool: $tool_key)"
       fi
     else
       pass "tool_metrics.$metric: $val"
