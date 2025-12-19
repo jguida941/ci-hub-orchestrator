@@ -265,9 +265,11 @@ class TestGenerateSummary:
         ]
         summary = generate_summary(reports)
 
-        # Zero values should NOT be counted (current implementation treats falsy as missing)
-        # This test documents current behavior
-        assert summary["coverage"]["count"] == 0  # 0 is falsy
+        # Zero values ARE counted (distinguishes 0% from missing)
+        assert summary["coverage"]["count"] == 1
+        assert summary["coverage"]["average"] == 0
+        assert summary["mutation"]["count"] == 1
+        assert summary["mutation"]["average"] == 0
 
     def test_missing_values_excluded(self):
         """Missing values are excluded from averages."""

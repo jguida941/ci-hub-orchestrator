@@ -100,17 +100,21 @@ def generate_summary(reports: list[dict]) -> dict:
         lang = detect_language(report)
         summary["languages"][lang] = summary["languages"].get(lang, 0) + 1
 
-        # Coverage
-        coverage = results.get("coverage", 0)
-        if coverage:
+        # Coverage - include zeros in average (only skip if key is missing)
+        coverage = results.get("coverage")
+        if coverage is not None:
             summary["coverage"]["total"] += coverage
             summary["coverage"]["count"] += 1
+        else:
+            coverage = 0  # Default for repo_detail below
 
-        # Mutation score
-        mutation = results.get("mutation_score", 0)
-        if mutation:
+        # Mutation score - include zeros in average (only skip if key is missing)
+        mutation = results.get("mutation_score")
+        if mutation is not None:
             summary["mutation"]["total"] += mutation
             summary["mutation"]["count"] += 1
+        else:
+            mutation = 0  # Default for repo_detail below
 
         # Test counts
         tests_passed = results.get("tests_passed", 0)
