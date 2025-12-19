@@ -255,9 +255,10 @@ jobs:
         id: isort
         run: |
           isort --check-only --diff . 2>&1 | tee isort-output.txt || true
-          ISSUES=$(grep -c "would reformat" isort-output.txt 2>/dev/null || echo 0)
+          # Count ERROR lines (isort says "ERROR: <file> Imports are incorrectly sorted")
+          ISSUES=$(grep -c "^ERROR:" isort-output.txt 2>/dev/null || echo 0)
           echo "issues=$ISSUES" >> "$GITHUB_OUTPUT"
-          echo "isort import check: $ISSUES files would be reformatted" >> "$GITHUB_STEP_SUMMARY"
+          echo "isort import check: $ISSUES files have incorrect imports" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Enforce isort Threshold
         if: inputs.run_isort
