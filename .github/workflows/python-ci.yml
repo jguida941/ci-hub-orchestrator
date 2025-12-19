@@ -174,7 +174,7 @@ jobs:
       - name: Configuration Summary
         run: |
           {
-            echo "# 🔧 Configuration Summary"
+            echo "# Configuration Summary"
             echo ""
             echo "## Tools Enabled"
             echo "| Category | Tool | Enabled |"
@@ -735,9 +735,11 @@ jobs:
           {
             echo "## Mutation Testing Results"
             echo ""
-            echo "**Mutation Score:** ${{ steps.mutmut.outputs.score }}%"
-            echo "**Killed:** ${{ steps.mutmut.outputs.killed }}"
-            echo "**Survived:** ${{ steps.mutmut.outputs.survived }}"
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Mutation Score | ${{ steps.mutmut.outputs.score }}% |"
+            echo "| Killed | ${{ steps.mutmut.outputs.killed }} |"
+            echo "| Survived | ${{ steps.mutmut.outputs.survived }} |"
           } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================

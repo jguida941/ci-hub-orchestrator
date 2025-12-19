@@ -190,7 +190,7 @@ jobs:
       - name: Configuration Summary
         run: |
           {
-            echo "# 🔧 Configuration Summary"
+            echo "# Configuration Summary"
             echo ""
             echo "## Tools Enabled"
             echo "| Category | Tool | Enabled |"
@@ -750,9 +750,10 @@ jobs:
           {
             echo "## Mutation Testing Results"
             echo ""
-            echo "**Mutation Score:** ${{ steps.pitest.outputs.score }}%"
-            echo ""
-            echo "**Threshold:** ${{ inputs.mutation_score_min }}%"
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Mutation Score | ${{ steps.pitest.outputs.score }}% |"
+            echo "| Threshold | ${{ inputs.mutation_score_min }}% |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload PITest Reports
