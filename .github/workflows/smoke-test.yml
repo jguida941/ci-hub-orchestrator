@@ -58,10 +58,11 @@ jobs:
           # Only include smoke-test-*.yaml configs
           for config in config/repos/smoke-test-*.yaml; do
             if [ -f "$config" ]; then
-              NAME=$(grep -E "^\s+name:" "$config" | head -1 | sed 's/.*name:\s*//' | tr -d '"' | tr -d "'")
-              OWNER=$(grep -E "^\s+owner:" "$config" | head -1 | sed 's/.*owner:\s*//' | tr -d '"' | tr -d "'")
-              LANG=$(grep -E "^\s+language:" "$config" | head -1 | sed 's/.*language:\s*//' | tr -d '"' | tr -d "'")
-              BRANCH=$(grep -E "^\s+default_branch:" "$config" | head -1 | sed 's/.*default_branch:\s*//' | tr -d '"' | tr -d "'" || echo "main")
+              # Strip inline comments (# ...) and trim whitespace
+              NAME=$(grep -E "^\s+name:" "$config" | head -1 | sed 's/.*name:\s*//' | sed 's/#.*//' | tr -d '"' | tr -d "'" | xargs)
+              OWNER=$(grep -E "^\s+owner:" "$config" | head -1 | sed 's/.*owner:\s*//' | sed 's/#.*//' | tr -d '"' | tr -d "'" | xargs)
+              LANG=$(grep -E "^\s+language:" "$config" | head -1 | sed 's/.*language:\s*//' | sed 's/#.*//' | tr -d '"' | tr -d "'" | xargs)
+              BRANCH=$(grep -E "^\s+default_branch:" "$config" | head -1 | sed 's/.*default_branch:\s*//' | sed 's/#.*//' | tr -d '"' | tr -d "'" | xargs || echo "main")
 
               if [ -n "$NAME" ] && [ -n "$OWNER" ]; then
                 if [ "$FIRST" = true ]; then
