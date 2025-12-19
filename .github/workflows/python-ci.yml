@@ -552,21 +552,29 @@ jobs:
           fi
 
           echo "Running: mutmut run"
-          timeout 600 mutmut run || {
+          timeout 600 mutmut run 2>&1 | tee mutmut-run.log || {
             echo "::warning::mutmut run failed or timed out"
           }
 
-          # Get results
-          if command -v mutmut &> /dev/null; then
-            echo "Getting mutmut results..."
-            RESULTS=$(mutmut results || echo "")
-            echo "Raw results: $RESULTS"
-            KILLED=$(echo "$RESULTS" | grep -oP 'Killed: \K\d+' || echo 0)
-            SURVIVED=$(echo "$RESULTS" | grep -oP 'Survived: \K\d+' || echo 0)
+          # Parse results from mutmut 3.x run output
+          # Final line format: "⠙ 73/73  🎉 73 🫥 0  ⏰ 0  🤔 0  🙁 0  🔇 0"
+          # 🎉 = killed, 🙁 = survived
+          if grep -q "mutations/second" mutmut-run.log; then
+            # Get the line with final counts (contains X/X pattern)
+            FINAL=$(grep -E '[0-9]+/[0-9]+' mutmut-run.log | tail -1)
+            echo "Final line: $FINAL"
+            # Extract killed (after 🎉) and survived (after 🙁)
+            KILLED=$(echo "$FINAL" | sed -n 's/.*🎉[[:space:]]*\([0-9]*\).*/\1/p' | head -1)
+            SURVIVED=$(echo "$FINAL" | sed -n 's/.*🙁[[:space:]]*\([0-9]*\).*/\1/p' | head -1)
+            KILLED=${KILLED:-0}
+            SURVIVED=${SURVIVED:-0}
             TOTAL=$((KILLED + SURVIVED))
             if [ "$TOTAL" -gt 0 ]; then
               SCORE=$((KILLED * 100 / TOTAL))
             fi
+            echo "Parsed: killed=$KILLED, survived=$SURVIVED, total=$TOTAL, score=$SCORE"
+          else
+            echo "::warning::mutmut did not complete successfully"
           fi
 
           {
