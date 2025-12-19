@@ -227,12 +227,9 @@ jobs:
               inputs["run_owasp"] = tools.get("owasp", {}).get("enabled", True)
               inputs["run_pitest"] = tools.get("pitest", {}).get("enabled", True)
               inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", True)
-              inputs["run_docker"] = tools.get("docker", {}).get("enabled", False)
               inputs["coverage_min"] = tools.get("jacoco", {}).get("min_coverage", 70)
               inputs["mutation_score_min"] = tools.get("pitest", {}).get("min_mutation_score", 70)
               inputs["owasp_cvss_fail"] = tools.get("owasp", {}).get("fail_on_cvss", 7)
-              inputs["docker_compose_file"] = tools.get("docker", {}).get("compose_file", "docker-compose.yml")
-              inputs["docker_health_endpoint"] = tools.get("docker", {}).get("health_endpoint", "/actuator/health")
               inputs["run_pmd"] = tools.get("pmd", {}).get("enabled", True)
               inputs["run_semgrep"] = tools.get("semgrep", {}).get("enabled", True)
               inputs["run_trivy"] = tools.get("trivy", {}).get("enabled", True)
@@ -254,7 +251,6 @@ jobs:
               inputs["run_mutmut"] = tools.get("mutmut", {}).get("enabled", True)
               inputs["run_semgrep"] = tools.get("semgrep", {}).get("enabled", True)
               inputs["run_trivy"] = tools.get("trivy", {}).get("enabled", True)
-              inputs["run_docker"] = tools.get("docker", {}).get("enabled", False)
 
           reports = merged.get("reports", {})
           inputs["retention_days"] = reports.get("retention_days", 30)
@@ -313,12 +309,9 @@ jobs:
               inputs.run_owasp = asBool('${{ steps.repo-config.outputs.run_owasp }}');
               inputs.run_pitest = asBool('${{ steps.repo-config.outputs.run_pitest }}');
               inputs.run_codeql = asBool('${{ steps.repo-config.outputs.run_codeql }}');
-              inputs.run_docker = asBool('${{ steps.repo-config.outputs.run_docker }}');
               inputs.coverage_min = asNumber('${{ steps.repo-config.outputs.coverage_min }}', 70);
               inputs.mutation_score_min = asNumber('${{ steps.repo-config.outputs.mutation_score_min }}', 70);
               inputs.owasp_cvss_fail = asNumber('${{ steps.repo-config.outputs.owasp_cvss_fail }}', 7);
-              inputs.docker_compose_file = '${{ steps.repo-config.outputs.docker_compose_file }}' || 'docker-compose.yml';
-              inputs.docker_health_endpoint = '${{ steps.repo-config.outputs.docker_health_endpoint }}' || '/actuator/health';
               inputs.run_pmd = asBool('${{ steps.repo-config.outputs.run_pmd }}');
               inputs.run_semgrep = asBool('${{ steps.repo-config.outputs.run_semgrep }}');
               inputs.run_trivy = asBool('${{ steps.repo-config.outputs.run_trivy }}');
@@ -337,7 +330,6 @@ jobs:
               inputs.run_mutmut = asBool('${{ steps.repo-config.outputs.run_mutmut }}');
               inputs.run_semgrep = asBool('${{ steps.repo-config.outputs.run_semgrep }}');
               inputs.run_trivy = asBool('${{ steps.repo-config.outputs.run_trivy }}');
-              inputs.run_docker = asBool('${{ steps.repo-config.outputs.run_docker }}');
               inputs.coverage_min = asNumber('${{ steps.repo-config.outputs.coverage_min }}', 70);
               inputs.retention_days = asNumber('${{ steps.repo-config.outputs.retention_days }}', 30);
               inputs.workdir = subdir || '';
