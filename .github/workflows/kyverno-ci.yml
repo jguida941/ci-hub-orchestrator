@@ -39,7 +39,7 @@ on:
       kyverno_version:
         description: 'Kyverno CLI version'
         type: string
-        default: 'v1.13.0'
+        default: 'v1.16.1'
       fail_on_warn:
         description: 'Fail if policies produce warnings'
         type: boolean
@@ -65,13 +65,13 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ inputs.kyverno_version }}"
-          VERSION_NUM="${VERSION#v}"
 
           echo "Installing Kyverno CLI ${VERSION}..."
-          curl -sLO "https://github.com/kyverno/kyverno/releases/download/${VERSION}/kyverno-cli_${VERSION_NUM}_linux_x86_64.tar.gz"
-          tar -xzf "kyverno-cli_${VERSION_NUM}_linux_x86_64.tar.gz"
+          # Filename keeps the v prefix: kyverno-cli_v1.16.1_linux_x86_64.tar.gz
+          curl -sLO "https://github.com/kyverno/kyverno/releases/download/${VERSION}/kyverno-cli_${VERSION}_linux_x86_64.tar.gz"
+          tar -xzf "kyverno-cli_${VERSION}_linux_x86_64.tar.gz"
           sudo mv kyverno /usr/local/bin/
-          rm "kyverno-cli_${VERSION_NUM}_linux_x86_64.tar.gz"
+          rm "kyverno-cli_${VERSION}_linux_x86_64.tar.gz"
           kyverno version
 
       - name: Validate policy syntax

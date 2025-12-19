@@ -30,6 +30,8 @@ jobs:
   validate:
     name: Validate Policy Syntax
     runs-on: ubuntu-latest
+    # Skip on tag pushes - path filters don't work for tags
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
     steps:
       - name: Checkout
@@ -37,15 +39,15 @@ jobs:
 
       - name: Install Kyverno CLI
         env:
-          KYVERNO_VERSION: "v1.13.0"
+          KYVERNO_VERSION: "v1.16.1"
         run: |
           set -euo pipefail
-          VERSION_NUM="${KYVERNO_VERSION#v}"
           echo "Installing Kyverno CLI ${KYVERNO_VERSION}..."
-          curl -sLO "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${VERSION_NUM}_linux_x86_64.tar.gz"
-          tar -xzf "kyverno-cli_${VERSION_NUM}_linux_x86_64.tar.gz"
+          # Filename keeps the v prefix: kyverno-cli_v1.16.1_linux_x86_64.tar.gz
+          curl -sLO "https://github.com/kyverno/kyverno/releases/download/${KYVERNO_VERSION}/kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz"
+          tar -xzf "kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz"
           sudo mv kyverno /usr/local/bin/
-          rm "kyverno-cli_${VERSION_NUM}_linux_x86_64.tar.gz"
+          rm "kyverno-cli_${KYVERNO_VERSION}_linux_x86_64.tar.gz"
           kyverno version
 
       - name: Validate Policies
