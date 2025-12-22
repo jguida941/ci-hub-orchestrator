@@ -129,6 +129,7 @@ def build_repo_config(
     owner: str,
     name: str,
     branch: str,
+    subdir: str | None = None,
 ) -> dict[str, Any]:
     template_path = hub_root() / "templates" / "repo" / ".ci-hub.yml"
     base = read_yaml(template_path)
@@ -139,6 +140,8 @@ def build_repo_config(
     repo_block["language"] = language
     repo_block["default_branch"] = branch
     repo_block.setdefault("dispatch_workflow", "hub-ci.yml")
+    if subdir:
+        repo_block["subdir"] = subdir
     base["repo"] = repo_block
 
     base["language"] = language
@@ -219,7 +222,8 @@ def cmd_init(args: argparse.Namespace) -> int:
 
     branch = args.branch or get_git_branch(repo_path) or "main"
 
-    config = build_repo_config(language, owner, name, branch)
+    subdir = args.subdir or ""
+    config = build_repo_config(language, owner, name, branch, subdir=subdir)
     config_path = repo_path / ".ci-hub.yml"
     write_yaml(config_path, config, args.dry_run)
 
@@ -241,7 +245,9 @@ def cmd_update(args: argparse.Namespace) -> int:
 
     owner = args.owner or existing.get("repo", {}).get("owner", "")
     name = args.name or existing.get("repo", {}).get("name", "")
-    branch = args.branch or existing.get("repo", {}).get("default_branch", "main")
+    repo_existing = existing.get("repo", {}) if isinstance(existing.get("repo"), dict) else {}
+    branch = args.branch or repo_existing.get("default_branch", "main")
+    subdir = args.subdir or repo_existing.get("subdir")
 
     if not name:
         name = repo_path.name
@@ -249,7 +255,7 @@ def cmd_update(args: argparse.Namespace) -> int:
         owner = "unknown"
         print("Warning: could not detect repo owner; set repo.owner manually.", file=sys.stderr)
 
-    base = build_repo_config(language, owner, name, branch)
+    base = build_repo_config(language, owner, name, branch, subdir=subdir)
     merged = deep_merge(base, existing)
     write_yaml(config_path, merged, args.dry_run)
 
@@ -293,6 +299,8 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--owner", help="Repo owner (GitHub user/org)")
     init.add_argument("--name", help="Repo name")
     init.add_argument("--branch", help="Default branch (e.g., main)")
+    init.add_argument("--subdir", help="Subdirectory for monorepos (repo.subdir)")
+    init.add_argument("--workdir", dest="subdir", help="Alias for --subdir")
     init.add_argument("--dry-run", action="store_true", help="Print output instead of writing")
     init.set_defaults(func=cmd_init)
 
@@ -302,6 +310,8 @@ def build_parser() -> argparse.ArgumentParser:
     update.add_argument("--owner", help="Repo owner (GitHub user/org)")
     update.add_argument("--name", help="Repo name")
     update.add_argument("--branch", help="Default branch (e.g., main)")
+    update.add_argument("--subdir", help="Subdirectory for monorepos (repo.subdir)")
+    update.add_argument("--workdir", dest="subdir", help="Alias for --subdir")
     update.add_argument("--dry-run", action="store_true", help="Print output instead of writing")
     update.set_defaults(func=cmd_update)
 

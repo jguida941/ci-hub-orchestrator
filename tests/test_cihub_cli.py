@@ -47,6 +47,11 @@ def test_build_repo_config_prunes_other_language():
     assert config["repo"]["dispatch_workflow"] == "hub-ci.yml"
 
 
+def test_build_repo_config_sets_subdir():
+    config = build_repo_config("java", "acme", "repo", "main", subdir="services/app")
+    assert config["repo"]["subdir"] == "services/app"
+
+
 def test_render_caller_workflow_renames_target():
     content = render_caller_workflow("python")
     assert "hub-ci.yml" in content
