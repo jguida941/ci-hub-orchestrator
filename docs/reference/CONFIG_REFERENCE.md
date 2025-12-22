@@ -39,7 +39,7 @@ See `templates/profiles/` for ready-to-use profile configs.
 
 - **Hub-driven runs:** Orchestrator reads config and passes values to reusable workflows
 - **Direct workflow calls:** Use workflow inputs (for repos calling workflows directly without hub)
-- **Expensive tools disabled by default:** mutmut, semgrep, trivy, codeql, pitest are off until you enable them in config
+- **Defaults are authoritative:** tool enablement defaults live in `config/defaults.yaml`
 - **Config always wins:** Even if workflow defaults differ, hub passes config values
 
 ---
@@ -119,8 +119,6 @@ repo:
 |-------|------|---------|-------------|
 | `enabled` | boolean | `true` | Run JaCoCo coverage |
 | `min_coverage` | integer | `70` | Minimum coverage % (0-100) |
-| `max_critical_vulns` | integer | `0` | Fail when CRITICAL vulns exceed this (applies to OWASP/Trivy gates) |
-| `max_high_vulns` | integer | `0` | Fail when HIGH vulns exceed this (applies to OWASP/Trivy gates) |
 
 ### java.tools.checkstyle
 
@@ -128,6 +126,7 @@ repo:
 |-------|------|---------|-------------|
 | `enabled` | boolean | `true` | Run Checkstyle |
 | `fail_on_violation` | boolean | `true` | Fail build on violations |
+| `max_errors` | integer | `0` | Max allowed errors (0 = fail on any) |
 | `config_file` | string | `null` | Path to checkstyle.xml (null = default) |
 
 ### java.tools.spotbugs
@@ -136,6 +135,7 @@ repo:
 |-------|------|---------|-------------|
 | `enabled` | boolean | `true` | Run SpotBugs |
 | `fail_on_error` | boolean | `true` | Fail build on bugs found |
+| `max_bugs` | integer | `0` | Max allowed bugs (0 = fail on any) |
 | `effort` | enum | `max` | `min`, `default`, `max` |
 | `threshold` | enum | `medium` | `low`, `medium`, `high` |
 
@@ -151,10 +151,24 @@ repo:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Run PITest mutation testing (expensive - enable when needed) |
+| `enabled` | boolean | `true` | Run PITest mutation testing (can be expensive) |
 | `min_mutation_score` | integer | `70` | Minimum mutation score % (0-100) |
 | `threads` | integer | `4` | Parallel threads |
 | `timeout_multiplier` | integer | `2` | Timeout factor |
+
+### java.tools.jqwik
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `false` | Run jqwik property-based testing |
+
+### java.tools.pmd
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `true` | Run PMD |
+| `fail_on_violation` | boolean | `false` | Fail build on violations |
+| `max_violations` | integer | `0` | Max allowed violations (0 = fail on any) |
 
 ### java.tools.semgrep
 
@@ -162,6 +176,7 @@ repo:
 |-------|------|---------|-------------|
 | `enabled` | boolean | `false` | Run Semgrep SAST (expensive - enable when needed) |
 | `fail_on_findings` | boolean | `false` | Fail build on findings |
+| `max_findings` | integer | `0` | Max allowed findings (0 = fail on any) |
 
 ### java.tools.trivy
 
@@ -204,8 +219,6 @@ repo:
 | `enabled` | boolean | `true` | Run pytest with coverage |
 | `min_coverage` | integer | `70` | Minimum coverage % (0-100) |
 | `fail_fast` | boolean | `false` | Stop on first failure |
-| `max_critical_vulns` | integer | `0` | Fail when CRITICAL vulns exceed this (applies to Trivy) |
-| `max_high_vulns` | integer | `0` | Fail when HIGH vulns exceed this (applies to Bandit/pip-audit/Trivy) |
 
 ### python.tools.ruff
 
@@ -213,6 +226,7 @@ repo:
 |-------|------|---------|-------------|
 | `enabled` | boolean | `true` | Run Ruff linter |
 | `fail_on_error` | boolean | `true` | Fail build on lint errors |
+| `max_errors` | integer | `0` | Max allowed errors (0 = fail on any) |
 
 ### python.tools.bandit
 
@@ -238,9 +252,15 @@ repo:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Run mutmut mutation testing (expensive - enable when needed) |
+| `enabled` | boolean | `true` | Run mutmut mutation testing (can be expensive) |
 | `min_mutation_score` | integer | `70` | Minimum mutation score % (0-100) |
 | `timeout_minutes` | integer | `15` | Maximum runtime |
+
+### python.tools.hypothesis
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enabled` | boolean | `true` | Run hypothesis property-based tests |
 
 ### python.tools.semgrep
 
@@ -248,6 +268,7 @@ repo:
 |-------|------|---------|-------------|
 | `enabled` | boolean | `false` | Run Semgrep SAST (expensive - enable when needed) |
 | `fail_on_findings` | boolean | `false` | Fail build on findings |
+| `max_findings` | integer | `0` | Max allowed findings (0 = fail on any) |
 
 ### python.tools.trivy
 
@@ -276,6 +297,7 @@ repo:
 |-------|------|---------|-------------|
 | `enabled` | boolean | `true` | Run Black format checker |
 | `fail_on_format_issues` | boolean | `false` | Fail build on format issues |
+| `max_issues` | integer | `0` | Max allowed issues (0 = fail on any) |
 
 ### python.tools.isort
 
@@ -283,6 +305,7 @@ repo:
 |-------|------|---------|-------------|
 | `enabled` | boolean | `true` | Run isort import checker |
 | `fail_on_issues` | boolean | `false` | Fail build on import issues |
+| `max_issues` | integer | `0` | Max allowed issues (0 = fail on any) |
 
 ---
 
@@ -325,10 +348,10 @@ repo:
 |-------|------|---------|-------------|
 | `coverage_min` | integer | `70` | Global minimum coverage % |
 | `mutation_score_min` | integer | `70` | Global minimum mutation score % |
-| `max_critical_vulns` | integer | `0` | Max CRITICAL vulnerabilities (not yet enforced) |
-| `max_high_vulns` | integer | `0` | Max HIGH vulnerabilities (not yet enforced) |
+| `max_critical_vulns` | integer | `0` | Max CRITICAL vulnerabilities |
+| `max_high_vulns` | integer | `0` | Max HIGH vulnerabilities |
 
-> **Note:** `max_critical_vulns` and `max_high_vulns` are defined but vulnerability rollup is not yet implemented.
+> **Note:** These thresholds are enforced where scanners emit severity counts (OWASP, Trivy, pip-audit, Bandit).
 
 ---
 

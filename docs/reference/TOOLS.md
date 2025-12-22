@@ -26,7 +26,8 @@ Comprehensive documentation for all quality, security, and testing tools support
 | PMD | Wired + Toggle | Wired + Toggle | `java.tools.pmd.enabled` | Production |
 | OWASP DC | Wired + Toggle | Wired + Toggle | `java.tools.owasp.enabled` | Production |
 | PITest | Wired + Toggle | Wired + Toggle | `java.tools.pitest.enabled` | Production |
-| CodeQL | Not Wired | Input only | `java.tools.codeql.enabled` | Input-only |
+| jqwik | Not Wired | Wired + Toggle | `java.tools.jqwik.enabled` | Dispatch-only |
+| CodeQL | Wired + Toggle | Wired + Toggle | `java.tools.codeql.enabled` | Production |
 | Semgrep | Wired + Toggle | Wired + Toggle | `java.tools.semgrep.enabled` | Production |
 | Trivy | Wired + Toggle | Wired + Toggle | `java.tools.trivy.enabled` | Production |
 
@@ -42,10 +43,10 @@ Comprehensive documentation for all quality, security, and testing tools support
 | isort | Wired + Toggle | Wired + Toggle | `python.tools.isort.enabled` | Production |
 | mypy | Wired + Toggle | Wired + Toggle | `python.tools.mypy.enabled` | Production |
 | mutmut | Wired + Toggle | Wired + Toggle | `python.tools.mutmut.enabled` | Production |
-| Hypothesis | Wired + Toggle | Not Wired | `python.tools.hypothesis.enabled` | Central-only |
+| Hypothesis | Wired + Toggle | Wired + Toggle | `python.tools.hypothesis.enabled` | Production |
 | Semgrep | Wired + Toggle | Wired + Toggle | `python.tools.semgrep.enabled` | Production |
 | Trivy | Wired + Toggle | Wired + Toggle | `python.tools.trivy.enabled` | Production |
-| CodeQL | Not Wired | Input only | `python.tools.codeql.enabled` | Input-only |
+| CodeQL | Wired + Toggle | Wired + Toggle | `python.tools.codeql.enabled` | Production |
 
 ### Universal Tools
 
@@ -62,13 +63,13 @@ Comprehensive documentation for all quality, security, and testing tools support
 - Hub clones your repo and runs tools directly
 - Tools are controlled by config toggles (`enabled: true/false`)
 - Config is loaded via `scripts/load_config.py` at runtime
-- More tools available (PMD, Black, isort, mutmut, Hypothesis, Semgrep, Trivy)
+- Hub controls aggregation, summaries, and artifact uploads
 - **Recommended for most users**
 
 ### Reusable Workflows (`java-ci.yml`, `python-ci.yml`)
 - Called from your repo's workflow or via distributed dispatch
 - Tools controlled by workflow inputs and config toggles
-- Fewer tools, but configurable
+- Tool coverage matches the reusable workflow inputs
 - Used for distributed mode or repo-local CI
 
 ---
@@ -182,9 +183,9 @@ java:
 
 ### PMD (Static Analysis)
 
-**Availability:** Central (always, line 460-477) | Reusable (NOT WIRED)
+**Availability:** Central (toggle) | Reusable (toggle)
 
-> **Note:** PMD runs in central mode (`hub-run-all.yml:460-477`). No config toggle exists. To add PMD to reusable workflows, a future update is needed.
+> **Note:** Controlled by `java.tools.pmd.enabled` in both modes.
 
 **What it does:** Finds common programming flaws: unused variables, empty catch blocks, unnecessary object creation, complexity issues.
 
@@ -192,12 +193,8 @@ java:
 - Maven: Add `maven-pmd-plugin`
 - Gradle: Add `pmd` plugin
 
-**Artifacts produced (central mode):**
+**Artifacts produced:**
 - `target/pmd.xml`
-
-**To add to reusable workflow (TODO):**
-- Add `run_pmd` input to java-ci.yml
-- Add `java.tools.pmd.enabled` to defaults.yaml
 
 ---
 
@@ -270,9 +267,9 @@ java:
 
 ### CodeQL (SAST)
 
-**Availability:** Central (NOT WIRED) | Reusable (toggle)
+**Availability:** Central (toggle) | Reusable (toggle)
 
-> **Note:** CodeQL only runs in reusable workflows, not central mode.
+> **Note:** Controlled by `java.tools.codeql.enabled` in both modes.
 
 **What it does:** GitHub's semantic code analysis engine. Finds security vulnerabilities with low false positive rate.
 
@@ -290,7 +287,7 @@ java:
 ```
 
 **Workflow inputs (java-ci.yml):**
-- `run_codeql`: boolean (default: true)
+- `run_codeql`: boolean (default: false)
 
 **Artifacts produced:**
 - SARIF results uploaded to GitHub Security tab
@@ -411,35 +408,35 @@ python:
 
 ### Black (Code Formatting)
 
-**Availability:** Central (always, line 385-393) | Reusable (NOT WIRED)
+**Availability:** Central (toggle) | Reusable (toggle)
 
-> **Note:** Black runs in central mode (`hub-run-all.yml:385-393`). No config toggle exists yet.
+> **Note:** Controlled by `python.tools.black.enabled` in both modes.
 
 **What it does:** Opinionated code formatter. "Any color you like, as long as it's black."
 
-**Artifacts produced (central mode):**
-- Check output (files that would be reformatted)
+**Workflow inputs (python-ci.yml):**
+- `run_black`: boolean (default: true)
+- `max_black_issues`: integer (default: 0)
 
-**To add to reusable workflow (TODO):**
-- Add `run_black` input to python-ci.yml
-- Add `python.tools.black.enabled` to defaults.yaml
+**Artifacts produced:**
+- Check output (files that would be reformatted)
 
 ---
 
 ### isort (Import Sorting)
 
-**Availability:** Central (always, line 447-455) | Reusable (NOT WIRED)
+**Availability:** Central (toggle) | Reusable (toggle)
 
-> **Note:** isort runs in central mode (`hub-run-all.yml:447-455`). No config toggle exists yet.
+> **Note:** Controlled by `python.tools.isort.enabled` in both modes.
 
 **What it does:** Sorts and organizes imports according to PEP 8 guidelines.
 
-**Artifacts produced (central mode):**
-- Check output (files with unsorted imports)
+**Workflow inputs (python-ci.yml):**
+- `run_isort`: boolean (default: true)
+- `max_isort_issues`: integer (default: 0)
 
-**To add to reusable workflow (TODO):**
-- Add `run_isort` input to python-ci.yml
-- Add `python.tools.isort.enabled` to defaults.yaml
+**Artifacts produced:**
+- Check output (files with unsorted imports)
 
 ---
 
@@ -467,42 +464,42 @@ python:
 
 ### mutmut (Mutation Testing)
 
-**Availability:** Central (skip_mutation input, line 416-445) | Reusable (NOT WIRED)
+**Availability:** Central (toggle) | Reusable (toggle)
 
-> **Note:** mutmut runs in central mode (`hub-run-all.yml:416-445`) when `skip_mutation=false`. Not available in reusable python-ci.yml.
+> **Note:** Controlled by `python.tools.mutmut.enabled`. Central mode can also skip via `skip_mutation`.
 
 **What it does:** Python mutation testing. Modifies code and checks if tests fail.
 
-**Control (central mode only):**
-- `skip_mutation: true` input to skip mutation testing
+**Workflow inputs (python-ci.yml):**
+- `run_mutmut`: boolean (default: true)
+- `mutation_score_min`: number (default: 70)
 
-**Artifacts produced (central mode):**
+**Artifacts produced:**
 - mutmut results (killed/survived counts)
-
-**To add to reusable workflow (TODO):**
-- Add `run_mutmut` input to python-ci.yml
-- Add mutation score output
 
 ---
 
 ### Hypothesis (Property-Based Testing)
 
-**Availability:** Central (always, line 405-414) | Reusable (NOT WIRED)
+**Availability:** Central (toggle) | Reusable (toggle)
 
-> **Note:** Hypothesis runs in central mode (`hub-run-all.yml:405-414`). Not available in reusable python-ci.yml.
+> **Note:** Controlled by `python.tools.hypothesis.enabled` in both modes.
 
 **What it does:** Property-based testing - generates test cases automatically.
 
-**Artifacts produced (central mode):**
+**Workflow inputs (python-ci.yml):**
+- `run_hypothesis`: boolean (default: true)
+
+**Artifacts produced:**
 - Example counts in output
 
 ---
 
 ### CodeQL (Python SAST)
 
-**Availability:** Central (NOT WIRED) | Reusable (toggle)
+**Availability:** Central (toggle) | Reusable (toggle)
 
-> **Note:** CodeQL only runs in reusable workflows, not central mode.
+> **Note:** Controlled by `python.tools.codeql.enabled` in both modes.
 
 **What it does:** GitHub's semantic code analysis for Python.
 
@@ -516,42 +513,36 @@ python:
 ```
 
 **Workflow inputs (python-ci.yml):**
-- `run_codeql`: boolean (default: true)
+- `run_codeql`: boolean (default: false)
 
 ---
 
-## Universal Tools (Central Mode Only)
+## Universal Tools (All Modes)
 
 ### Semgrep (SAST)
 
-**Availability:** Central (always, line 503-518) | Reusable (NOT WIRED)
+**Availability:** Central (toggle) | Reusable (toggle)
 
-> **Note:** Semgrep runs in central mode (`hub-run-all.yml:503-518`). Runs for all languages.
+> **Note:** Central mode uses `semgrep --config=auto` in `hub-run-all.yml`.
 
 **What it does:** Fast, lightweight static analysis using pattern matching. Runs with auto-config for common vulnerability patterns.
 
-**When it runs:** Always in central mode (both Java and Python repos)
+**When it runs:** If `*.tools.semgrep.enabled` is true.
 
 **Artifacts produced:**
 - `semgrep-report.json`
-
-**No configuration needed** - uses `--config=auto` for sensible defaults.
-
-**To add to reusable workflows (TODO):**
-- Add Semgrep steps to java-ci.yml and python-ci.yml
-- Add toggle inputs
 
 ---
 
 ### Trivy (Container/Filesystem Scan)
 
-**Availability:** Central (if Dockerfile exists, line 482-501) | Reusable (NOT WIRED)
+**Availability:** Central (toggle) | Reusable (toggle)
 
-> **Note:** Trivy runs in central mode (`hub-run-all.yml:482-501`) only when `Dockerfile` exists in repo.
+> **Note:** Central mode runs a filesystem scan via `trivy fs`.
 
 **What it does:** Scans filesystems and container images for vulnerabilities, misconfigurations, and secrets.
 
-**When it runs:** Only if `Dockerfile` exists in repo (central mode)
+**When it runs:** If `*.tools.trivy.enabled` is true.
 
 **Artifacts produced:**
 - `trivy-report.json`
@@ -560,10 +551,6 @@ python:
 - CRITICAL: Immediate action
 - HIGH: Fix soon
 - MEDIUM/LOW: Track and plan
-
-**To add to reusable workflows (TODO):**
-- Add Trivy steps to java-ci.yml and python-ci.yml
-- Add toggle inputs
 
 ---
 
@@ -595,19 +582,7 @@ thresholds:
 
 ### Dispatch Callers - Current (Updated 2025-12-22)
 
-The caller workflow (`hub-ci.yml`) invokes the reusable workflows and exposes the full toolset for dispatch mode.
-
-**Fully supported in dispatch callers:**
-- PMD (Java)
-- Black (Python)
-- isort (Python)
-- mutmut (Python)
-- Hypothesis (Python)
-- Semgrep (both)
-- Trivy (both)
-
-**Limitation:**
-- Docker inputs are not exposed in the standard caller due to GitHub’s 25-input limit. Use central mode or a docker-specific caller when needed.
+The standard caller workflow (`hub-ci.yml`) exposes all reusable workflow inputs except Docker-related inputs (GitHub's 25-input limit). Use central mode or a docker-specific caller when Docker is required.
 
 ### Aggregation - Complete (Updated 2025-12-15)
 
@@ -621,9 +596,8 @@ The orchestrator now aggregates ALL tool metrics:
 
 | Gap | Status | Notes |
 |-----|--------|-------|
-| CodeQL in templates | Input-only | Uses GitHub's native CodeQL action, no custom metrics |
-| Hypothesis in dispatch | Not implemented | Central-mode only; property-based testing not typical for dispatch |
-| Docker build/test | Input exists | Requires repo-specific Dockerfile; implementation varies |
+| Docker inputs in standard callers | Limited | Not exposed due to the 25-input limit |
+| jqwik in central mode | Partial | Runs with tests but no dedicated hub-run-all toggle/summary |
 
 ---
 
@@ -702,7 +676,7 @@ java:
 | PITest too slow | PITest | Use `skip_mutation: true` or reduce scope |
 | Ruff has many errors | Ruff | Add `ruff.toml` to configure rules |
 | mypy fails | mypy | Start with `--ignore-missing-imports` |
-| Tool not running | Any | Check availability matrix - may be central-only |
+| Tool not running | Any | Check availability matrix and caller inputs |
 
 ---
 
@@ -716,5 +690,5 @@ java:
 
 ## Tool gating
 - Tools run based on config run_* flags from merged config.
-- Defaults: expensive tools (mutation, semgrep, trivy, codeql) are off unless enabled.
+- Defaults live in `config/defaults.yaml`; override per repo as needed.
 - Thresholds: prefer thresholds.* as source of truth; tool-level min_* are defaults.
