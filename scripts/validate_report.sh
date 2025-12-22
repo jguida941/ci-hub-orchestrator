@@ -35,6 +35,7 @@ set -euo pipefail
 # Python tool_metrics fields (map to report.json keys)
 PYTHON_METRICS=(
   "ruff_errors"
+  "mypy_errors"
   "black_issues"
   "isort_issues"
   "bandit_high"
