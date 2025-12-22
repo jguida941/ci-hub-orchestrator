@@ -2,10 +2,87 @@
 
 > **This is the primary execution plan for CI/CD Hub.** Supersedes ROADMAP.md phases 4-8.
 
-**Status:** Phase 3.5 - Releasing v1.0.0
+**Status:** Phase 1B - Reusable Workflows (BLOCKING)
 **Created:** 2025-12-15
-**Last Updated:** 2025-12-18
+**Last Updated:** 2025-12-21
 **Goal:** Migrate from dispatch templates to GitHub reusable workflows + CLI tool for automatic repo onboarding
+
+---
+
+## ⚠️ HONEST STATUS (Updated 2025-12-21)
+
+**We are NOT at Phase 3.5.** Audit revealed significant gaps blocking v1.0.0:
+
+### What's Actually Working ✅
+- Reusable workflows exist (`python-ci.yml`, `java-ci.yml`) with `workflow_call`
+- Central mode (`hub-run-all.yml`) works with full tool coverage
+- Caller templates exist (`hub-python-ci.yml`, `hub-java-ci.yml`)
+- Report schema 2.0 structure implemented
+- Enforcement steps for Checkstyle/SpotBugs/OWASP fixed (2025-12-21)
+
+### What's Broken ❌
+
+#### 1. Orchestrator Input Passthrough Gap
+`hub-orchestrator.yml` does NOT pass to distributed workflows:
+```
+PYTHON MISSING:
+- mutation_score_min (only Java has it!)
+- run_hypothesis
+- All max_* thresholds (max_ruff_errors, max_black_issues, etc.)
+
+JAVA MISSING:
+- run_jqwik
+- max_checkstyle_errors
+- max_spotbugs_bugs
+- max_pmd_violations
+- max_critical_vulns
+- max_high_vulns
+- max_semgrep_findings
+```
+
+**Impact:** Distributed mode uses hardcoded defaults instead of config-driven thresholds.
+
+**Note:** External repos DO have caller workflows and work correctly. Recent failures in fixtures (java-spring-tutorials, etc.) were actual gate failures (coverage/mutation/ruff/hypothesis), not missing workflows - this validates the enforcement is working.
+
+#### 2. Report Schema Incomplete
+`tools_ran` missing entries:
+- Python: `hypothesis` (input exists, not in report)
+- Java: `jqwik` (input exists, not in report)
+
+`tool_metrics` missing entries:
+- Python: `mypy_errors` (mypy runs but errors not captured in metrics)
+
+**Impact:** Reports don't reflect all tools that ran or their metrics.
+
+#### 3. Caller Template Capability Gap (Intentional Constraint)
+Due to GitHub's **25-input limit** for `workflow_dispatch`:
+- Caller templates currently at 24 inputs each
+- Adding Docker inputs (run_docker, docker_compose_file, docker_health_endpoint) would exceed 25
+- Docker inputs removed from callers; reusable workflows still support them
+- Planned solution: Separate `hub-*-docker.yml` templates (deferred to v1.1.0)
+
+**This is a known constraint, not a bug.**
+
+#### 4. Documentation Drift
+- `docs/guides/TEMPLATES.md` recommends old dispatch templates
+- `docs/guides/MODES.md` describes reduced distributed toolset
+- `requirements/P0.md`, `requirements/P1.md` show items unverified
+- `CONFIG_REFERENCE.md` says expensive tools off, but defaults.yaml enables them
+
+### Blocking Issues for v1.0.0
+1. **Fix orchestrator input passthrough:**
+   - Add `mutation_score_min` for Python
+   - Add `run_hypothesis` (Python), `run_jqwik` (Java)
+   - Add all `max_*` thresholds for both languages
+2. **Complete report schema:**
+   - Add `hypothesis` to Python `tools_ran`
+   - Add `jqwik` to Java `tools_ran`
+   - Add `mypy_errors` to Python `tool_metrics`
+3. **Docker strategy:** Already decided - separate templates in v1.1.0 (25-input limit constraint)
+4. **Update all docs:** Remove references to old dispatch templates, update MODES.md
+5. **Fixtures validated:** ✅ External repos work, failures are real gate failures (good!)
+
+---
 
 ## v1.0.0 Scope
 
@@ -26,16 +103,19 @@
 
 ## Quick Status
 
-| Part | Description | Status |
-|------|-------------|--------|
-| **Part 1** | Reusable Workflows | 🔄 Phase 1B active (blocking Part 4) |
-| **Part 2** | CLI Tool (`cihub`) | ⚪ Not started |
-| **Part 3** | Test Fixtures Expansion | ⚪ Not started |
-| **Part 4** | Aggregation | ✅ Mostly done (needs Part 1 for correct reports) |
-| **Part 5** | Dashboard | 🟡 Partial (HTML exists, needs GitHub Pages) |
-| **Part 6** | Polish & Release | ⚪ Not started |
+| Part | Description | Status | Blocking Issues |
+|------|-------------|--------|-----------------|
+| **Part 1** | Reusable Workflows | 🔴 **BLOCKING** | Orchestrator missing inputs, report schema incomplete |
+| **Part 2** | CLI Tool (`cihub`) | ⚪ Not started | Depends on Part 1 |
+| **Part 3** | Test Fixtures Expansion | ⚪ Not started | 6 fixtures exist, 16+ planned |
+| **Part 4** | Aggregation | 🟡 Partial | Works but distributed mode drops thresholds |
+| **Part 5** | Dashboard | 🟡 Partial | HTML exists, needs GitHub Pages |
+| **Part 6** | Polish & Release | ⚪ Not started | Docs drift, old templates not deprecated |
 
-**Critical Path:** Part 1 → Part 4 unlocks → Part 5 completes → Release
+**Critical Path:**
+1. Fix Part 1 (orchestrator inputs + report schema) → Distributed mode works
+2. Part 4 aggregation validates → Reports are complete
+3. Part 6 polish (docs + deprecation) → Ready for v1.0.0
 
 ---
 
