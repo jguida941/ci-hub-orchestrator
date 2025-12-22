@@ -67,7 +67,7 @@ Due to GitHub's **25-input limit** for `workflow_dispatch`:
 - `docs/guides/TEMPLATES.md` recommends old dispatch templates
 - `docs/guides/MODES.md` describes reduced distributed toolset
 - `requirements/P0.md`, `requirements/P1.md` show items unverified
-- `CONFIG_REFERENCE.md` says expensive tools off, but defaults.yaml enables them
+- `CONFIG_REFERENCE.md` now reflects defaults.yaml tool enablement
 
 ### Blocking Issues for v1.0.0
 1. **Fix orchestrator input passthrough:**
