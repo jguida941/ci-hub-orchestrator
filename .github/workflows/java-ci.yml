@@ -191,64 +191,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Configuration Summary
-        run: |
-          {
-            echo "# Configuration Summary"
-            echo ""
-            echo "## Tools Enabled"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Build | ${{ inputs.build_tool }} | true |"
-            echo "| Testing | JaCoCo Coverage | ${{ inputs.run_jacoco }} |"
-            echo "| Testing | PITest | ${{ inputs.run_pitest }} |"
-            echo "| Testing | jqwik | ${{ inputs.run_jqwik }} |"
-            echo "| Linting | Checkstyle | ${{ inputs.run_checkstyle }} |"
-            echo "| Linting | PMD | ${{ inputs.run_pmd }} |"
-            echo "| Linting | SpotBugs | ${{ inputs.run_spotbugs }} |"
-            echo "| Security | OWASP Dependency-Check | ${{ inputs.run_owasp }} |"
-            echo "| Security | Semgrep | ${{ inputs.run_semgrep }} |"
-            echo "| Security | Trivy | ${{ inputs.run_trivy }} |"
-            echo "| Security | CodeQL | ${{ inputs.run_codeql }} |"
-            echo "| Container | Docker | ${{ inputs.run_docker }} |"
-            echo ""
-            echo "## Thresholds"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Min Coverage | ${{ inputs.coverage_min }}% |"
-            echo "| Min Mutation Score | ${{ inputs.mutation_score_min }}% |"
-            echo "| OWASP CVSS Fail | ${{ inputs.owasp_cvss_fail }} |"
-            echo "| Max Critical Vulns | ${{ inputs.max_critical_vulns }} |"
-            echo "| Max High Vulns | ${{ inputs.max_high_vulns }} |"
-            echo "| Max Semgrep Findings | ${{ inputs.max_semgrep_findings }} |"
-            echo "| Max PMD Violations | ${{ inputs.max_pmd_violations }} |"
-            echo "| Max Checkstyle Errors | ${{ inputs.max_checkstyle_errors }} |"
-            echo "| Max SpotBugs Bugs | ${{ inputs.max_spotbugs_bugs }} |"
-            echo ""
-            echo "## Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Java Version | ${{ inputs.java_version }} |"
-            echo "| Build Tool | ${{ inputs.build_tool }} |"
-            WORKDIR="${{ inputs.workdir }}"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            # Detect multi-module project
-            if [ -f "pom.xml" ] && grep -q "<modules>" pom.xml 2>/dev/null; then
-              MODULE_COUNT=$(grep -c "<module>" pom.xml 2>/dev/null || echo "0")
-              echo "| Project Type | Multi-module ($MODULE_COUNT modules) |"
-            else
-              echo "| Project Type | Single module |"
-            fi
-            echo "| Artifact Retention | ${{ inputs.retention_days }} days |"
-            echo ""
-            echo "---"
-            echo ""
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Build and Test
         id: build
         # continue-on-error allows workflow to continue when tests fail,
@@ -480,30 +422,183 @@ jobs:
             exit 1
           fi
 
-      # ---- Generate Summary ----
-      - name: Generate Build Summary
+      - name: Build Summary
         if: always()
         run: |
           {
-            echo "## Build Results"
+            echo "## Build & Test Summary"
             echo ""
-            echo "| Metric | Value |"
-            echo "|--------|-------|"
-            echo "| Tests Passed | ${{ steps.test-counts.outputs.passed }} |"
-            echo "| Tests Failed | ${{ steps.test-counts.outputs.failed }} |"
-            echo "| Total Coverage | ${{ steps.coverage.outputs.percentage }}% |"
+            echo "### Configuration"
+            echo "| Category | Tool | Enabled |"
+            echo "|----------|------|---------|"
+            echo "| Build | ${{ inputs.build_tool }} | true |"
+            echo "| Testing | JaCoCo Coverage | ${{ inputs.run_jacoco }} |"
+            echo "| Testing | PITest | ${{ inputs.run_pitest }} |"
+            echo "| Testing | jqwik | ${{ inputs.run_jqwik }} |"
+            echo "| Linting | Checkstyle | ${{ inputs.run_checkstyle }} |"
+            echo "| Linting | PMD | ${{ inputs.run_pmd }} |"
+            echo "| Linting | SpotBugs | ${{ inputs.run_spotbugs }} |"
+            echo "| Security | OWASP Dependency-Check | ${{ inputs.run_owasp }} |"
+            echo "| Security | Semgrep | ${{ inputs.run_semgrep }} |"
+            echo "| Security | Trivy | ${{ inputs.run_trivy }} |"
+            echo "| Security | CodeQL | ${{ inputs.run_codeql }} |"
+            echo "| Container | Docker | ${{ inputs.run_docker }} |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Min Coverage | ${{ inputs.coverage_min }}% |"
+            echo "| Min Mutation Score | ${{ inputs.mutation_score_min }}% |"
+            echo "| OWASP CVSS Fail | ${{ inputs.owasp_cvss_fail }} |"
+            echo "| Max Critical Vulns | ${{ inputs.max_critical_vulns }} |"
+            echo "| Max High Vulns | ${{ inputs.max_high_vulns }} |"
+            echo "| Max Semgrep Findings | ${{ inputs.max_semgrep_findings }} |"
+            echo "| Max PMD Violations | ${{ inputs.max_pmd_violations }} |"
+            echo "| Max Checkstyle Errors | ${{ inputs.max_checkstyle_errors }} |"
+            echo "| Max SpotBugs Bugs | ${{ inputs.max_spotbugs_bugs }} |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Java Version | ${{ inputs.java_version }} |"
+            echo "| Build Tool | ${{ inputs.build_tool }} |"
+            WORKDIR="${{ inputs.workdir }}"
+            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
+              echo "| Working Directory | \`.\` (repo root) |"
+            else
+              echo "| Working Directory | \`$WORKDIR\` |"
+            fi
+            if [ -f "pom.xml" ] && grep -q "<modules>" pom.xml 2>/dev/null; then
+              MODULE_COUNT=$(grep -c "<module>" pom.xml 2>/dev/null || echo "0")
+              echo "| Project Type | Multi-module ($MODULE_COUNT modules) |"
+            else
+              echo "| Project Type | Single module |"
+            fi
+            echo "| Artifact Retention | ${{ inputs.retention_days }} days |"
+            PREFIX="${{ inputs.artifact_prefix }}"
+            if [ -n "$PREFIX" ]; then
+              echo "| Artifact Prefix | \`$PREFIX\` |"
+            fi
+            if [ "${{ inputs.run_docker }}" = "true" ]; then
+              echo "| Docker Compose | \`${{ inputs.docker_compose_file }}\` |"
+              echo "| Health Endpoint | \`${{ inputs.docker_health_endpoint }}\` |"
+            fi
+            echo ""
+            echo "### Results"
+            echo ""
+            echo "#### Testing"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
 
-            # jqwik property tests (if enabled)
+            TESTS_FAILED="${{ steps.test-counts.outputs.failed || 0 }}"
+            MIN_COVERAGE="${{ inputs.coverage_min }}"
+            STATUS="✅ Pass"
+            if [ "${TESTS_FAILED:-0}" -gt 0 ]; then
+              STATUS="❌ Fail"
+            fi
+            if [ "${{ inputs.run_jacoco }}" = "true" ]; then
+              COVERAGE="${{ steps.coverage.outputs.percentage || 0 }}"
+              if [ "${COVERAGE:-0}" -lt "${MIN_COVERAGE:-0}" ]; then
+                STATUS="❌ Fail"
+              fi
+              COVERAGE_DETAIL="coverage: ${COVERAGE:-0}% (min ${MIN_COVERAGE:-0}%)"
+            else
+              COVERAGE_DETAIL="coverage: N/A (JaCoCo disabled)"
+            fi
+            echo "| Build/Test | $STATUS | passed: ${{ steps.test-counts.outputs.passed || 0 }}, failed: ${TESTS_FAILED:-0}, ${COVERAGE_DETAIL} |"
+
             if [ "${{ inputs.run_jqwik }}" = "true" ]; then
-              echo "| jqwik Property Tests | ${{ steps.jqwik-results.outputs.tests }} |"
+              JQWIK_OUTCOME="${{ steps.jqwik-results.outcome }}"
+              if [ "$JQWIK_OUTCOME" = "success" ]; then
+                STATUS="✅ Pass"
+              else
+                STATUS="❌ Fail"
+              fi
+              echo "| jqwik | $STATUS | property tests: ${{ steps.jqwik-results.outputs.tests || 0 }} |"
+            else
+              echo "| jqwik | ⏭️ Skipped | - |"
             fi
 
-            # Show per-module breakdown for multi-module projects
+            echo ""
+            echo "#### Lint"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
+
+            if [ "${{ inputs.run_checkstyle }}" = "true" ]; then
+              ISSUES="${{ steps.lint-results.outputs.checkstyle }}"
+              MAX="${{ inputs.max_checkstyle_errors || 0 }}"
+              if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
+                STATUS="✅ Pass"
+              else
+                STATUS="❌ Fail"
+              fi
+              echo "| Checkstyle | $STATUS | issues: ${ISSUES:-0} (max ${MAX:-0}) |"
+            else
+              echo "| Checkstyle | ⏭️ Skipped | - |"
+            fi
+
+            if [ "${{ inputs.run_spotbugs }}" = "true" ]; then
+              ISSUES="${{ steps.lint-results.outputs.spotbugs }}"
+              MAX="${{ inputs.max_spotbugs_bugs || 0 }}"
+              if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
+                STATUS="✅ Pass"
+              else
+                STATUS="❌ Fail"
+              fi
+              echo "| SpotBugs | $STATUS | issues: ${ISSUES:-0} (max ${MAX:-0}) |"
+            else
+              echo "| SpotBugs | ⏭️ Skipped | - |"
+            fi
+
+            if [ "${{ inputs.run_pmd }}" = "true" ]; then
+              echo "| PMD | ✅ Enabled | See PMD job |"
+            else
+              echo "| PMD | ⏭️ Skipped | - |"
+            fi
+
+            echo ""
+            echo "#### Security"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
+
+            if [ "${{ inputs.run_owasp }}" = "true" ]; then
+              CRITICAL="${{ steps.security-results.outputs.owasp_critical }}"
+              HIGH="${{ steps.security-results.outputs.owasp_high }}"
+              MEDIUM="${{ steps.security-results.outputs.owasp_medium }}"
+              MAX_CRIT="${{ inputs.max_critical_vulns || 0 }}"
+              MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
+              if [ "${CRITICAL:-0}" -le "${MAX_CRIT:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ] 2>/dev/null; then
+                STATUS="✅ Pass"
+              else
+                STATUS="❌ Fail"
+              fi
+              echo "| OWASP | $STATUS | critical: ${CRITICAL:-0} (max ${MAX_CRIT:-0}), high: ${HIGH:-0} (max ${MAX_HIGH:-0}), medium: ${MEDIUM:-0} |"
+            else
+              echo "| OWASP | ⏭️ Skipped | - |"
+            fi
+
+            if [ "${{ inputs.run_semgrep }}" = "true" ]; then
+              echo "| Semgrep | ✅ Enabled | See Semgrep job |"
+            else
+              echo "| Semgrep | ⏭️ Skipped | - |"
+            fi
+
+            if [ "${{ inputs.run_trivy }}" = "true" ]; then
+              echo "| Trivy | ✅ Enabled | See Trivy job |"
+            else
+              echo "| Trivy | ⏭️ Skipped | - |"
+            fi
+
+            if [ "${{ inputs.run_codeql }}" = "true" ]; then
+              echo "| CodeQL | ✅ Enabled | See CodeQL job |"
+            else
+              echo "| CodeQL | ⏭️ Skipped | - |"
+            fi
+
             MODULE_COUNT="${{ steps.coverage.outputs.module_count }}"
             if [ "${MODULE_COUNT:-0}" -gt 1 ] && [ -f /tmp/module_coverage.txt ]; then
               echo ""
-              echo "### Coverage by Module"
-              echo ""
+              echo "#### Coverage by Module"
               echo "| Module | Coverage |"
               echo "|--------|----------|"
               while IFS='|' read -r MODULE COV; do
@@ -511,104 +606,6 @@ jobs:
                   echo "| $MODULE | $COV% |"
                 fi
               done < /tmp/module_coverage.txt
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Generate Lint Summary
-        if: always()
-        run: |
-          {
-            echo ""
-            echo "## Lint Results"
-            echo ""
-            echo "| Tool | Status | Issues | Max Allowed |"
-            echo "|------|--------|--------|-------------|"
-
-            # Checkstyle
-            if [ "${{ inputs.run_checkstyle }}" = "true" ]; then
-              ISSUES="${{ steps.lint-results.outputs.checkstyle }}"
-              MAX="${{ inputs.max_checkstyle_errors }}"
-              if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
-                echo "| Checkstyle | ✅ Pass | ${ISSUES:-0} | ${MAX:-0} |"
-              else
-                echo "| Checkstyle | ❌ Fail | ${ISSUES:-0} | ${MAX:-0} |"
-              fi
-            else
-              echo "| Checkstyle | ⏭️ Skipped | - | - |"
-            fi
-
-            # SpotBugs
-            if [ "${{ inputs.run_spotbugs }}" = "true" ]; then
-              ISSUES="${{ steps.lint-results.outputs.spotbugs }}"
-              MAX="${{ inputs.max_spotbugs_bugs }}"
-              if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
-                echo "| SpotBugs | ✅ Pass | ${ISSUES:-0} | ${MAX:-0} |"
-              else
-                echo "| SpotBugs | ❌ Fail | ${ISSUES:-0} | ${MAX:-0} |"
-              fi
-            else
-              echo "| SpotBugs | ⏭️ Skipped | - | - |"
-            fi
-
-            # PMD
-            if [ "${{ inputs.run_pmd }}" = "true" ]; then
-              ISSUES="${{ steps.lint-results.outputs.pmd }}"
-              MAX="${{ inputs.max_pmd_violations }}"
-              if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
-                echo "| PMD | ✅ Pass | ${ISSUES:-0} | ${MAX:-0} |"
-              else
-                echo "| PMD | ❌ Fail | ${ISSUES:-0} | ${MAX:-0} |"
-              fi
-            else
-              echo "| PMD | ⏭️ Skipped | - | - |"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Generate Security Summary
-        if: always()
-        run: |
-          {
-            echo ""
-            echo "## Security Results"
-            echo ""
-            echo "| Tool | Status | Issues |"
-            echo "|------|--------|--------|"
-
-            # OWASP
-            if [ "${{ inputs.run_owasp }}" = "true" ]; then
-              CRITICAL="${{ steps.security-results.outputs.owasp_critical }}"
-              HIGH="${{ steps.security-results.outputs.owasp_high }}"
-              MEDIUM="${{ steps.security-results.outputs.owasp_medium }}"
-              MAX_CRIT="${{ inputs.max_critical_vulns }}"
-              MAX_HIGH="${{ inputs.max_high_vulns }}"
-              if [ "${CRITICAL:-0}" -le "${MAX_CRIT:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ] 2>/dev/null; then
-                echo "| OWASP | ✅ Pass | ${CRITICAL:-0} critical, ${HIGH:-0} high, ${MEDIUM:-0} medium |"
-              else
-                echo "| OWASP | ❌ Fail | ${CRITICAL:-0} critical, ${HIGH:-0} high, ${MEDIUM:-0} medium |"
-              fi
-            else
-              echo "| OWASP | ⏭️ Skipped | - |"
-            fi
-
-            # Semgrep (runs in separate job, show placeholder)
-            if [ "${{ inputs.run_semgrep }}" = "true" ]; then
-              echo "| Semgrep | ✅ Enabled | See Semgrep job |"
-            else
-              echo "| Semgrep | ⏭️ Skipped | - |"
-            fi
-
-            # Trivy (runs in separate job, show placeholder)
-            if [ "${{ inputs.run_trivy }}" = "true" ]; then
-              echo "| Trivy | ✅ Enabled | See Trivy job |"
-            else
-              echo "| Trivy | ⏭️ Skipped | - |"
-            fi
-
-            # CodeQL (runs in separate job, show placeholder)
-            if [ "${{ inputs.run_codeql }}" = "true" ]; then
-              echo "| CodeQL | ✅ Enabled | See CodeQL job |"
-            else
-              echo "| CodeQL | ⏭️ Skipped | - |"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -745,13 +742,54 @@ jobs:
           echo "PMD Violations: $VIOLATIONS"
         continue-on-error: true
 
-      - name: Generate PMD Summary
+      - name: PMD Summary
         if: always()
         run: |
           {
-            echo "## PMD Static Analysis Results"
+            echo "## PMD Summary"
             echo ""
-            echo "**Violations:** ${{ steps.pmd.outputs.violations }}"
+            echo "### Configuration"
+            echo "| Category | Tool | Enabled |"
+            echo "|----------|------|---------|"
+            echo "| Linting | PMD | ${{ inputs.run_pmd }} |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Max PMD Violations | ${{ inputs.max_pmd_violations }} |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Java Version | ${{ inputs.java_version }} |"
+            echo "| Build Tool | ${{ inputs.build_tool }} |"
+            WORKDIR="${{ inputs.workdir }}"
+            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
+              echo "| Working Directory | \`.\` (repo root) |"
+            else
+              echo "| Working Directory | \`$WORKDIR\` |"
+            fi
+            echo "| Artifact Retention | ${{ inputs.retention_days }} days |"
+            PREFIX="${{ inputs.artifact_prefix }}"
+            if [ -n "$PREFIX" ]; then
+              echo "| Artifact Prefix | \`$PREFIX\` |"
+            fi
+            if [ "${{ inputs.run_docker }}" = "true" ]; then
+              echo "| Docker Compose | \`${{ inputs.docker_compose_file }}\` |"
+              echo "| Health Endpoint | \`${{ inputs.docker_health_endpoint }}\` |"
+            fi
+            echo ""
+            echo "### Results"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
+            VIOLATIONS="${{ steps.pmd.outputs.violations || 0 }}"
+            MAX_VIOLATIONS="${{ inputs.max_pmd_violations || 0 }}"
+            if [ "${VIOLATIONS:-0}" -le "${MAX_VIOLATIONS:-0}" ]; then
+              STATUS="✅ Pass"
+            else
+              STATUS="❌ Fail"
+            fi
+            echo "| PMD | $STATUS | violations: ${VIOLATIONS:-0} (max ${MAX_VIOLATIONS:-0}) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload PMD Reports
@@ -815,13 +853,54 @@ jobs:
           echo "Semgrep Findings: $FINDINGS"
         continue-on-error: true
 
-      - name: Generate Semgrep Summary
+      - name: Semgrep Summary
         if: always()
         run: |
           {
-            echo "## Semgrep SAST Results"
+            echo "## Semgrep SAST Summary"
             echo ""
-            echo "**Findings:** ${{ steps.semgrep.outputs.findings }}"
+            echo "### Configuration"
+            echo "| Category | Tool | Enabled |"
+            echo "|----------|------|---------|"
+            echo "| Security | Semgrep | ${{ inputs.run_semgrep }} |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Max Semgrep Findings | ${{ inputs.max_semgrep_findings }} |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Java Version | ${{ inputs.java_version }} |"
+            echo "| Build Tool | ${{ inputs.build_tool }} |"
+            WORKDIR="${{ inputs.workdir }}"
+            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
+              echo "| Working Directory | \`.\` (repo root) |"
+            else
+              echo "| Working Directory | \`$WORKDIR\` |"
+            fi
+            echo "| Artifact Retention | ${{ inputs.retention_days }} days |"
+            PREFIX="${{ inputs.artifact_prefix }}"
+            if [ -n "$PREFIX" ]; then
+              echo "| Artifact Prefix | \`$PREFIX\` |"
+            fi
+            if [ "${{ inputs.run_docker }}" = "true" ]; then
+              echo "| Docker Compose | \`${{ inputs.docker_compose_file }}\` |"
+              echo "| Health Endpoint | \`${{ inputs.docker_health_endpoint }}\` |"
+            fi
+            echo ""
+            echo "### Results"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
+            FINDINGS="${{ steps.semgrep.outputs.findings || 0 }}"
+            MAX_FINDINGS="${{ inputs.max_semgrep_findings || 0 }}"
+            if [ "${FINDINGS:-0}" -le "${MAX_FINDINGS:-0}" ]; then
+              STATUS="✅ Pass"
+            else
+              STATUS="❌ Fail"
+            fi
+            echo "| Semgrep | $STATUS | findings: ${FINDINGS:-0} (max ${MAX_FINDINGS:-0}) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Semgrep Report
@@ -901,14 +980,62 @@ jobs:
           echo "high=$HIGH" >> "$GITHUB_OUTPUT"
           echo "Trivy: $CRITICAL critical, $HIGH high"
 
-      - name: Generate Trivy Summary
-        if: always() && steps.check-dockerfile.outputs.exists == 'true'
+      - name: Trivy Summary
+        if: always()
         run: |
           {
-            echo "## Trivy Container Scan Results"
+            echo "## Trivy Container Scan Summary"
             echo ""
-            echo "**Critical:** ${{ steps.trivy-parse.outputs.critical }}"
-            echo "**High:** ${{ steps.trivy-parse.outputs.high }}"
+            echo "### Configuration"
+            echo "| Category | Tool | Enabled |"
+            echo "|----------|------|---------|"
+            echo "| Security | Trivy | ${{ inputs.run_trivy }} |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Max Critical Vulns | ${{ inputs.max_critical_vulns }} |"
+            echo "| Max High Vulns | ${{ inputs.max_high_vulns }} |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Java Version | ${{ inputs.java_version }} |"
+            echo "| Build Tool | ${{ inputs.build_tool }} |"
+            WORKDIR="${{ inputs.workdir }}"
+            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
+              echo "| Working Directory | \`.\` (repo root) |"
+            else
+              echo "| Working Directory | \`$WORKDIR\` |"
+            fi
+            echo "| Artifact Retention | ${{ inputs.retention_days }} days |"
+            PREFIX="${{ inputs.artifact_prefix }}"
+            if [ -n "$PREFIX" ]; then
+              echo "| Artifact Prefix | \`$PREFIX\` |"
+            fi
+            if [ "${{ inputs.run_docker }}" = "true" ]; then
+              echo "| Docker Compose | \`${{ inputs.docker_compose_file }}\` |"
+              echo "| Health Endpoint | \`${{ inputs.docker_health_endpoint }}\` |"
+            fi
+            echo ""
+            echo "### Results"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
+
+            if [ "${{ steps.check-dockerfile.outputs.exists }}" != "true" ]; then
+              echo "| Trivy | ⏭️ Skipped | No Dockerfile found |"
+            else
+              CRIT="${{ steps.trivy-parse.outputs.critical || 0 }}"
+              HIGH="${{ steps.trivy-parse.outputs.high || 0 }}"
+              MAX_CRIT="${{ inputs.max_critical_vulns || 0 }}"
+              MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
+              if [ "${CRIT:-0}" -le "${MAX_CRIT:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ]; then
+                STATUS="✅ Pass"
+              else
+                STATUS="❌ Fail"
+              fi
+              echo "| Trivy | $STATUS | critical: ${CRIT:-0} (max ${MAX_CRIT:-0}), high: ${HIGH:-0} (max ${MAX_HIGH:-0}) |"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Trivy Report
@@ -1040,23 +1167,60 @@ jobs:
             exit 1
           fi
 
-      - name: Generate Mutation Summary
+      - name: Mutation Summary
         if: always()
         run: |
           {
-            echo "## Mutation Testing Results"
+            echo "## Mutation Testing Summary"
             echo ""
-            echo "| Metric | Value |"
-            echo "|--------|-------|"
-            echo "| Total Mutation Score | ${{ steps.pitest.outputs.score }}% |"
-            echo "| Threshold | ${{ inputs.mutation_score_min }}% |"
+            echo "### Configuration"
+            echo "| Category | Tool | Enabled |"
+            echo "|----------|------|---------|"
+            echo "| Testing | PITest | ${{ inputs.run_pitest }} |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Min Mutation Score | ${{ inputs.mutation_score_min }}% |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Java Version | ${{ inputs.java_version }} |"
+            echo "| Build Tool | ${{ inputs.build_tool }} |"
+            WORKDIR="${{ inputs.workdir }}"
+            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
+              echo "| Working Directory | \`.\` (repo root) |"
+            else
+              echo "| Working Directory | \`$WORKDIR\` |"
+            fi
+            echo "| Artifact Retention | ${{ inputs.retention_days }} days |"
+            PREFIX="${{ inputs.artifact_prefix }}"
+            if [ -n "$PREFIX" ]; then
+              echo "| Artifact Prefix | \`$PREFIX\` |"
+            fi
+            if [ "${{ inputs.run_docker }}" = "true" ]; then
+              echo "| Docker Compose | \`${{ inputs.docker_compose_file }}\` |"
+              echo "| Health Endpoint | \`${{ inputs.docker_health_endpoint }}\` |"
+            fi
+            echo ""
+            echo "### Results"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
 
-            # Show per-module breakdown for multi-module projects
+            SCORE="${{ steps.pitest.outputs.score || 0 }}"
+            MIN_SCORE="${{ inputs.mutation_score_min }}"
+            if [ "${SCORE:-0}" -ge "${MIN_SCORE:-0}" ]; then
+              STATUS="✅ Pass"
+            else
+              STATUS="❌ Fail"
+            fi
+            echo "| PITest | $STATUS | score: ${SCORE:-0}% (min ${MIN_SCORE:-0}%) |"
+
             MODULE_COUNT="${{ steps.pitest.outputs.module_count }}"
             if [ "${MODULE_COUNT:-0}" -gt 1 ] && [ -f /tmp/module_mutations.txt ]; then
               echo ""
-              echo "### Mutations by Module"
-              echo ""
+              echo "#### Mutations by Module"
               echo "| Module | Score | Killed | Survived |"
               echo "|--------|-------|--------|----------|"
               while IFS='|' read -r MODULE SCORE KILLED SURVIVED; do
@@ -1096,12 +1260,14 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker Image
+        id: docker-build
         run: |
           if [ -f "Dockerfile" ]; then
             docker build -t ${{ github.repository }}:ci-test .
           fi
 
       - name: Test with Docker Compose
+        id: docker-compose-test
         if: hashFiles(inputs.docker_compose_file) != ''
         run: |
           docker compose -f ${{ inputs.docker_compose_file }} up -d
@@ -1122,6 +1288,69 @@ jobs:
 
           # Cleanup
           docker compose down
+
+      - name: Docker Summary
+        if: always()
+        run: |
+          {
+            echo "## Docker Build Summary"
+            echo ""
+            echo "### Configuration"
+            echo "| Category | Tool | Enabled |"
+            echo "|----------|------|---------|"
+            echo "| Container | Docker | ${{ inputs.run_docker }} |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| N/A | N/A |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Java Version | ${{ inputs.java_version }} |"
+            echo "| Build Tool | ${{ inputs.build_tool }} |"
+            WORKDIR="${{ inputs.workdir }}"
+            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
+              echo "| Working Directory | \`.\` (repo root) |"
+            else
+              echo "| Working Directory | \`$WORKDIR\` |"
+            fi
+            echo "| Artifact Retention | ${{ inputs.retention_days }} days |"
+            PREFIX="${{ inputs.artifact_prefix }}"
+            if [ -n "$PREFIX" ]; then
+              echo "| Artifact Prefix | \`$PREFIX\` |"
+            fi
+            if [ "${{ inputs.run_docker }}" = "true" ]; then
+              echo "| Docker Compose | \`${{ inputs.docker_compose_file }}\` |"
+              echo "| Health Endpoint | \`${{ inputs.docker_health_endpoint }}\` |"
+            fi
+            echo ""
+            echo "### Results"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
+
+            COMPOSE_FILE="${{ inputs.docker_compose_file }}"
+            if [ ! -f "Dockerfile" ]; then
+              echo "| Docker | ⏭️ Skipped | No Dockerfile found |"
+            else
+              BUILD_STATUS="${{ steps.docker-build.outcome }}"
+              COMPOSE_STATUS="${{ steps.docker-compose-test.outcome }}"
+              if [ -f "$COMPOSE_FILE" ] && [ "$COMPOSE_STATUS" != "success" ]; then
+                STATUS="❌ Fail"
+              elif [ "$BUILD_STATUS" != "success" ]; then
+                STATUS="❌ Fail"
+              else
+                STATUS="✅ Pass"
+              fi
+              if [ -f "$COMPOSE_FILE" ]; then
+                DETAILS="build: ${BUILD_STATUS:-unknown}, compose: ${COMPOSE_STATUS:-skipped}"
+              else
+                DETAILS="build: ${BUILD_STATUS:-unknown}, compose: skipped (no compose file)"
+              fi
+              echo "| Docker | $STATUS | $DETAILS |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # CodeQL Security Analysis
@@ -1173,7 +1402,57 @@ jobs:
           fi
 
       - name: Perform CodeQL Analysis
+        id: codeql-analyze
         uses: github/codeql-action/analyze@v3
+
+      - name: CodeQL Summary
+        if: always()
+        run: |
+          {
+            echo "## CodeQL Summary"
+            echo ""
+            echo "### Configuration"
+            echo "| Category | Tool | Enabled |"
+            echo "|----------|------|---------|"
+            echo "| Security | CodeQL | ${{ inputs.run_codeql }} |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| N/A | N/A |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Java Version | ${{ inputs.java_version }} |"
+            echo "| Build Tool | ${{ inputs.build_tool }} |"
+            WORKDIR="${{ inputs.workdir }}"
+            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
+              echo "| Working Directory | \`.\` (repo root) |"
+            else
+              echo "| Working Directory | \`$WORKDIR\` |"
+            fi
+            echo "| Artifact Retention | ${{ inputs.retention_days }} days |"
+            PREFIX="${{ inputs.artifact_prefix }}"
+            if [ -n "$PREFIX" ]; then
+              echo "| Artifact Prefix | \`$PREFIX\` |"
+            fi
+            if [ "${{ inputs.run_docker }}" = "true" ]; then
+              echo "| Docker Compose | \`${{ inputs.docker_compose_file }}\` |"
+              echo "| Health Endpoint | \`${{ inputs.docker_health_endpoint }}\` |"
+            fi
+            echo ""
+            echo "### Results"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
+            OUTCOME="${{ steps.codeql-analyze.outcome }}"
+            if [ "$OUTCOME" = "success" ]; then
+              STATUS="✅ Pass"
+            else
+              STATUS="❌ Fail"
+            fi
+            echo "| CodeQL | $STATUS | outcome: ${OUTCOME:-unknown} (see Security tab) |"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # Generate Final Report
@@ -1300,3 +1579,53 @@ jobs:
           name: ${{ inputs.artifact_prefix }}ci-report
           path: report.json
           retention-days: ${{ inputs.retention_days }}
+
+      - name: Report Summary
+        if: always()
+        run: |
+          {
+            echo "## Report Summary"
+            echo ""
+            echo "### Configuration"
+            echo "| Category | Tool | Enabled |"
+            echo "|----------|------|---------|"
+            echo "| Reporting | ci-report | true |"
+            echo ""
+            echo "### Thresholds"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| N/A | N/A |"
+            echo ""
+            echo "### Environment"
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Java Version | ${{ inputs.java_version }} |"
+            echo "| Build Tool | ${{ inputs.build_tool }} |"
+            WORKDIR="${{ inputs.workdir }}"
+            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
+              echo "| Working Directory | \`.\` (repo root) |"
+            else
+              echo "| Working Directory | \`$WORKDIR\` |"
+            fi
+            echo "| Artifact Retention | ${{ inputs.retention_days }} days |"
+            PREFIX="${{ inputs.artifact_prefix }}"
+            if [ -n "$PREFIX" ]; then
+              echo "| Artifact Prefix | \`$PREFIX\` |"
+            fi
+            if [ "${{ inputs.run_docker }}" = "true" ]; then
+              echo "| Docker Compose | \`${{ inputs.docker_compose_file }}\` |"
+              echo "| Health Endpoint | \`${{ inputs.docker_health_endpoint }}\` |"
+            fi
+            echo ""
+            echo "### Results"
+            echo "| Tool | Status | Details |"
+            echo "|------|--------|---------|"
+            if [ -f "report.json" ]; then
+              STATUS="✅ Pass"
+              DETAILS="report.json generated"
+            else
+              STATUS="❌ Fail"
+              DETAILS="report.json missing"
+            fi
+            echo "| ci-report | $STATUS | $DETAILS |"
+          } >> "$GITHUB_STEP_SUMMARY"
