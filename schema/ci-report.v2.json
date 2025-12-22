@@ -1,0 +1,129 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/jguida941/ci-cd-hub/schema/ci-report.v2.json",
+  "title": "CI Report",
+  "description": "Schema for per-repository report.json artifacts emitted by reusable workflows.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "metadata",
+    "repository",
+    "run_id",
+    "run_number",
+    "commit",
+    "branch",
+    "timestamp",
+    "results",
+    "tool_metrics",
+    "tools_ran"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "2.0"
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["workflow_version", "workflow_ref", "generated_at"],
+      "properties": {
+        "workflow_version": { "type": "string" },
+        "workflow_ref": { "type": "string" },
+        "generated_at": { "type": "string", "format": "date-time" }
+      }
+    },
+    "repository": { "type": "string" },
+    "run_id": { "type": "string" },
+    "run_number": { "type": "string" },
+    "commit": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "branch": { "type": "string" },
+    "timestamp": { "type": "string", "format": "date-time" },
+    "python_version": { "type": "string" },
+    "java_version": { "type": "string" },
+    "results": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "coverage",
+        "mutation_score",
+        "tests_passed",
+        "tests_failed",
+        "critical_vulns",
+        "high_vulns",
+        "medium_vulns"
+      ],
+      "properties": {
+        "test": { "type": "string" },
+        "build": { "type": "string" },
+        "coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "mutation_score": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "tests_passed": { "type": ["integer", "null"], "minimum": 0 },
+        "tests_failed": { "type": ["integer", "null"], "minimum": 0 },
+        "critical_vulns": { "type": ["integer", "null"], "minimum": 0 },
+        "high_vulns": { "type": ["integer", "null"], "minimum": 0 },
+        "medium_vulns": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "tool_metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "ruff_errors": { "type": ["integer", "null"], "minimum": 0 },
+        "mypy_errors": { "type": ["integer", "null"], "minimum": 0 },
+        "bandit_high": { "type": ["integer", "null"], "minimum": 0 },
+        "bandit_medium": { "type": ["integer", "null"], "minimum": 0 },
+        "black_issues": { "type": ["integer", "null"], "minimum": 0 },
+        "isort_issues": { "type": ["integer", "null"], "minimum": 0 },
+        "pip_audit_vulns": { "type": ["integer", "null"], "minimum": 0 },
+        "checkstyle_issues": { "type": ["integer", "null"], "minimum": 0 },
+        "spotbugs_issues": { "type": ["integer", "null"], "minimum": 0 },
+        "pmd_violations": { "type": ["integer", "null"], "minimum": 0 },
+        "owasp_critical": { "type": ["integer", "null"], "minimum": 0 },
+        "owasp_high": { "type": ["integer", "null"], "minimum": 0 },
+        "semgrep_findings": { "type": ["integer", "null"], "minimum": 0 },
+        "trivy_critical": { "type": ["integer", "null"], "minimum": 0 },
+        "trivy_high": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "tools_ran": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "pytest": { "type": "boolean" },
+        "ruff": { "type": "boolean" },
+        "bandit": { "type": "boolean" },
+        "pip_audit": { "type": "boolean" },
+        "mypy": { "type": "boolean" },
+        "hypothesis": { "type": "boolean" },
+        "black": { "type": "boolean" },
+        "isort": { "type": "boolean" },
+        "mutmut": { "type": "boolean" },
+        "jacoco": { "type": "boolean" },
+        "checkstyle": { "type": "boolean" },
+        "spotbugs": { "type": "boolean" },
+        "pmd": { "type": "boolean" },
+        "owasp": { "type": "boolean" },
+        "pitest": { "type": "boolean" },
+        "jqwik": { "type": "boolean" },
+        "semgrep": { "type": "boolean" },
+        "trivy": { "type": "boolean" },
+        "docker": { "type": "boolean" },
+        "codeql": { "type": "boolean" }
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "coverage_min": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "mutation_score_min": { "type": ["number", "null"], "minimum": 0, "maximum": 100 },
+        "owasp_cvss_fail": { "type": ["number", "null"], "minimum": 0 },
+        "max_pmd_violations": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    }
+  }
+}

@@ -186,6 +186,7 @@ def generate_workflow_inputs(config: dict) -> dict:
         inputs["run_spotbugs"] = tools.get("spotbugs", {}).get("enabled", True)
         inputs["run_owasp"] = tools.get("owasp", {}).get("enabled", True)
         inputs["run_pitest"] = tools.get("pitest", {}).get("enabled", True)
+        inputs["run_jqwik"] = tools.get("jqwik", {}).get("enabled", False)
         inputs["run_pmd"] = tools.get("pmd", {}).get("enabled", True)
         inputs["run_semgrep"] = tools.get("semgrep", {}).get("enabled", False)
         inputs["run_trivy"] = tools.get("trivy", {}).get("enabled", False)
@@ -198,6 +199,14 @@ def generate_workflow_inputs(config: dict) -> dict:
             "min_mutation_score", 70
         )
         inputs["owasp_cvss_fail"] = tools.get("owasp", {}).get("fail_on_cvss", 7)
+        inputs["max_checkstyle_errors"] = tools.get("checkstyle", {}).get(
+            "max_errors", 0
+        )
+        inputs["max_spotbugs_bugs"] = tools.get("spotbugs", {}).get("max_bugs", 0)
+        inputs["max_pmd_violations"] = tools.get("pmd", {}).get("max_violations", 0)
+        inputs["max_semgrep_findings"] = tools.get("semgrep", {}).get(
+            "max_findings", 0
+        )
 
         # Docker settings
         if inputs["run_docker"]:
@@ -231,6 +240,12 @@ def generate_workflow_inputs(config: dict) -> dict:
         inputs["coverage_min"] = tools.get("pytest", {}).get("min_coverage", 70)
         inputs["mutation_score_min"] = tools.get("mutmut", {}).get(
             "min_mutation_score", 70
+        )
+        inputs["max_ruff_errors"] = tools.get("ruff", {}).get("max_errors", 0)
+        inputs["max_black_issues"] = tools.get("black", {}).get("max_issues", 0)
+        inputs["max_isort_issues"] = tools.get("isort", {}).get("max_issues", 0)
+        inputs["max_semgrep_findings"] = tools.get("semgrep", {}).get(
+            "max_findings", 0
         )
 
     # Global thresholds (override tool defaults if provided)

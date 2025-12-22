@@ -29,12 +29,14 @@ java:
     checkstyle:
       enabled: true
       fail_on_violation: true
+      max_errors: 0
       config_file: null  # use repo default or specify path
 
     # Static Analysis
     spotbugs:
       enabled: true
       fail_on_error: true
+      max_bugs: 0
       effort: "max"  # min | default | max
       threshold: "medium"  # low | medium | high
 
@@ -51,15 +53,21 @@ java:
       threads: 4
       timeout_multiplier: 2
 
+    # Property-Based Testing
+    jqwik:
+      enabled: false
+
     # Static Analysis - PMD
     pmd:
       enabled: true
       fail_on_violation: false
+      max_violations: 0
 
     # SAST - Semgrep (expensive - disabled by default)
     semgrep:
       enabled: false  # Enable via config when needed - requires network/time
       fail_on_findings: false
+      max_findings: 0
 
     # Container/Filesystem Scan - Trivy (expensive - disabled by default)
     trivy:
@@ -96,6 +104,7 @@ python:
     ruff:
       enabled: true
       fail_on_error: true
+      max_errors: 0
 
     # Security
     bandit:
@@ -115,11 +124,13 @@ python:
     black:
       enabled: true
       fail_on_format_issues: false
+      max_issues: 0
 
     # Import Sorting
     isort:
       enabled: true
       fail_on_issues: false
+      max_issues: 0
 
     # Mutation Testing (expensive - disabled by default)
     mutmut:
@@ -137,6 +148,7 @@ python:
     semgrep:
       enabled: false  # Enable via config when needed - requires network/time
       fail_on_findings: false
+      max_findings: 0
 
     # Container/Filesystem Scan - Trivy (expensive - disabled by default)
     trivy:

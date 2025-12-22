@@ -650,6 +650,8 @@ jobs:
     name: Type Check
     runs-on: ubuntu-latest
     if: inputs.run_mypy
+    outputs:
+      errors: ${{ steps.mypy.outputs.errors }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -669,7 +671,11 @@ jobs:
           if [ -f "requirements.txt" ]; then pip install -r requirements.txt; fi
 
       - name: Run mypy
-        run: mypy . --ignore-missing-imports || true
+        id: mypy
+        run: |
+          mypy . --ignore-missing-imports 2>&1 | tee mypy-output.txt || true
+          ERRORS=$(grep -c ": error:" mypy-output.txt 2>/dev/null || echo 0)
+          echo "errors=$ERRORS" >> "$GITHUB_OUTPUT"
 
   # ============================================================================
   # Mutation Testing
@@ -1035,7 +1041,7 @@ jobs:
   report:
     name: Generate Report
     runs-on: ubuntu-latest
-    needs: [lint, test, security, mutation-test, semgrep, trivy]
+    needs: [lint, test, security, typecheck, mutation-test, semgrep, trivy]
     if: always()
 
     steps:
@@ -1100,6 +1106,7 @@ jobs:
             },
             "tool_metrics": {
               "ruff_errors": ${{ needs.lint.outputs.ruff_errors || 0 }},
+              "mypy_errors": ${{ needs.typecheck.outputs.errors || 0 }},
               "bandit_high": ${{ needs.lint.outputs.bandit_high || 0 }},
               "bandit_medium": ${{ needs.lint.outputs.bandit_medium || 0 }},
               "black_issues": ${{ needs.lint.outputs.black_issues || 0 }},
@@ -1115,6 +1122,7 @@ jobs:
               "bandit": ${{ inputs.run_bandit }},
               "pip_audit": ${{ inputs.run_pip_audit }},
               "mypy": ${{ inputs.run_mypy }},
+              "hypothesis": ${{ inputs.run_hypothesis }},
               "black": ${{ inputs.run_black }},
               "isort": ${{ inputs.run_isort }},
               "mutmut": ${{ inputs.run_mutmut }},

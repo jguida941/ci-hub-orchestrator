@@ -218,6 +218,7 @@ jobs:
           if language == "java":
               java = merged.get("java", {})
               tools = java.get("tools", {})
+              thresholds = merged.get("thresholds", {})
 
               inputs["java_version"] = java.get("version", "21")
               inputs["build_tool"] = java.get("build_tool", "maven")
@@ -226,17 +227,30 @@ jobs:
               inputs["run_spotbugs"] = tools.get("spotbugs", {}).get("enabled", True)
               inputs["run_owasp"] = tools.get("owasp", {}).get("enabled", True)
               inputs["run_pitest"] = tools.get("pitest", {}).get("enabled", True)
+              inputs["run_jqwik"] = tools.get("jqwik", {}).get("enabled", False)
               inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", True)
               inputs["coverage_min"] = tools.get("jacoco", {}).get("min_coverage", 70)
               inputs["mutation_score_min"] = tools.get("pitest", {}).get("min_mutation_score", 70)
+              if "coverage_min" in thresholds:
+                  inputs["coverage_min"] = thresholds.get("coverage_min", inputs["coverage_min"])
+              if "mutation_score_min" in thresholds:
+                  inputs["mutation_score_min"] = thresholds.get("mutation_score_min", inputs["mutation_score_min"])
               inputs["owasp_cvss_fail"] = tools.get("owasp", {}).get("fail_on_cvss", 7)
               inputs["run_pmd"] = tools.get("pmd", {}).get("enabled", True)
               inputs["run_semgrep"] = tools.get("semgrep", {}).get("enabled", True)
               inputs["run_trivy"] = tools.get("trivy", {}).get("enabled", True)
+              # Thresholds
+              inputs["max_critical_vulns"] = thresholds.get("max_critical_vulns", 0)
+              inputs["max_high_vulns"] = thresholds.get("max_high_vulns", 0)
+              inputs["max_checkstyle_errors"] = tools.get("checkstyle", {}).get("max_errors", 0)
+              inputs["max_spotbugs_bugs"] = tools.get("spotbugs", {}).get("max_bugs", 0)
+              inputs["max_pmd_violations"] = tools.get("pmd", {}).get("max_violations", 0)
+              inputs["max_semgrep_findings"] = tools.get("semgrep", {}).get("max_findings", 0)
 
           elif language == "python":
               python = merged.get("python", {})
               tools = python.get("tools", {})
+              thresholds = merged.get("thresholds", {})
 
               inputs["python_version"] = python.get("version", "3.12")
               inputs["run_pytest"] = tools.get("pytest", {}).get("enabled", True)
@@ -245,12 +259,25 @@ jobs:
               inputs["run_pip_audit"] = tools.get("pip_audit", {}).get("enabled", True)
               inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", True)
               inputs["coverage_min"] = tools.get("pytest", {}).get("min_coverage", 70)
+              inputs["mutation_score_min"] = tools.get("mutmut", {}).get("min_mutation_score", 70)
+              if "coverage_min" in thresholds:
+                  inputs["coverage_min"] = thresholds.get("coverage_min", inputs["coverage_min"])
+              if "mutation_score_min" in thresholds:
+                  inputs["mutation_score_min"] = thresholds.get("mutation_score_min", inputs["mutation_score_min"])
               inputs["run_mypy"] = tools.get("mypy", {}).get("enabled", False)
               inputs["run_black"] = tools.get("black", {}).get("enabled", True)
               inputs["run_isort"] = tools.get("isort", {}).get("enabled", True)
               inputs["run_mutmut"] = tools.get("mutmut", {}).get("enabled", True)
+              inputs["run_hypothesis"] = tools.get("hypothesis", {}).get("enabled", True)
               inputs["run_semgrep"] = tools.get("semgrep", {}).get("enabled", True)
               inputs["run_trivy"] = tools.get("trivy", {}).get("enabled", True)
+              # Thresholds
+              inputs["max_critical_vulns"] = thresholds.get("max_critical_vulns", 0)
+              inputs["max_high_vulns"] = thresholds.get("max_high_vulns", 0)
+              inputs["max_ruff_errors"] = tools.get("ruff", {}).get("max_errors", 0)
+              inputs["max_black_issues"] = tools.get("black", {}).get("max_issues", 0)
+              inputs["max_isort_issues"] = tools.get("isort", {}).get("max_issues", 0)
+              inputs["max_semgrep_findings"] = tools.get("semgrep", {}).get("max_findings", 0)
 
           reports = merged.get("reports", {})
           inputs["retention_days"] = reports.get("retention_days", 30)
@@ -308,6 +335,7 @@ jobs:
               inputs.run_spotbugs = asBool('${{ steps.repo-config.outputs.run_spotbugs }}');
               inputs.run_owasp = asBool('${{ steps.repo-config.outputs.run_owasp }}');
               inputs.run_pitest = asBool('${{ steps.repo-config.outputs.run_pitest }}');
+              inputs.run_jqwik = asBool('${{ steps.repo-config.outputs.run_jqwik }}');
               inputs.run_codeql = asBool('${{ steps.repo-config.outputs.run_codeql }}');
               inputs.coverage_min = asNumber('${{ steps.repo-config.outputs.coverage_min }}', 70);
               inputs.mutation_score_min = asNumber('${{ steps.repo-config.outputs.mutation_score_min }}', 70);
@@ -315,6 +343,13 @@ jobs:
               inputs.run_pmd = asBool('${{ steps.repo-config.outputs.run_pmd }}');
               inputs.run_semgrep = asBool('${{ steps.repo-config.outputs.run_semgrep }}');
               inputs.run_trivy = asBool('${{ steps.repo-config.outputs.run_trivy }}');
+              // Thresholds
+              inputs.max_critical_vulns = asNumber('${{ steps.repo-config.outputs.max_critical_vulns }}', 0);
+              inputs.max_high_vulns = asNumber('${{ steps.repo-config.outputs.max_high_vulns }}', 0);
+              inputs.max_checkstyle_errors = asNumber('${{ steps.repo-config.outputs.max_checkstyle_errors }}', 0);
+              inputs.max_spotbugs_bugs = asNumber('${{ steps.repo-config.outputs.max_spotbugs_bugs }}', 0);
+              inputs.max_pmd_violations = asNumber('${{ steps.repo-config.outputs.max_pmd_violations }}', 0);
+              inputs.max_semgrep_findings = asNumber('${{ steps.repo-config.outputs.max_semgrep_findings }}', 0);
               inputs.retention_days = asNumber('${{ steps.repo-config.outputs.retention_days }}', 30);
               inputs.workdir = subdir || '';
             } else {
@@ -328,9 +363,18 @@ jobs:
               inputs.run_black = asBool('${{ steps.repo-config.outputs.run_black }}');
               inputs.run_isort = asBool('${{ steps.repo-config.outputs.run_isort }}');
               inputs.run_mutmut = asBool('${{ steps.repo-config.outputs.run_mutmut }}');
+              inputs.run_hypothesis = asBool('${{ steps.repo-config.outputs.run_hypothesis }}');
               inputs.run_semgrep = asBool('${{ steps.repo-config.outputs.run_semgrep }}');
               inputs.run_trivy = asBool('${{ steps.repo-config.outputs.run_trivy }}');
               inputs.coverage_min = asNumber('${{ steps.repo-config.outputs.coverage_min }}', 70);
+              inputs.mutation_score_min = asNumber('${{ steps.repo-config.outputs.mutation_score_min }}', 70);
+              // Thresholds
+              inputs.max_critical_vulns = asNumber('${{ steps.repo-config.outputs.max_critical_vulns }}', 0);
+              inputs.max_high_vulns = asNumber('${{ steps.repo-config.outputs.max_high_vulns }}', 0);
+              inputs.max_ruff_errors = asNumber('${{ steps.repo-config.outputs.max_ruff_errors }}', 0);
+              inputs.max_black_issues = asNumber('${{ steps.repo-config.outputs.max_black_issues }}', 0);
+              inputs.max_isort_issues = asNumber('${{ steps.repo-config.outputs.max_isort_issues }}', 0);
+              inputs.max_semgrep_findings = asNumber('${{ steps.repo-config.outputs.max_semgrep_findings }}', 0);
               inputs.retention_days = asNumber('${{ steps.repo-config.outputs.retention_days }}', 30);
               inputs.workdir = subdir || '';
             }

@@ -1277,6 +1277,7 @@ jobs:
               "pmd": ${{ inputs.run_pmd }},
               "owasp": ${{ inputs.run_owasp }},
               "pitest": ${{ inputs.run_pitest }},
+              "jqwik": ${{ inputs.run_jqwik }},
               "semgrep": ${{ inputs.run_semgrep }},
               "trivy": ${{ inputs.run_trivy }},
               "codeql": ${{ inputs.run_codeql }},

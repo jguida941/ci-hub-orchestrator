@@ -147,6 +147,7 @@
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "fail_on_violation": { "type": "boolean", "default": true },
+            "max_errors": { "type": "integer", "minimum": 0, "default": 0 },
             "config_file": { "type": ["string", "null"] }
           }
         },
@@ -156,6 +157,7 @@
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "fail_on_error": { "type": "boolean", "default": true },
+            "max_bugs": { "type": "integer", "minimum": 0, "default": 0 },
             "effort": { "type": "string", "enum": ["min", "default", "max"], "default": "max" },
             "threshold": { "type": "string", "enum": ["low", "medium", "high"], "default": "medium" }
           }
@@ -179,12 +181,20 @@
             "timeout_multiplier": { "type": "integer", "default": 2 }
           }
         },
+        "jqwik": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "enabled": { "type": "boolean", "default": false }
+          }
+        },
         "pmd": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
-            "fail_on_violation": { "type": "boolean", "default": false }
+            "fail_on_violation": { "type": "boolean", "default": false },
+            "max_violations": { "type": "integer", "minimum": 0, "default": 0 }
           }
         },
         "semgrep": {
@@ -192,7 +202,8 @@
           "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": false },
-            "fail_on_findings": { "type": "boolean", "default": false }
+            "fail_on_findings": { "type": "boolean", "default": false },
+            "max_findings": { "type": "integer", "minimum": 0, "default": 0 }
           }
         },
         "trivy": {
@@ -243,7 +254,8 @@
           "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
-            "fail_on_error": { "type": "boolean", "default": true }
+            "fail_on_error": { "type": "boolean", "default": true },
+            "max_errors": { "type": "integer", "minimum": 0, "default": 0 }
           }
         },
         "bandit": {
@@ -274,7 +286,8 @@
           "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
-            "fail_on_format_issues": { "type": "boolean", "default": false }
+            "fail_on_format_issues": { "type": "boolean", "default": false },
+            "max_issues": { "type": "integer", "minimum": 0, "default": 0 }
           }
         },
         "isort": {
@@ -282,7 +295,8 @@
           "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": true },
-            "fail_on_issues": { "type": "boolean", "default": false }
+            "fail_on_issues": { "type": "boolean", "default": false },
+            "max_issues": { "type": "integer", "minimum": 0, "default": 0 }
           }
         },
         "mutmut": {
@@ -315,7 +329,8 @@
           "additionalProperties": false,
           "properties": {
             "enabled": { "type": "boolean", "default": false },
-            "fail_on_findings": { "type": "boolean", "default": false }
+            "fail_on_findings": { "type": "boolean", "default": false },
+            "max_findings": { "type": "integer", "minimum": 0, "default": 0 }
           }
         },
         "trivy": {
