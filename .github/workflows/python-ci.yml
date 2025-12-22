@@ -726,19 +726,7 @@ jobs:
             CRITICAL=0
             HIGH=0
             if [ -f "pip-audit-report.json" ]; then
-              HIGH=$(python - <<'PY'
-import json
-from pathlib import Path
-
-path = Path("pip-audit-report.json")
-if not path.exists():
-    print(0)
-else:
-    data = json.loads(path.read_text())
-    count = sum(len(dep.get("vulnerabilities", []) or []) for dep in data.get("dependencies", []))
-    print(count)
-PY
-)
+              HIGH=$(python -c "import json; from pathlib import Path; path = Path('pip-audit-report.json'); data = json.loads(path.read_text()) if path.exists() else {}; print(sum(len(dep.get('vulnerabilities', []) or []) for dep in data.get('dependencies', [])))")
             fi
             MAX_CRITICAL="${{ inputs.max_critical_vulns || 0 }}"
             MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
