@@ -233,7 +233,7 @@ jobs:
       - name: Generate Security Summary
         run: |
           cat >> $GITHUB_STEP_SUMMARY << EOF
-          # 🔒 Security & Supply Chain: ${{ matrix.name }}
+          # Security & Supply Chain: ${{ matrix.name }}
 
           **Language:** ${{ matrix.language }}
 
@@ -247,17 +247,17 @@ jobs:
 
           if [ "${{ matrix.language }}" = "python" ]; then
             cat >> $GITHUB_STEP_SUMMARY << EOF
-          | pip-audit | ✅ ${{ steps.pip-audit.outputs.vulnerabilities || 0 }} vulns | - |
-          | bandit | ✅ ${{ steps.bandit.outputs.high || 0 }} high severity | - |
-          | ruff-security | ✅ ${{ steps.ruff-security.outputs.issues || 0 }} issues | - |
-          | codeql | ✅ Complete | - |
-          | sbom | ✅ Generated | - |
+          | pip-audit | ${{ steps.pip-audit.outputs.vulnerabilities || 0 }} vulns | - |
+          | bandit | ${{ steps.bandit.outputs.high || 0 }} high severity | - |
+          | ruff-security | ${{ steps.ruff-security.outputs.issues || 0 }} issues | - |
+          | codeql | Complete | - |
+          | sbom | Generated | - |
           EOF
           else
             cat >> $GITHUB_STEP_SUMMARY << EOF
-          | OWASP | ✅ ${{ steps.owasp.outputs.critical || 0 }} critical, ${{ steps.owasp.outputs.high || 0 }} high | - |
-          | codeql | ✅ Complete | - |
-          | sbom | ✅ Generated | - |
+          | OWASP | ${{ steps.owasp.outputs.critical || 0 }} critical, ${{ steps.owasp.outputs.high || 0 }} high | - |
+          | codeql | Complete | - |
+          | sbom | Generated | - |
           EOF
           fi
 
@@ -337,11 +337,11 @@ jobs:
 
       - name: Generate ZAP Summary
         run: |
-          echo "## 🕷️ ZAP DAST Scan: ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "## ZAP DAST Scan: ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check-docker.outputs.has_docker }}" = "true" ]; then
             echo "Scan completed. See artifacts for detailed report." >> $GITHUB_STEP_SUMMARY
           else
-            echo "⚠️ Skipped - No docker-compose.yml found" >> $GITHUB_STEP_SUMMARY
+            echo "Skipped - No docker-compose.yml found" >> $GITHUB_STEP_SUMMARY
           fi
 
   # ============================================================================
@@ -357,7 +357,7 @@ jobs:
       - name: Generate Summary
         run: |
           cat >> $GITHUB_STEP_SUMMARY << EOF
-          # 🔒 Security & Supply Chain Summary
+          # Security & Supply Chain Summary
 
           **Repositories Scanned:** ${{ needs.discover.outputs.count }}
           **Run:** #${{ github.run_number }}

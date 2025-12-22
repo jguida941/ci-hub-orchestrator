@@ -876,7 +876,7 @@ jobs:
               for entry in java_results:
                   config = entry.get('config', entry.get('repo', 'unknown').split('/')[-1])
                   status = entry.get('conclusion', entry.get('status', 'unknown'))
-                  status_icon = "✅" if status == "success" else "❌" if status in ("failure", "failed") else "⏳"
+                  status_label = "PASS" if status == "success" else "FAIL" if status in ("failure", "failed") else "PENDING"
 
                   cov = fmt(entry.get('coverage'), '%')
                   mut = fmt(entry.get('mutation_score'), '%')
@@ -895,7 +895,7 @@ jobs:
                   th = entry.get('trivy_high')
                   trivy = f"{tc or 0}/{th or 0}" if any(v is not None for v in [tc, th]) else "-"
 
-                  summary_lines.append(f"| {config} | {status_icon} | {cov} | {mut} | {cs} | {sb} | {pmd} | {owasp} | {sem} | {trivy} |")
+                  summary_lines.append(f"| {config} | {status_label} | {cov} | {mut} | {cs} | {sb} | {pmd} | {owasp} | {sem} | {trivy} |")
               summary_lines.append("")
 
           # Python Results Table
@@ -909,14 +909,14 @@ jobs:
               for entry in python_results:
                   config = entry.get('config', entry.get('repo', 'unknown').split('/')[-1])
                   status = entry.get('conclusion', entry.get('status', 'unknown'))
-                  status_icon = "✅" if status == "success" else "❌" if status in ("failure", "failed") else "⏳"
+                  status_label = "PASS" if status == "success" else "FAIL" if status in ("failure", "failed") else "PENDING"
 
                   cov = fmt(entry.get('coverage'), '%')
                   mut = fmt(entry.get('mutation_score'), '%')
 
                   tp = entry.get('tests_passed')
                   tf = entry.get('tests_failed')
-                  tests = f"{tp or 0}✓/{tf or 0}✗" if any(v is not None for v in [tp, tf]) else "-"
+                  tests = f"{tp or 0} pass/{tf or 0} fail" if any(v is not None for v in [tp, tf]) else "-"
 
                   ruff = fmt(entry.get('ruff_errors'))
                   black = fmt(entry.get('black_issues'))
@@ -934,7 +934,7 @@ jobs:
                   th = entry.get('trivy_high')
                   trivy = f"{tc or 0}/{th or 0}" if any(v is not None for v in [tc, th]) else "-"
 
-                  summary_lines.append(f"| {config} | {status_icon} | {cov} | {mut} | {tests} | {ruff} | {black} | {isort} | {mypy} | {bandit} | {pip} | {sem} | {trivy} |")
+                  summary_lines.append(f"| {config} | {status_label} | {cov} | {mut} | {tests} | {ruff} | {black} | {isort} | {mypy} | {bandit} | {pip} | {sem} | {trivy} |")
               summary_lines.append("")
 
           # Aggregated Metrics

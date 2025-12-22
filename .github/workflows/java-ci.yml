@@ -492,14 +492,14 @@ jobs:
 
             TESTS_FAILED="${{ steps.test-counts.outputs.failed || 0 }}"
             MIN_COVERAGE="${{ inputs.coverage_min }}"
-            STATUS="✅ Pass"
+            STATUS="PASS"
             if [ "${TESTS_FAILED:-0}" -gt 0 ]; then
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             if [ "${{ inputs.run_jacoco }}" = "true" ]; then
               COVERAGE="${{ steps.coverage.outputs.percentage || 0 }}"
               if [ "${COVERAGE:-0}" -lt "${MIN_COVERAGE:-0}" ]; then
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               COVERAGE_DETAIL="coverage: ${COVERAGE:-0}% (min ${MIN_COVERAGE:-0}%)"
             else
@@ -510,13 +510,13 @@ jobs:
             if [ "${{ inputs.run_jqwik }}" = "true" ]; then
               JQWIK_OUTCOME="${{ steps.jqwik-results.outcome }}"
               if [ "$JQWIK_OUTCOME" = "success" ]; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| jqwik | $STATUS | property tests: ${{ steps.jqwik-results.outputs.tests || 0 }} |"
             else
-              echo "| jqwik | ⏭️ Skipped | - |"
+              echo "| jqwik | SKIP | - |"
             fi
 
             echo ""
@@ -528,32 +528,32 @@ jobs:
               ISSUES="${{ steps.lint-results.outputs.checkstyle }}"
               MAX="${{ inputs.max_checkstyle_errors || 0 }}"
               if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| Checkstyle | $STATUS | issues: ${ISSUES:-0} (max ${MAX:-0}) |"
             else
-              echo "| Checkstyle | ⏭️ Skipped | - |"
+              echo "| Checkstyle | SKIP | - |"
             fi
 
             if [ "${{ inputs.run_spotbugs }}" = "true" ]; then
               ISSUES="${{ steps.lint-results.outputs.spotbugs }}"
               MAX="${{ inputs.max_spotbugs_bugs || 0 }}"
               if [ "${ISSUES:-0}" -le "${MAX:-0}" ] 2>/dev/null; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| SpotBugs | $STATUS | issues: ${ISSUES:-0} (max ${MAX:-0}) |"
             else
-              echo "| SpotBugs | ⏭️ Skipped | - |"
+              echo "| SpotBugs | SKIP | - |"
             fi
 
             if [ "${{ inputs.run_pmd }}" = "true" ]; then
-              echo "| PMD | ✅ Enabled | See PMD job |"
+              echo "| PMD | ENABLED | See PMD job |"
             else
-              echo "| PMD | ⏭️ Skipped | - |"
+              echo "| PMD | SKIP | - |"
             fi
 
             echo ""
@@ -568,31 +568,31 @@ jobs:
               MAX_CRIT="${{ inputs.max_critical_vulns || 0 }}"
               MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
               if [ "${CRITICAL:-0}" -le "${MAX_CRIT:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ] 2>/dev/null; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| OWASP | $STATUS | critical: ${CRITICAL:-0} (max ${MAX_CRIT:-0}), high: ${HIGH:-0} (max ${MAX_HIGH:-0}), medium: ${MEDIUM:-0} |"
             else
-              echo "| OWASP | ⏭️ Skipped | - |"
+              echo "| OWASP | SKIP | - |"
             fi
 
             if [ "${{ inputs.run_semgrep }}" = "true" ]; then
-              echo "| Semgrep | ✅ Enabled | See Semgrep job |"
+              echo "| Semgrep | ENABLED | See Semgrep job |"
             else
-              echo "| Semgrep | ⏭️ Skipped | - |"
+              echo "| Semgrep | SKIP | - |"
             fi
 
             if [ "${{ inputs.run_trivy }}" = "true" ]; then
-              echo "| Trivy | ✅ Enabled | See Trivy job |"
+              echo "| Trivy | ENABLED | See Trivy job |"
             else
-              echo "| Trivy | ⏭️ Skipped | - |"
+              echo "| Trivy | SKIP | - |"
             fi
 
             if [ "${{ inputs.run_codeql }}" = "true" ]; then
-              echo "| CodeQL | ✅ Enabled | See CodeQL job |"
+              echo "| CodeQL | ENABLED | See CodeQL job |"
             else
-              echo "| CodeQL | ⏭️ Skipped | - |"
+              echo "| CodeQL | SKIP | - |"
             fi
 
             MODULE_COUNT="${{ steps.coverage.outputs.module_count }}"
@@ -785,9 +785,9 @@ jobs:
             VIOLATIONS="${{ steps.pmd.outputs.violations || 0 }}"
             MAX_VIOLATIONS="${{ inputs.max_pmd_violations || 0 }}"
             if [ "${VIOLATIONS:-0}" -le "${MAX_VIOLATIONS:-0}" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             echo "| PMD | $STATUS | violations: ${VIOLATIONS:-0} (max ${MAX_VIOLATIONS:-0}) |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -896,9 +896,9 @@ jobs:
             FINDINGS="${{ steps.semgrep.outputs.findings || 0 }}"
             MAX_FINDINGS="${{ inputs.max_semgrep_findings || 0 }}"
             if [ "${FINDINGS:-0}" -le "${MAX_FINDINGS:-0}" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             echo "| Semgrep | $STATUS | findings: ${FINDINGS:-0} (max ${MAX_FINDINGS:-0}) |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -1023,16 +1023,16 @@ jobs:
             echo "|------|--------|---------|"
 
             if [ "${{ steps.check-dockerfile.outputs.exists }}" != "true" ]; then
-              echo "| Trivy | ⏭️ Skipped | No Dockerfile found |"
+              echo "| Trivy | SKIP | No Dockerfile found |"
             else
               CRIT="${{ steps.trivy-parse.outputs.critical || 0 }}"
               HIGH="${{ steps.trivy-parse.outputs.high || 0 }}"
               MAX_CRIT="${{ inputs.max_critical_vulns || 0 }}"
               MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
               if [ "${CRIT:-0}" -le "${MAX_CRIT:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ]; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| Trivy | $STATUS | critical: ${CRIT:-0} (max ${MAX_CRIT:-0}), high: ${HIGH:-0} (max ${MAX_HIGH:-0}) |"
             fi
@@ -1211,9 +1211,9 @@ jobs:
             SCORE="${{ steps.pitest.outputs.score || 0 }}"
             MIN_SCORE="${{ inputs.mutation_score_min }}"
             if [ "${SCORE:-0}" -ge "${MIN_SCORE:-0}" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             echo "| PITest | $STATUS | score: ${SCORE:-0}% (min ${MIN_SCORE:-0}%) |"
 
@@ -1332,16 +1332,16 @@ jobs:
 
             COMPOSE_FILE="${{ inputs.docker_compose_file }}"
             if [ ! -f "Dockerfile" ]; then
-              echo "| Docker | ⏭️ Skipped | No Dockerfile found |"
+              echo "| Docker | SKIP | No Dockerfile found |"
             else
               BUILD_STATUS="${{ steps.docker-build.outcome }}"
               COMPOSE_STATUS="${{ steps.docker-compose-test.outcome }}"
               if [ -f "$COMPOSE_FILE" ] && [ "$COMPOSE_STATUS" != "success" ]; then
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               elif [ "$BUILD_STATUS" != "success" ]; then
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               else
-                STATUS="✅ Pass"
+                STATUS="PASS"
               fi
               if [ -f "$COMPOSE_FILE" ]; then
                 DETAILS="build: ${BUILD_STATUS:-unknown}, compose: ${COMPOSE_STATUS:-skipped}"
@@ -1447,9 +1447,9 @@ jobs:
             echo "|------|--------|---------|"
             OUTCOME="${{ steps.codeql-analyze.outcome }}"
             if [ "$OUTCOME" = "success" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             echo "| CodeQL | $STATUS | outcome: ${OUTCOME:-unknown} (see Security tab) |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -1621,10 +1621,10 @@ jobs:
             echo "| Tool | Status | Details |"
             echo "|------|--------|---------|"
             if [ -f "report.json" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
               DETAILS="report.json generated"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
               DETAILS="report.json missing"
             fi
             echo "| ci-report | $STATUS | $DETAILS |"

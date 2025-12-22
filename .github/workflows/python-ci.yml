@@ -354,51 +354,51 @@ jobs:
 
             # Ruff
             if [ "${{ inputs.run_ruff }}" != "true" ]; then
-              echo "| Ruff | ⏭️ Skipped | - |"
+              echo "| Ruff | SKIP | - |"
             else
               RUFF_ISSUES="${{ steps.ruff.outputs.errors || 0 }}"
               RUFF_MAX="${{ inputs.max_ruff_errors || 0 }}"
               if [ "${RUFF_ISSUES:-0}" -le "${RUFF_MAX:-0}" ] 2>/dev/null; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| Ruff | $STATUS | issues: ${RUFF_ISSUES:-0} (max ${RUFF_MAX:-0}) |"
             fi
 
             # Black
             if [ "${{ inputs.run_black }}" != "true" ]; then
-              echo "| Black | ⏭️ Skipped | - |"
+              echo "| Black | SKIP | - |"
             else
               BLACK_ISSUES="${{ steps.black.outputs.issues || 0 }}"
               BLACK_MAX="${{ inputs.max_black_issues || 0 }}"
               if [ "${BLACK_ISSUES:-0}" -le "${BLACK_MAX:-0}" ] 2>/dev/null; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| Black | $STATUS | issues: ${BLACK_ISSUES:-0} (max ${BLACK_MAX:-0}) |"
             fi
 
             # isort
             if [ "${{ inputs.run_isort }}" != "true" ]; then
-              echo "| isort | ⏭️ Skipped | - |"
+              echo "| isort | SKIP | - |"
             else
               ISORT_ISSUES="${{ steps.isort.outputs.issues || 0 }}"
               ISORT_MAX="${{ inputs.max_isort_issues || 0 }}"
               if [ "${ISORT_ISSUES:-0}" -le "${ISORT_MAX:-0}" ] 2>/dev/null; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| isort | $STATUS | issues: ${ISORT_ISSUES:-0} (max ${ISORT_MAX:-0}) |"
             fi
 
             # mypy (separate job)
             if [ "${{ inputs.run_mypy }}" != "true" ]; then
-              echo "| mypy | ⏭️ Skipped | - |"
+              echo "| mypy | SKIP | - |"
             else
-              echo "| mypy | ✅ Enabled | See Type Check job |"
+              echo "| mypy | ENABLED | See Type Check job |"
             fi
 
             echo ""
@@ -408,46 +408,46 @@ jobs:
 
             # Bandit
             if [ "${{ inputs.run_bandit }}" != "true" ]; then
-              echo "| Bandit | ⏭️ Skipped | - |"
+              echo "| Bandit | SKIP | - |"
             else
               BANDIT_HIGH="${{ steps.bandit.outputs.high || 0 }}"
               BANDIT_MED="${{ steps.bandit.outputs.medium || 0 }}"
               BANDIT_LOW="${{ steps.bandit.outputs.low || 0 }}"
               BANDIT_MAX="${{ inputs.max_high_vulns || 0 }}"
               if [ "${BANDIT_HIGH:-0}" -le "${BANDIT_MAX:-0}" ] 2>/dev/null; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| Bandit | $STATUS | high: ${BANDIT_HIGH:-0}, med: ${BANDIT_MED:-0}, low: ${BANDIT_LOW:-0} (max high ${BANDIT_MAX:-0}) |"
             fi
 
             # pip-audit (separate job)
             if [ "${{ inputs.run_pip_audit }}" = "true" ]; then
-              echo "| pip-audit | ✅ Enabled | See Security Scan job |"
+              echo "| pip-audit | ENABLED | See Security Scan job |"
             else
-              echo "| pip-audit | ⏭️ Skipped | - |"
+              echo "| pip-audit | SKIP | - |"
             fi
 
             # Semgrep (separate job)
             if [ "${{ inputs.run_semgrep }}" = "true" ]; then
-              echo "| Semgrep | ✅ Enabled | See Semgrep job |"
+              echo "| Semgrep | ENABLED | See Semgrep job |"
             else
-              echo "| Semgrep | ⏭️ Skipped | - |"
+              echo "| Semgrep | SKIP | - |"
             fi
 
             # Trivy (separate job)
             if [ "${{ inputs.run_trivy }}" = "true" ]; then
-              echo "| Trivy | ✅ Enabled | See Trivy job |"
+              echo "| Trivy | ENABLED | See Trivy job |"
             else
-              echo "| Trivy | ⏭️ Skipped | - |"
+              echo "| Trivy | SKIP | - |"
             fi
 
             # CodeQL (separate job)
             if [ "${{ inputs.run_codeql }}" = "true" ]; then
-              echo "| CodeQL | ✅ Enabled | See CodeQL job |"
+              echo "| CodeQL | ENABLED | See CodeQL job |"
             else
-              echo "| CodeQL | ⏭️ Skipped | - |"
+              echo "| CodeQL | SKIP | - |"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -577,28 +577,28 @@ jobs:
             echo "|------|--------|---------|"
 
             if [ "${{ inputs.run_pytest }}" != "true" ]; then
-              echo "| pytest | ⏭️ Skipped | - |"
+              echo "| pytest | SKIP | - |"
             else
               TESTS_PASSED="${{ steps.test.outputs.tests_passed || 0 }}"
               TESTS_FAILED="${{ steps.test.outputs.tests_failed || 0 }}"
               COVERAGE="${{ steps.coverage.outputs.percentage || 0 }}"
               MIN_COVERAGE="${{ inputs.coverage_min }}"
               if [ "${TESTS_FAILED:-0}" -gt 0 ] || [ "${COVERAGE:-0}" -lt "${MIN_COVERAGE:-0}" ]; then
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               else
-                STATUS="✅ Pass"
+                STATUS="PASS"
               fi
               echo "| pytest | $STATUS | passed: ${TESTS_PASSED:-0}, failed: ${TESTS_FAILED:-0}, coverage: ${COVERAGE:-0}% (min ${MIN_COVERAGE:-0}%) |"
             fi
 
             if [ "${{ inputs.run_hypothesis }}" != "true" ]; then
-              echo "| Hypothesis | ⏭️ Skipped | - |"
+              echo "| Hypothesis | SKIP | - |"
             else
               HYP_OUTCOME="${{ steps.hypothesis.outcome }}"
               if [ "$HYP_OUTCOME" = "success" ]; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               EXAMPLES="${{ steps.hypothesis.outputs.examples || 0 }}"
               echo "| Hypothesis | $STATUS | examples: ${EXAMPLES:-0} |"
@@ -731,9 +731,9 @@ jobs:
             MAX_CRITICAL="${{ inputs.max_critical_vulns || 0 }}"
             MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
             if [ "${CRITICAL:-0}" -le "${MAX_CRITICAL:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             echo "| pip-audit | $STATUS | high: ${HIGH:-0} (max ${MAX_HIGH:-0}), critical: ${CRITICAL:-0} (max ${MAX_CRITICAL:-0}) |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -810,9 +810,9 @@ jobs:
 
             ERRORS="${{ steps.mypy.outputs.errors || 0 }}"
             if [ "${ERRORS:-0}" -eq 0 ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             echo "| mypy | $STATUS | errors: ${ERRORS:-0} |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -981,9 +981,9 @@ jobs:
             SCORE="${{ steps.mutmut.outputs.score || 0 }}"
             MIN_SCORE="${{ inputs.mutation_score_min }}"
             if [ "${SCORE:-0}" -ge "${MIN_SCORE:-0}" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             echo "| mutmut | $STATUS | score: ${SCORE:-0}% (min ${MIN_SCORE:-0}%), killed: ${{ steps.mutmut.outputs.killed || 0 }}, survived: ${{ steps.mutmut.outputs.survived || 0 }} |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -1067,9 +1067,9 @@ jobs:
             FINDINGS="${{ steps.semgrep.outputs.findings || 0 }}"
             MAX_FINDINGS="${{ inputs.max_semgrep_findings || 0 }}"
             if [ "${FINDINGS:-0}" -le "${MAX_FINDINGS:-0}" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             echo "| Semgrep | $STATUS | findings: ${FINDINGS:-0} (max ${MAX_FINDINGS:-0}) |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -1189,16 +1189,16 @@ jobs:
             echo "|------|--------|---------|"
 
             if [ "${{ steps.check-dockerfile.outputs.exists }}" != "true" ]; then
-              echo "| Trivy | ⏭️ Skipped | No Dockerfile found |"
+              echo "| Trivy | SKIP | No Dockerfile found |"
             else
               CRIT="${{ steps.trivy-parse.outputs.critical || 0 }}"
               HIGH="${{ steps.trivy-parse.outputs.high || 0 }}"
               MAX_CRIT="${{ inputs.max_critical_vulns || 0 }}"
               MAX_HIGH="${{ inputs.max_high_vulns || 0 }}"
               if [ "${CRIT:-0}" -le "${MAX_CRIT:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ]; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| Trivy | $STATUS | critical: ${CRIT:-0} (max ${MAX_CRIT:-0}), high: ${HIGH:-0} (max ${MAX_HIGH:-0}) |"
             fi
@@ -1300,14 +1300,14 @@ jobs:
             echo "|------|--------|---------|"
 
             if [ ! -f "Dockerfile" ]; then
-              echo "| Docker | ⏭️ Skipped | No Dockerfile found |"
+              echo "| Docker | SKIP | No Dockerfile found |"
             else
               BUILD_STATUS="${{ steps.docker-build.outcome }}"
               TEST_STATUS="${{ steps.docker-test.outcome }}"
               if [ "$BUILD_STATUS" = "success" ] && [ "$TEST_STATUS" = "success" ]; then
-                STATUS="✅ Pass"
+                STATUS="PASS"
               else
-                STATUS="❌ Fail"
+                STATUS="FAIL"
               fi
               echo "| Docker | $STATUS | build: ${BUILD_STATUS:-unknown}, test: ${TEST_STATUS:-unknown} |"
             fi
@@ -1378,9 +1378,9 @@ jobs:
             echo "|------|--------|---------|"
             OUTCOME="${{ steps.codeql-analyze.outcome }}"
             if [ "$OUTCOME" = "success" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
             fi
             echo "| CodeQL | $STATUS | outcome: ${OUTCOME:-unknown} (see Security tab) |"
           } >> "$GITHUB_STEP_SUMMARY"
@@ -1529,10 +1529,10 @@ jobs:
             echo "| Tool | Status | Details |"
             echo "|------|--------|---------|"
             if [ -f "report.json" ]; then
-              STATUS="✅ Pass"
+              STATUS="PASS"
               DETAILS="report.json generated"
             else
-              STATUS="❌ Fail"
+              STATUS="FAIL"
               DETAILS="report.json missing"
             fi
             echo "| ci-report | $STATUS | $DETAILS |"
