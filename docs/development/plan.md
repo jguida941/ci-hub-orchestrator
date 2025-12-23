@@ -15,8 +15,12 @@ Links: requirements/P0.md (must-have), requirements/P1.md (should-have), require
 - [x] Profiles/templates: 12 profiles complete (java/python × minimal/fast/quality/coverage-gate/compliance/security). (refs: requirements/P1.md §3)
 - [x] Fixtures: jguida941/ci-cd-hub-fixtures repo created with passing/failing Java/Python projects. configs: fixtures-{java,python}-{passing,failing}.yaml (refs: requirements/P1.md §5)
 - [ ] Dashboard: Pages site reading hub-report JSON; overview + drill-down. (refs: requirements/P1.md §4)
-- [~] CLI: apply_profile.py and validate_config.py added; full add/list/lint/apply with dry-run pending. (refs: requirements/P1.md §6)
+- [~] CLI: detect/init/update/validate/setup-secrets + dry-run; add/list/lint/apply still pending. (refs: requirements/P1.md §6)
 - [~] Dispatch polish: agent template, correlation ID, poll, download artifacts, merge results. (refs: requirements/P1.md §7) (polling and artifact download implemented)
+- [ ] Refactor inline Python from workflows into scripts/ for testability (orchestrator, hub-run-all).
+- [ ] Reduce workflow duplication via composite actions/shared steps (java-ci.yml + python-ci.yml).
+- [ ] Add CODEOWNERS to protect workflows/config/schema/templates.
+- [ ] Add workflow integration tests (act or similar) for hub-run-all/orchestrator/reusables.
 
 ## Security/Quality Fixes Applied
 - [x] Script injection vulnerability fixed (orchestrator uses env vars instead of direct interpolation)
