@@ -310,6 +310,8 @@ def get_connected_repos(only_dispatch_enabled: bool = True) -> list[str]:
 def cmd_setup_secrets(args: argparse.Namespace) -> int:
     """Set HUB_DISPATCH_TOKEN on hub and optionally all connected repos."""
     import getpass
+    import urllib.error
+    import urllib.request
 
     hub_repo = args.hub_repo
     token = args.token
@@ -317,14 +319,86 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int:
     if not token:
         token = getpass.getpass("Enter GitHub PAT: ")
 
+    token = token.strip()
+
     if not token:
         print("Error: No token provided", file=sys.stderr)
         return 1
 
+    if any(ch.isspace() for ch in token):
+        print("Error: Token contains whitespace; paste the raw token value.", file=sys.stderr)
+        return 1
+
+    def verify_token(pat: str) -> tuple[bool, str]:
+        req = urllib.request.Request(
+            "https://api.github.com/user",
+            headers={
+                "Authorization": f"token {pat}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "cihub",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                scopes = resp.headers.get("X-OAuth-Scopes", "")
+        except urllib.error.HTTPError as exc:
+            if exc.code == 401:
+                return False, "unauthorized (token invalid or expired)"
+            return False, f"HTTP {exc.code} {exc.reason}"
+        except Exception as exc:
+            return False, str(exc)
+
+        login = data.get("login", "unknown")
+        scope_msg = f"scopes: {scopes}" if scopes else "scopes: (not reported)"
+        return True, f"user {login} ({scope_msg})"
+
+    def verify_cross_repo_access(pat: str, target_repo: str) -> tuple[bool, str]:
+        """Verify token can access another repo's artifacts (required for orchestrator)."""
+        req = urllib.request.Request(
+            f"https://api.github.com/repos/{target_repo}/actions/artifacts",
+            headers={
+                "Authorization": f"token {pat}",
+                "Accept": "application/vnd.github+json",
+                "User-Agent": "cihub",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                count = data.get("total_count", 0)
+                return True, f"{count} artifacts accessible"
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                return False, f"repo not found or no access: {target_repo}"
+            if exc.code == 401:
+                return False, "token cannot access this repo (needs 'repo' scope)"
+            return False, f"HTTP {exc.code} {exc.reason}"
+        except Exception as exc:
+            return False, str(exc)
+
+    if args.verify:
+        ok, message = verify_token(token)
+        if not ok:
+            print(f"Token verification failed: {message}", file=sys.stderr)
+            return 1
+        print(f"Token verified: {message}")
+
+        # Also verify cross-repo access on connected repos
+        connected = get_connected_repos()
+        if connected:
+            test_repo = connected[0]
+            ok, message = verify_cross_repo_access(token, test_repo)
+            if not ok:
+                print(f"Cross-repo access failed for {test_repo}: {message}", file=sys.stderr)
+                print("The token needs 'repo' scope to access other repos' artifacts.", file=sys.stderr)
+                return 1
+            print(f"Cross-repo access verified: {test_repo} ({message})")
+
     def set_secret(repo: str) -> tuple[bool, str]:
         result = subprocess.run(
-            ["gh", "secret", "set", "HUB_DISPATCH_TOKEN", "-R", repo, "--body", "-"],
-            input=f"{token}\n",
+            ["gh", "secret", "set", "HUB_DISPATCH_TOKEN", "-R", repo],
+            input=token,
             capture_output=True,
             text=True,
         )
@@ -410,6 +484,11 @@ def build_parser() -> argparse.ArgumentParser:
     setup_secrets.add_argument("--token", help="GitHub PAT (prompts if not provided)")
     setup_secrets.add_argument(
         "--all", action="store_true", help="Also set on all connected repos"
+    )
+    setup_secrets.add_argument(
+        "--verify",
+        action="store_true",
+        help="Verify token with GitHub API before setting secrets",
     )
     setup_secrets.set_defaults(func=cmd_setup_secrets)
 
