@@ -105,10 +105,12 @@ def parse_bool(value: str) -> bool | None:
     return None
 
 
-def parse_summary_tools(summary_text: str) -> dict[str, bool]:
+def parse_summary_tools(summary_text: str) -> tuple[dict[str, bool], dict[str, bool]]:
+    """Parse Tools Enabled table, returning (configured, ran) dicts."""
     lines = summary_text.splitlines()
     in_tools = False
-    results: dict[str, bool] = {}
+    configured: dict[str, bool] = {}
+    ran: dict[str, bool] = {}
     for line in lines:
         if line.strip() == "## Tools Enabled":
             in_tools = True
@@ -124,14 +126,25 @@ def parse_summary_tools(summary_text: str) -> dict[str, bool]:
         cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
         if len(cells) < 3:
             continue
-        if cells[1].lower() == "tool" or cells[2].lower() == "enabled":
+        # Skip header row
+        if cells[1].lower() == "tool" or cells[2].lower() in ("enabled", "configured"):
             continue
         tool = cells[1]
-        enabled = parse_bool(cells[2])
-        if enabled is None:
-            continue
-        results[tool] = enabled
-    return results
+        # New 4-column format: Category | Tool | Configured | Ran
+        if len(cells) >= 4:
+            conf_val = parse_bool(cells[2])
+            ran_val = parse_bool(cells[3])
+            if conf_val is not None:
+                configured[tool] = conf_val
+            if ran_val is not None:
+                ran[tool] = ran_val
+        else:
+            # Old 3-column format: Category | Tool | Enabled
+            enabled = parse_bool(cells[2])
+            if enabled is not None:
+                configured[tool] = enabled
+                ran[tool] = enabled  # Assume ran = configured for old format
+    return configured, ran
 
 
 def iter_existing_patterns(root: Path, patterns: Iterable[str]) -> bool:
@@ -142,23 +155,36 @@ def iter_existing_patterns(root: Path, patterns: Iterable[str]) -> bool:
 
 
 def compare_summary(
-    summary_tools: dict[str, bool],
+    summary_configured: dict[str, bool],
+    summary_ran: dict[str, bool],
+    tools_configured: dict[str, Any],
     tools_ran: dict[str, Any],
     mapping: dict[str, str],
 ) -> list[str]:
     warnings: list[str] = []
     for label, key in mapping.items():
+        # Check configured values
+        if tools_configured and key in tools_configured:
+            expected_conf = bool(tools_configured.get(key))
+            if label in summary_configured:
+                actual_conf = summary_configured[label]
+                if actual_conf != expected_conf:
+                    warnings.append(
+                        f"configured mismatch for {label}: summary={actual_conf} report={expected_conf}"
+                    )
+
+        # Check ran values
         if key not in tools_ran:
             warnings.append(f"report.json missing tools_ran.{key}")
             continue
-        expected = bool(tools_ran.get(key))
-        if label not in summary_tools:
+        expected_ran = bool(tools_ran.get(key))
+        if label not in summary_ran:
             warnings.append(f"summary missing tool row: {label}")
             continue
-        actual = summary_tools[label]
-        if actual != expected:
+        actual_ran = summary_ran[label]
+        if actual_ran != expected_ran:
             warnings.append(
-                f"summary mismatch for {label}: summary={actual} report={expected}"
+                f"ran mismatch for {label}: summary={actual_ran} report={expected_ran}"
             )
     return warnings
 
@@ -223,9 +249,15 @@ def main() -> int:
         if not summary_path.exists():
             print(f"summary file not found: {summary_path}", file=sys.stderr)
             return 2
-        summary_tools = parse_summary_tools(summary_path.read_text(encoding="utf-8"))
+        summary_configured, summary_ran = parse_summary_tools(
+            summary_path.read_text(encoding="utf-8")
+        )
         mapping = JAVA_SUMMARY_MAP if language == "java" else PYTHON_SUMMARY_MAP
-        warnings.extend(compare_summary(summary_tools, tools_ran, mapping))
+        warnings.extend(
+            compare_summary(
+                summary_configured, summary_ran, tools_configured, tools_ran, mapping
+            )
+        )
 
     if args.reports_dir:
         reports_dir = Path(args.reports_dir)
