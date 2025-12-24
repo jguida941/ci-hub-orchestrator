@@ -223,13 +223,21 @@ jobs:
 
             if [ -n "$ANALYSIS_GOALS" ]; then
               # OWASP flags:
+              #   -DnvdApiKey - NVD API key for faster vulnerability database updates
               #   -DnvdApiDelay=2500 - 2.5s delay between NVD API calls to avoid 403 rate limiting
               #   -DnvdMaxRetryCount=10 - retry failed API calls
               #   -Ddependencycheck.failOnError=false - don't fail build on vulnerabilities found
-              # shellcheck disable=SC2086 # ANALYSIS_GOALS intentionally unquoted for word splitting
-              echo "Running analysis tools: $MVN_CMD -B -ntp -DskipTests -DnvdApiDelay=2500 -DnvdMaxRetryCount=10 -Ddependencycheck.failOnError=false $ANALYSIS_GOALS"
-              # shellcheck disable=SC2086 # ANALYSIS_GOALS intentionally unquoted for word splitting
-              $MVN_CMD -B -ntp -DskipTests -DnvdApiDelay=2500 -DnvdMaxRetryCount=10 -Ddependencycheck.failOnError=false $ANALYSIS_GOALS || echo "Some analysis tools completed with errors"
+              NVD_FLAGS=""
+              if [ -n "$NVD_API_KEY" ]; then
+                NVD_FLAGS="-DnvdApiKey=$NVD_API_KEY"
+                echo "NVD API key configured - using accelerated vulnerability updates"
+              else
+                echo "Warning: No NVD API key - vulnerability updates will be slow"
+              fi
+              # shellcheck disable=SC2086 # ANALYSIS_GOALS and NVD_FLAGS intentionally unquoted for word splitting
+              echo "Running analysis tools: $MVN_CMD -B -ntp -DskipTests $NVD_FLAGS -DnvdApiDelay=2500 -DnvdMaxRetryCount=10 -Ddependencycheck.failOnError=false $ANALYSIS_GOALS"
+              # shellcheck disable=SC2086 # ANALYSIS_GOALS and NVD_FLAGS intentionally unquoted for word splitting
+              $MVN_CMD -B -ntp -DskipTests $NVD_FLAGS -DnvdApiDelay=2500 -DnvdMaxRetryCount=10 -Ddependencycheck.failOnError=false $ANALYSIS_GOALS || echo "Some analysis tools completed with errors"
             fi
           else
             if [ -f "gradlew" ]; then
