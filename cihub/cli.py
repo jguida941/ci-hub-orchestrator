@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import subprocess
@@ -319,6 +320,113 @@ def get_connected_repos(
     return repos
 
 
+def get_repo_entries(
+    only_dispatch_enabled: bool = True,
+) -> list[dict[str, str]]:
+    """Return repo metadata from config/repos/*.yaml."""
+    repos_dir = hub_root() / "config" / "repos"
+    entries: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for cfg_file in repos_dir.glob("*.yaml"):
+        if cfg_file.name.endswith(".disabled"):
+            continue
+        try:
+            data = read_yaml(cfg_file)
+            repo = data.get("repo", {})
+            if only_dispatch_enabled and repo.get("dispatch_enabled", True) is False:
+                continue
+            owner = repo.get("owner", "")
+            name = repo.get("name", "")
+            if not owner or not name:
+                continue
+            full = f"{owner}/{name}"
+            if full in seen:
+                continue
+            seen.add(full)
+            entries.append(
+                {
+                    "full": full,
+                    "language": repo.get("language", ""),
+                    "dispatch_workflow": repo.get("dispatch_workflow", "hub-ci.yml"),
+                    "default_branch": repo.get("default_branch", "main"),
+                }
+            )
+        except Exception:
+            continue
+    return entries
+
+
+def render_dispatch_workflow(language: str, dispatch_workflow: str) -> str:
+    templates_dir = hub_root() / "templates" / "repo"
+    if dispatch_workflow == "hub-ci.yml":
+        if not language:
+            raise ValueError("language is required for hub-ci.yml rendering")
+        return render_caller_workflow(language)
+    if dispatch_workflow == "hub-java-ci.yml":
+        return (templates_dir / "hub-java-ci.yml").read_text(encoding="utf-8")
+    if dispatch_workflow == "hub-python-ci.yml":
+        return (templates_dir / "hub-python-ci.yml").read_text(encoding="utf-8")
+    raise ValueError(f"Unsupported dispatch_workflow: {dispatch_workflow}")
+
+
+def gh_api_json(
+    path: str, method: str = "GET", payload: dict[str, Any] | None = None
+) -> dict[str, Any]:
+    cmd = ["gh", "api"]
+    if method != "GET":
+        cmd += ["-X", method]
+    cmd.append(path)
+    input_data = None
+    if payload is not None:
+        cmd += ["--input", "-"]
+        input_data = json.dumps(payload)
+    result = subprocess.run(
+        cmd,
+        input=input_data,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        msg = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(msg or "gh api failed")
+    if not result.stdout.strip():
+        return {}
+    return json.loads(result.stdout)
+
+
+def fetch_remote_file(repo: str, path: str, branch: str) -> dict[str, str] | None:
+    api_path = f"/repos/{repo}/contents/{path}?ref={branch}"
+    try:
+        data = gh_api_json(api_path)
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "Not Found" in msg or "404" in msg:
+            return None
+        raise
+    if "content" not in data or "sha" not in data:
+        return None
+    content = base64.b64decode(data["content"]).decode("utf-8")
+    return {"sha": data["sha"], "content": content}
+
+
+def update_remote_file(
+    repo: str,
+    path: str,
+    branch: str,
+    content: str,
+    message: str,
+    sha: str | None = None,
+) -> None:
+    payload: dict[str, Any] = {
+        "message": message,
+        "content": base64.b64encode(content.encode("utf-8")).decode("utf-8"),
+        "branch": branch,
+    }
+    if sha:
+        payload["sha"] = sha
+    gh_api_json(f"/repos/{repo}/contents/{path}", method="PUT", payload=payload)
+
+
 def cmd_setup_secrets(args: argparse.Namespace) -> int:
     """Set HUB_DISPATCH_TOKEN on hub and optionally all connected repos."""
     import getpass
@@ -542,6 +650,76 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_sync_templates(args: argparse.Namespace) -> int:
+    """Sync caller workflow templates to target repos."""
+    entries = get_repo_entries(only_dispatch_enabled=not args.include_disabled)
+    if args.repo:
+        repo_map = {entry["full"]: entry for entry in entries}
+        missing = [repo for repo in args.repo if repo not in repo_map]
+        if missing:
+            print(
+                "Error: repos not found in config/repos/*.yaml: "
+                + ", ".join(missing),
+                file=sys.stderr,
+            )
+            return 2
+        entries = [repo_map[repo] for repo in args.repo]
+
+    if not entries:
+        print("No repos found to sync.")
+        return 0
+
+    failures = 0
+    for entry in entries:
+        repo = entry["full"]
+        language = entry.get("language", "")
+        dispatch_workflow = entry.get("dispatch_workflow", "hub-ci.yml")
+        branch = entry.get("default_branch", "main") or "main"
+        path = f".github/workflows/{dispatch_workflow}"
+
+        try:
+            desired = render_dispatch_workflow(language, dispatch_workflow)
+        except ValueError as exc:
+            print(f"Error: {repo} {path}: {exc}", file=sys.stderr)
+            failures += 1
+            continue
+
+        remote = fetch_remote_file(repo, path, branch)
+        if remote and remote.get("content") == desired:
+            print(f"✅ {repo} {path} up to date")
+            continue
+
+        if args.check:
+            print(f"❌ {repo} {path} out of date")
+            failures += 1
+            continue
+
+        if args.dry_run:
+            print(f"# Would update {repo} {path}")
+            continue
+
+        try:
+            update_remote_file(
+                repo,
+                path,
+                branch,
+                desired,
+                args.commit_message,
+                remote.get("sha") if remote else None,
+            )
+            print(f"✅ {repo} {path} updated")
+        except RuntimeError as exc:
+            print(f"❌ {repo} {path} update failed: {exc}", file=sys.stderr)
+            failures += 1
+
+    if args.check and failures:
+        print(f"Template drift detected in {failures} repo(s).", file=sys.stderr)
+        return 1
+    if failures:
+        return 1
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cihub", description="CI/CD Hub CLI")
     parser.add_argument("--version", action="version", version=f"cihub {__version__}")
@@ -610,6 +788,37 @@ def build_parser() -> argparse.ArgumentParser:
         help="Verify NVD API key before setting secrets",
     )
     setup_nvd.set_defaults(func=cmd_setup_nvd)
+
+    sync_templates = subparsers.add_parser(
+        "sync-templates",
+        help="Sync caller workflow templates to dispatch-enabled repos",
+    )
+    sync_templates.add_argument(
+        "--repo",
+        action="append",
+        help="Target repo (owner/name). Repeatable.",
+    )
+    sync_templates.add_argument(
+        "--include-disabled",
+        action="store_true",
+        help="Include repos with dispatch_enabled=false",
+    )
+    sync_templates.add_argument(
+        "--check",
+        action="store_true",
+        help="Check for template drift without updating",
+    )
+    sync_templates.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show updates without writing",
+    )
+    sync_templates.add_argument(
+        "--commit-message",
+        default="chore: sync hub templates",
+        help="Commit message for synced templates",
+    )
+    sync_templates.set_defaults(func=cmd_sync_templates)
 
     return parser
 

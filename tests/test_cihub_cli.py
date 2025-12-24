@@ -10,6 +10,7 @@ from cihub.cli import (
     detect_language,
     parse_repo_from_remote,
     render_caller_workflow,
+    render_dispatch_workflow,
 )
 
 
@@ -56,3 +57,33 @@ def test_render_caller_workflow_renames_target():
     content = render_caller_workflow("python")
     assert "hub-ci.yml" in content
     assert "hub-python-ci.yml" not in content
+
+
+def test_render_dispatch_workflow_hub_ci_requires_language():
+    try:
+        render_dispatch_workflow("", "hub-ci.yml")
+    except ValueError as exc:
+        assert "language is required" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for missing language")
+
+
+def test_render_dispatch_workflow_java_template():
+    content = render_dispatch_workflow("java", "hub-java-ci.yml")
+    assert "uses: jguida941/ci-cd-hub/.github/workflows/java-ci.yml@v1" in content
+    assert "secrets: inherit" in content
+
+
+def test_render_dispatch_workflow_hub_ci_renders_caller():
+    content = render_dispatch_workflow("python", "hub-ci.yml")
+    assert "hub-ci.yml" in content
+    assert "hub-python-ci.yml" not in content
+
+
+def test_render_dispatch_workflow_rejects_unknown():
+    try:
+        render_dispatch_workflow("python", "hub-ruby-ci.yml")
+    except ValueError as exc:
+        assert "Unsupported dispatch_workflow" in str(exc)
+    else:
+        raise AssertionError("Expected ValueError for unsupported workflow")
