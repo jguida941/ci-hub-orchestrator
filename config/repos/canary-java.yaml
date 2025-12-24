@@ -1,0 +1,69 @@
+# ============================================================================
+# Repo Config: ci-cd-hub-canary-java
+# ============================================================================
+# Full tool coverage canary for Java workflows and template sync.
+# ============================================================================
+
+repo:
+  owner: jguida941
+  name: ci-cd-hub-canary-java
+  language: java
+  default_branch: main
+  dispatch_enabled: true
+  dispatch_workflow: hub-ci.yml
+
+java:
+  version: "21"
+
+  tools:
+    jacoco:
+      enabled: true
+      min_coverage: 70
+
+    checkstyle:
+      enabled: true
+      fail_on_violation: false
+
+    spotbugs:
+      enabled: true
+      fail_on_error: false
+
+    pmd:
+      enabled: true
+      fail_on_violation: false
+
+    owasp:
+      enabled: true
+      fail_on_cvss: 7
+      use_nvd_api_key: true
+
+    pitest:
+      enabled: true
+      min_mutation_score: 70
+
+    jqwik:
+      enabled: true
+
+    semgrep:
+      enabled: true
+      fail_on_findings: false
+      max_findings: 0
+
+    trivy:
+      enabled: true
+      fail_on_critical: false
+      fail_on_high: false
+
+    codeql:
+      enabled: true
+
+    docker:
+      enabled: true
+      compose_file: docker-compose.yml
+      health_endpoint: /actuator/health
+
+thresholds:
+  coverage_min: 70
+  mutation_score_min: 70
+  max_critical_vulns: 0
+  max_high_vulns: 0

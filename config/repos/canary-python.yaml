@@ -1,0 +1,74 @@
+# ============================================================================
+# Repo Config: ci-cd-hub-canary-python
+# ============================================================================
+# Full tool coverage canary for Python workflows and template sync.
+# ============================================================================
+
+repo:
+  owner: jguida941
+  name: ci-cd-hub-canary-python
+  language: python
+  default_branch: main
+  dispatch_enabled: true
+  dispatch_workflow: hub-ci.yml
+
+python:
+  version: "3.12"
+
+  tools:
+    pytest:
+      enabled: true
+      min_coverage: 70
+
+    ruff:
+      enabled: true
+      fail_on_error: true
+      max_errors: 0
+
+    black:
+      enabled: true
+      fail_on_format_issues: false
+      max_issues: 0
+
+    isort:
+      enabled: true
+      fail_on_issues: false
+      max_issues: 0
+
+    bandit:
+      enabled: true
+      fail_on_high: true
+
+    pip_audit:
+      enabled: true
+      fail_on_vuln: true
+
+    mypy:
+      enabled: true
+
+    mutmut:
+      enabled: true
+      min_mutation_score: 70
+
+    semgrep:
+      enabled: true
+      fail_on_findings: false
+      max_findings: 0
+
+    trivy:
+      enabled: true
+      fail_on_critical: false
+      fail_on_high: false
+
+    codeql:
+      enabled: true
+      languages: ["python"]
+
+    docker:
+      enabled: true
+
+thresholds:
+  coverage_min: 70
+  mutation_score_min: 70
+  max_critical_vulns: 0
+  max_high_vulns: 0
