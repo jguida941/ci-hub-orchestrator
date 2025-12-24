@@ -231,11 +231,15 @@ jobs:
               #   -DnvdApiDelay=2500 - 2.5s delay between NVD API calls to avoid 403 rate limiting
               #   -DnvdMaxRetryCount=10 - retry failed API calls
               #   -Ddependencycheck.failOnError=false - don't fail build on vulnerabilities found
+              USE_NVD_API_KEY="${{ inputs.use_nvd_api_key }}"
+              if [ -z "$USE_NVD_API_KEY" ]; then
+                USE_NVD_API_KEY="true"
+              fi
               NVD_FLAGS=""
-              if [ "${{ inputs.use_nvd_api_key }}" = "true" ] && [ -n "$NVD_API_KEY" ]; then
+              if [ "$USE_NVD_API_KEY" = "true" ] && [ -n "$NVD_API_KEY" ]; then
                 NVD_FLAGS="-DnvdApiKey=$NVD_API_KEY"
                 echo "NVD API key configured - using accelerated vulnerability updates"
-              elif [ "${{ inputs.use_nvd_api_key }}" = "true" ]; then
+              elif [ "$USE_NVD_API_KEY" = "true" ]; then
                 echo "Warning: use_nvd_api_key=true but NVD_API_KEY secret not set - vulnerability updates will be slow"
               else
                 echo "NVD API key disabled via config"
