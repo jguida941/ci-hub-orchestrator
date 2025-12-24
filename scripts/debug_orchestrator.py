@@ -4,7 +4,8 @@ Debug script to check orchestrator artifact downloads and report parsing.
 
 Usage:
   # Check specific repo's recent dispatch runs
-  python scripts/debug_orchestrator.py --repo jguida941/ci-cd-hub-fixtures --token YOUR_PAT
+  python scripts/debug_orchestrator.py --repo jguida941/ci-cd-hub-fixtures \
+    --token YOUR_PAT
 
   # Check all recent hub orchestrator runs
   python scripts/debug_orchestrator.py --hub-runs --token YOUR_PAT
@@ -21,11 +22,15 @@ import zipfile
 from pathlib import Path
 from urllib import request
 from urllib.error import HTTPError
+from urllib.parse import urlparse
 
 
 def gh_get(url: str, token: str) -> dict:
     """Make authenticated GET request to GitHub API."""
-    req = request.Request(
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
+    req = request.Request(  # noqa: S310
         url,
         headers={
             "Authorization": f"Bearer {token}",
@@ -34,7 +39,7 @@ def gh_get(url: str, token: str) -> dict:
         },
     )
     try:
-        with request.urlopen(req) as resp:
+        with request.urlopen(req, timeout=15) as resp:  # noqa: S310
             return json.loads(resp.read().decode())
     except HTTPError as e:
         print(f"HTTP Error {e.code}: {e.reason}")
@@ -46,7 +51,10 @@ def gh_get(url: str, token: str) -> dict:
 
 def download_artifact(archive_url: str, token: str, target_dir: Path) -> Path | None:
     """Download and extract artifact ZIP."""
-    req = request.Request(
+    parsed = urlparse(archive_url)
+    if parsed.scheme != "https":
+        raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
+    req = request.Request(  # noqa: S310
         archive_url,
         headers={
             "Authorization": f"Bearer {token}",
@@ -55,7 +63,7 @@ def download_artifact(archive_url: str, token: str, target_dir: Path) -> Path | 
         },
     )
     try:
-        with request.urlopen(req) as resp:
+        with request.urlopen(req, timeout=30) as resp:  # noqa: S310
             data = resp.read()
         target_dir.mkdir(parents=True, exist_ok=True)
         zip_path = target_dir / "artifact.zip"
@@ -96,7 +104,7 @@ def check_repo_runs(owner: str, repo: str, token: str, limit: int = 5):
         print(f"   Created: {created}")
 
         if status != "completed":
-            print(f"   ⏳ Run not completed, skipping artifact check")
+            print("   ⏳ Run not completed, skipping artifact check")
             continue
 
         # Check artifacts
@@ -104,18 +112,25 @@ def check_repo_runs(owner: str, repo: str, token: str, limit: int = 5):
         artifacts = gh_get(artifacts_url, token)
 
         if not artifacts.get("artifacts"):
-            print(f"   ⚠️  No artifacts found")
+            print("   ⚠️  No artifacts found")
             continue
 
         print(f"   📦 Artifacts: {len(artifacts['artifacts'])}")
         for art in artifacts["artifacts"]:
-            print(f"      - {art['name']} ({art['size_in_bytes']} bytes, expired: {art['expired']})")
+            print(
+                f"      - {art['name']} ({art['size_in_bytes']} bytes, "
+                f"expired: {art['expired']})"
+            )
 
             # Look for ci-report
             if art["name"] == "ci-report":
-                print(f"      🔍 Checking ci-report contents...")
+                print("      🔍 Checking ci-report contents...")
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    extracted = download_artifact(art["archive_download_url"], token, Path(tmpdir))
+                    extracted = download_artifact(
+                        art["archive_download_url"],
+                        token,
+                        Path(tmpdir),
+                    )
                     if extracted:
                         # List extracted files
                         files = list(Path(tmpdir).rglob("*"))
@@ -128,17 +143,20 @@ def check_repo_runs(owner: str, repo: str, token: str, limit: int = 5):
                         # Check for report.json
                         report_file = next(Path(tmpdir).rglob("report.json"), None)
                         if report_file:
-                            print(f"         ✅ Found report.json")
+                            print("         ✅ Found report.json")
                             try:
                                 report_data = json.loads(report_file.read_text())
                                 results = report_data.get("results", {})
-                                print(f"         📊 Results:")
-                                print(f"            Coverage: {results.get('coverage')}")
-                                print(f"            Mutation: {results.get('mutation_score')}")
-                                print(f"            Build: {results.get('build_status')}")
+                                print("         📊 Results:")
+                                coverage = results.get("coverage")
+                                mutation = results.get("mutation_score")
+                                build_status = results.get("build_status")
+                                print(f"            Coverage: {coverage}")
+                                print(f"            Mutation: {mutation}")
+                                print(f"            Build: {build_status}")
 
                                 tools = report_data.get("tools_ran", {})
-                                print(f"         🔧 Tools ran:")
+                                print("         🔧 Tools ran:")
                                 for tool, ran in tools.items():
                                     status_icon = "✅" if ran else "⏭️"
                                     print(f"            {status_icon} {tool}: {ran}")
@@ -148,14 +166,14 @@ def check_repo_runs(owner: str, repo: str, token: str, limit: int = 5):
                                 content = report_file.read_text()[:500]
                                 print(f"         Content preview:\n{content}")
                         else:
-                            print(f"         ❌ No report.json found in artifact")
+                            print("         ❌ No report.json found in artifact")
 
 
 def check_hub_runs(token: str, limit: int = 3):
     """Check recent hub orchestrator runs."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Hub Orchestrator Recent Runs")
-    print("="*60)
+    print("=" * 60)
 
     # Assuming hub repo is jguida941/ci-cd-hub or similar
     # You may need to adjust this
@@ -180,14 +198,24 @@ def check_hub_runs(token: str, limit: int = 3):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Debug orchestrator artifact downloads")
+    parser = argparse.ArgumentParser(
+        description="Debug orchestrator artifact downloads"
+    )
     parser.add_argument("--repo", help="Check specific repo (format: owner/repo)")
-    parser.add_argument("--hub-runs", action="store_true", help="Check hub orchestrator runs")
+    parser.add_argument(
+        "--hub-runs",
+        action="store_true",
+        help="Check hub orchestrator runs",
+    )
     parser.add_argument("--token", help="GitHub PAT (or set GITHUB_TOKEN env var)")
     parser.add_argument("--limit", type=int, default=5, help="Number of runs to check")
     args = parser.parse_args()
 
-    token = args.token or os.environ.get("GITHUB_TOKEN") or os.environ.get("HUB_DISPATCH_TOKEN")
+    token = (
+        args.token
+        or os.environ.get("GITHUB_TOKEN")
+        or os.environ.get("HUB_DISPATCH_TOKEN")
+    )
     if not token:
         print("Error: No token provided. Use --token or set GITHUB_TOKEN env var")
         sys.exit(1)

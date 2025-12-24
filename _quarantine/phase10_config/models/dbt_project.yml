@@ -1,0 +1,22 @@
+name: ci_cd_hub
+version: "1.0"
+config-version: 2
+
+profile: ci_cd_hub
+
+model-paths: ["staging", "marts"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+packages-install-path: dbt_packages
+target-path: target
+log-path: logs
+
+models:
+  ci_cd_hub:
+    staging:
+      +schema: staging
+      +materialized: view
+    marts:
+      +schema: marts
+      +materialized: view

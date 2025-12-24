@@ -1,0 +1,46 @@
+- id: pytest.attrerror
+  tool: pytest
+  pattern: "AttributeError: (?P<message>.+)"
+  severity: warn
+  suggestion: "Ensure fixtures return initialized objects or guard against None results."
+  docs_uri: "https://docs.pytest.org/en/stable/"
+  message_group: message
+  files:
+    - "*.log"
+
+- id: pytest.modulenotfound
+  tool: pytest
+  pattern: "ModuleNotFoundError: (?P<message>.+)"
+  severity: error
+  suggestion: "Verify dependencies are installed and PYTHONPATH is set for the missing module."
+  docs_uri: "https://docs.pytest.org/en/stable/how-to/usage.html#importing"
+  message_group: message
+
+- id: npm.error
+  tool: npm
+  pattern: "^npm ERR! (?P<message>.+)"
+  severity: warn
+  suggestion: "Inspect npm stack traces to pinpoint the failing package or script."
+  docs_uri: "https://docs.npmjs.com/cli/v10/commands/npm-install"
+  flags: ["MULTILINE"]
+  message_group: message
+
+- id: docker.rate_limit
+  tool: docker
+  pattern: "toomanyrequests: (?P<message>.+)"
+  severity: warn
+  suggestion: "Use a registry mirror or authenticated pulls to avoid Docker Hub throttling."
+  docs_uri: "https://docs.docker.com/docker-hub/download-rate-limit/"
+  message_group: message
+
+- id: terraform.plan_failed
+  tool: terraform
+  pattern: "^Error: (?P<message>.+)"
+  severity: error
+  suggestion: "Review the Terraform error block and fix the referenced resource configuration."
+  docs_uri: "https://developer.hashicorp.com/terraform/cli"
+  files:
+    - "*terraform*.log"
+  flags: ["MULTILINE"]
+  message_group: message
+

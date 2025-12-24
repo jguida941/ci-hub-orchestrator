@@ -110,6 +110,10 @@ on:
         description: 'Artifact name prefix (for multiple jobs)'
         type: string
         default: ''
+      hub_correlation_id:
+        description: 'Correlation ID for hub orchestrator run matching'
+        type: string
+        default: ''
       retention_days:
         description: 'Artifact retention days'
         type: number
@@ -148,5 +152,6 @@ jobs:
       max_isort_issues: ${{ fromJSON(inputs.max_isort_issues) }}
       max_ruff_errors: ${{ fromJSON(inputs.max_ruff_errors) }}
       artifact_prefix: ${{ inputs.artifact_prefix }}
+      hub_correlation_id: ${{ inputs.hub_correlation_id }}
       retention_days: ${{ fromJSON(inputs.retention_days) }}
     secrets: inherit

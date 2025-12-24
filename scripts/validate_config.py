@@ -4,7 +4,8 @@ Validate a CI/CD Hub config file against the schema.
 
 Usage:
   python scripts/validate_config.py config/repos/my-repo.yaml
-  python scripts/validate_config.py path/to/.ci-hub.yml --schema hub-release/schema/ci-hub-config.schema.json
+  python scripts/validate_config.py path/to/.ci-hub.yml \
+    --schema hub-release/schema/ci-hub-config.schema.json
 """
 
 from __future__ import annotations
@@ -41,12 +42,19 @@ def validate_config(config: dict[str, Any], schema: dict[str, Any]) -> list[str]
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate CI/CD Hub config YAML against schema.")
-    parser.add_argument("config", type=Path, help="Path to config YAML (.ci-hub.yml or hub config)")
+    description = "Validate CI/CD Hub config YAML against schema."
+    parser = argparse.ArgumentParser(description=description)
+    parser.add_argument(
+        "config",
+        type=Path,
+        help="Path to config YAML (.ci-hub.yml or hub config)",
+    )
     parser.add_argument(
         "--schema",
         type=Path,
-        default=Path(__file__).resolve().parent.parent / "schema" / "ci-hub-config.schema.json",
+        default=Path(__file__).resolve().parent.parent
+        / "schema"
+        / "ci-hub-config.schema.json",
         help="Path to JSON schema",
     )
     args = parser.parse_args()
@@ -62,6 +70,10 @@ def main() -> int:
         return 1
     schema = schema_data
     config = load_yaml(args.config)
+    if "language" not in config:
+        repo_block = config.get("repo")
+        if isinstance(repo_block, dict) and repo_block.get("language"):
+            config["language"] = repo_block["language"]
 
     errors = validate_config(config, schema)
     if errors:

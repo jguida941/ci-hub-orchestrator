@@ -331,7 +331,7 @@ jacoco:
 2. **Branch hardcoded** - Uses `ref: 'main'` instead of per-repo `default_branch`
 3. **Fire-and-forget dispatch** - No run IDs captured, no polling, failures swallowed
 4. **Aggregation is stub** - Writes static summary, doesn't pull downstream artifacts
-5. **force_all_tools unused** - Defined but not implemented
+5. **force_all_tools** - Now config-driven (`repo.force_all_tools`) and applied per-repo by orchestrator
 6. **Missing permissions block** - Needs `actions:write`, `contents:read`
 
 ### Two Operating Modes (from plan.md):
@@ -400,7 +400,7 @@ jacoco:
 - [ ] Pass computed inputs to dispatch
 - [ ] Honor default_branch per repo
 - [ ] Add permissions block
-- [ ] Implement or remove force_all_tools
+- [x] Implement force_all_tools via config (repo.force_all_tools)
 
 ---
 
@@ -1728,4 +1728,3 @@ All major research compiled. Ready to:
 - CLI (Typer), Prompts (questionary), Validation (Pydantic)
 - Phased Rollout, MoSCoW, Developer Experience
 - Hub CLI Specification, AGENTS.md Best Practices
-

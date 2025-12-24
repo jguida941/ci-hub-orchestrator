@@ -24,7 +24,16 @@ We need a repeatable way to validate that the summary matches the actual executi
      - Artifact presence vs `tools_ran` for tools that generate reports.
    - Script returns non-zero in `--strict` mode.
 
-3. **Prevent regressions**
+3. **Capture summaries and validate in CI**
+   - `hub-run-all.yml` stores `$GITHUB_STEP_SUMMARY` at `reports/<config_basename>/summary.md`.
+   - `hub-run-all.yml` runs `validate_summary.py --strict` per repo against summary + artifacts.
+
+4. **Define the artifact contract**
+   - Python tools must upload outputs when enabled:
+     - `ruff-report.json`, `black-output.txt`, `isort-output.txt`, `mypy-output.txt`
+     - `mutmut-run.log`, `hypothesis-output.txt`, `test-results.xml`
+
+5. **Prevent regressions**
    - Add a test that fails if `matrix.run_* || 'true'` style fallbacks appear in `hub-run-all.yml`.
 
 ## Consequences
@@ -33,10 +42,10 @@ We need a repeatable way to validate that the summary matches the actual executi
 - Summary output reflects real tool toggles.
 - A reusable validation script can be run locally or in CI.
 - Future summary drift is caught early.
+- Summary text is archived alongside per-repo reports.
 
 ### Negative
-- Requires manual capture of summary text if validation against summaries is desired.
-- Some tools do not emit artifacts; validation for those is limited to `report.json`.
+- More artifacts are uploaded and retained per run.
 
 ## Usage
 
@@ -50,8 +59,7 @@ python scripts/validate_summary.py \
 
 ## Follow-ups
 
-- Consider exporting summary text to a file and uploading it as an artifact for automated validation.
-- Optionally run `validate_summary.py` in hub workflows after `report.json` is generated.
+- Consider extending summary capture to reusable workflows if summary validation is needed there.
 
 ## Related
 

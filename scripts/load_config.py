@@ -8,7 +8,8 @@ Merges configuration from multiple sources with proper precedence:
   3. Hub's config/defaults.yaml (lowest priority)
 
 Usage:
-    python load_config.py --repo <repo-name> [--repo-config-path <path>] [--output json|yaml]
+    python load_config.py --repo <repo-name> [--repo-config-path <path>] \
+        [--output json|yaml]
 
 Output:
     Merged configuration as JSON (default) or YAML
@@ -16,7 +17,6 @@ Output:
 
 import argparse
 import json
-import os
 import sys
 from pathlib import Path
 from typing import Any
@@ -254,9 +254,15 @@ def generate_workflow_inputs(config: dict) -> dict:
     # Global thresholds (override tool defaults if provided)
     thresholds = config.get("thresholds", {})
     if "coverage_min" in thresholds:
-        inputs["coverage_min"] = thresholds.get("coverage_min", inputs.get("coverage_min", 0))
+        inputs["coverage_min"] = thresholds.get(
+            "coverage_min",
+            inputs.get("coverage_min", 0),
+        )
     if "mutation_score_min" in thresholds:
-        inputs["mutation_score_min"] = thresholds.get("mutation_score_min", inputs.get("mutation_score_min", 0))
+        inputs["mutation_score_min"] = thresholds.get(
+            "mutation_score_min",
+            inputs.get("mutation_score_min", 0),
+        )
     inputs["max_critical_vulns"] = thresholds.get("max_critical_vulns", 0)
     inputs["max_high_vulns"] = thresholds.get("max_high_vulns", 0)
 
@@ -264,6 +270,8 @@ def generate_workflow_inputs(config: dict) -> dict:
     repo = config.get("repo", {})
     inputs["dispatch_enabled"] = repo.get("dispatch_enabled", True)
     inputs["run_group"] = repo.get("run_group", "full")
+    inputs["force_all_tools"] = repo.get("force_all_tools", False)
+    inputs["hub_correlation_id"] = ""
 
     # Reports
     reports = config.get("reports", {})

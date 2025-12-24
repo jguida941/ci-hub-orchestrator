@@ -19,11 +19,6 @@ on:
         description: 'Comma-separated repo names (empty = all)'
         required: false
         type: string
-      force_all_tools:
-        description: 'Run all tools regardless of config'
-        required: false
-        type: boolean
-        default: false
 
   schedule:
     # Run nightly at 2 AM UTC
@@ -279,6 +274,7 @@ jobs:
               inputs["run_checkstyle"] = tools.get("checkstyle", {}).get("enabled", True)
               inputs["run_spotbugs"] = tools.get("spotbugs", {}).get("enabled", True)
               inputs["run_owasp"] = tools.get("owasp", {}).get("enabled", True)
+              inputs["use_nvd_api_key"] = tools.get("owasp", {}).get("use_nvd_api_key", True)
               inputs["run_pitest"] = tools.get("pitest", {}).get("enabled", True)
               inputs["run_jqwik"] = tools.get("jqwik", {}).get("enabled", False)
               inputs["run_codeql"] = tools.get("codeql", {}).get("enabled", True)
@@ -334,9 +330,44 @@ jobs:
 
           reports = merged.get("reports", {})
           inputs["retention_days"] = reports.get("retention_days", 30)
+          config_basename = config_file.stem if config_file.exists() else repo
+          inputs["artifact_prefix"] = f"{config_basename}-"
+          inputs["force_all_tools"] = repo_meta.get("force_all_tools", False)
 
           dispatch_workflow = repo_meta.get("dispatch_workflow") or os.environ.get("MATRIX_DISPATCH_WORKFLOW", "")
           dispatch_enabled = repo_meta.get("dispatch_enabled", os.environ.get("MATRIX_DISPATCH_ENABLED", "true"))
+
+          if force_all_tools:
+              if language == "java":
+                  for key in [
+                      "run_jacoco",
+                      "run_checkstyle",
+                      "run_spotbugs",
+                      "run_owasp",
+                      "run_pitest",
+                      "run_jqwik",
+                      "run_codeql",
+                      "run_pmd",
+                      "run_semgrep",
+                      "run_trivy",
+                  ]:
+                      inputs[key] = True
+              elif language == "python":
+                  for key in [
+                      "run_pytest",
+                      "run_ruff",
+                      "run_bandit",
+                      "run_pip_audit",
+                      "run_mypy",
+                      "run_codeql",
+                      "run_black",
+                      "run_isort",
+                      "run_mutmut",
+                      "run_hypothesis",
+                      "run_semgrep",
+                      "run_trivy",
+                  ]:
+                      inputs[key] = True
 
           # Write outputs
           with open(os.environ["GITHUB_OUTPUT"], "a") as f:
@@ -364,6 +395,7 @@ jobs:
             const branch = '${{ matrix.default_branch }}';
             const workdir = '${{ steps.repo-config.outputs.workdir }}';
             const dispatchEnabled = '${{ steps.repo-config.outputs.dispatch_enabled || '' }}'.toLowerCase() !== 'false';
+            const correlationId = `${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.config_basename }}`;
 
             if (!dispatchEnabled) {
               core.info(`Dispatch disabled for ${owner}/${repo}; skipping dispatch.`);
@@ -376,8 +408,9 @@ jobs:
               const n = Number(val);
               return String(Number.isFinite(n) ? n : fallback);
             };
+            const forceAllTools = ('${{ steps.repo-config.outputs.force_all_tools }}' || 'false').toLowerCase() === 'true';
 
-            const inputs = {};
+            const inputs = { hub_correlation_id: correlationId };
             const MAX_POLL_MS = 30 * 60 * 1000; // 30 minutes
 
             if (!['java', 'python'].includes(language)) {
@@ -392,6 +425,7 @@ jobs:
               inputs.run_checkstyle = asBool('${{ steps.repo-config.outputs.run_checkstyle }}');
               inputs.run_spotbugs = asBool('${{ steps.repo-config.outputs.run_spotbugs }}');
               inputs.run_owasp = asBool('${{ steps.repo-config.outputs.run_owasp }}');
+              inputs.use_nvd_api_key = asBool('${{ steps.repo-config.outputs.use_nvd_api_key }}');
               inputs.run_pitest = asBool('${{ steps.repo-config.outputs.run_pitest }}');
               inputs.run_jqwik = asBool('${{ steps.repo-config.outputs.run_jqwik }}');
               inputs.run_codeql = asBool('${{ steps.repo-config.outputs.run_codeql }}');
@@ -409,8 +443,25 @@ jobs:
               inputs.max_pmd_violations = asNumber('${{ steps.repo-config.outputs.max_pmd_violations }}', 0);
               inputs.max_semgrep_findings = asNumber('${{ steps.repo-config.outputs.max_semgrep_findings }}', 0);
               inputs.retention_days = asNumber('${{ steps.repo-config.outputs.retention_days }}', 30);
+              inputs.artifact_prefix = '${{ steps.repo-config.outputs.artifact_prefix }}' || '';
               if (workdir) {
                 inputs.workdir = workdir;
+              }
+              if (forceAllTools) {
+                [
+                  "run_jacoco",
+                  "run_checkstyle",
+                  "run_spotbugs",
+                  "run_owasp",
+                  "run_pitest",
+                  "run_jqwik",
+                  "run_codeql",
+                  "run_pmd",
+                  "run_semgrep",
+                  "run_trivy",
+                ].forEach((key) => {
+                  inputs[key] = 'true';
+                });
               }
             } else {
               inputs.python_version = '${{ steps.repo-config.outputs.python_version }}' || '3.12';
@@ -436,8 +487,27 @@ jobs:
               inputs.max_isort_issues = asNumber('${{ steps.repo-config.outputs.max_isort_issues }}', 0);
               inputs.max_semgrep_findings = asNumber('${{ steps.repo-config.outputs.max_semgrep_findings }}', 0);
               inputs.retention_days = asNumber('${{ steps.repo-config.outputs.retention_days }}', 30);
+              inputs.artifact_prefix = '${{ steps.repo-config.outputs.artifact_prefix }}' || '';
               if (workdir) {
                 inputs.workdir = workdir;
+              }
+              if (forceAllTools) {
+                [
+                  "run_pytest",
+                  "run_ruff",
+                  "run_bandit",
+                  "run_pip_audit",
+                  "run_mypy",
+                  "run_codeql",
+                  "run_black",
+                  "run_isort",
+                  "run_mutmut",
+                  "run_hypothesis",
+                  "run_semgrep",
+                  "run_trivy",
+                ].forEach((key) => {
+                  inputs[key] = 'true';
+                });
               }
             }
 
@@ -474,9 +544,13 @@ jobs:
                 per_page: 5,
               });
 
-              const recent = runs.data.workflow_runs.find((run) => {
+            const recent = runs.data.workflow_runs.find((run) => {
                 const created = new Date(run.created_at).getTime();
-                return created >= startedAt - 10000;
+                return (
+                  created >= startedAt - 2000 && // tighter window to reduce collisions
+                  run.head_branch === branch &&
+                  run.status !== 'completed'
+                );
               });
 
               if (recent) {
@@ -496,6 +570,7 @@ jobs:
             core.setOutput('run_id', runId);
             core.setOutput('branch', branch);
             core.setOutput('workflow_id', workflowId);
+            core.setOutput('correlation_id', correlationId);
 
       - name: Record Build Trigger
         run: |
@@ -520,7 +595,11 @@ jobs:
             "language": "${{ matrix.language }}",
             "branch": "${{ matrix.default_branch }}",
             "workflow": "${{ steps.dispatch.outputs.workflow_id }}",
+            "artifact_prefix": "${{ steps.repo-config.outputs.artifact_prefix }}",
+            "force_all_tools": "${{ steps.repo-config.outputs.force_all_tools }}",
             "run_id": "${{ steps.dispatch.outputs.run_id }}",
+            "correlation_id": "${{ steps.dispatch.outputs.correlation_id }}",
+            "dispatch_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
             "status": "${{ job.status }}"
           }
           EOF
@@ -637,6 +716,42 @@ jobs:
               except Exception as exc:  # noqa: PIE786
                   print(f"Warning: could not read {path}: {exc}")
 
+          def find_run_by_correlation_id(owner: str, repo: str, workflow_id: str, correlation_id: str) -> str | None:
+              """
+              Deterministic run matching: search recent runs and match by hub_correlation_id in artifact.
+              Returns run_id if found, None otherwise.
+              """
+              if not correlation_id:
+                  return None
+              try:
+                  # List recent workflow runs
+                  runs_url = f"https://api.github.com/repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs?per_page=20&event=workflow_dispatch"
+                  runs_data = gh_get(runs_url)
+                  for run in runs_data.get("workflow_runs", []):
+                      run_id = run.get("id")
+                      if not run_id:
+                          continue
+                      # Check artifacts for this run
+                      try:
+                          artifacts = gh_get(f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts")
+                          ci_artifact = next((a for a in artifacts.get("artifacts", []) if a.get("name", "").endswith("ci-report")), None)
+                          if ci_artifact:
+                              with tempfile.TemporaryDirectory() as tmpdir:
+                                  extracted = download_artifact(ci_artifact["archive_download_url"], Path(tmpdir))
+                                  if extracted:
+                                      report_file = next(iter(Path(extracted).rglob("report.json")), None)
+                                      if report_file and report_file.exists():
+                                          report_data = json.loads(report_file.read_text())
+                                          if report_data.get("hub_correlation_id") == correlation_id:
+                                              print(f"Found matching run {run_id} for correlation_id {correlation_id}")
+                                              return str(run_id)
+                      except Exception as e:
+                          print(f"Warning: error checking run {run_id} artifacts: {e}")
+                          continue
+              except Exception as e:
+                  print(f"Warning: error searching runs for correlation_id {correlation_id}: {e}")
+              return None
+
           # Poll runs and collect artifacts/metrics
           results = []
           pending_statuses = {"queued", "in_progress", "waiting", "pending"}
@@ -661,14 +776,15 @@ jobs:
                   "branch": branch,
                   "workflow": workflow,
                   "run_id": run_id or "",
+                  "correlation_id": entry.get("correlation_id", ""),
                   "status": "missing_run_id" if not run_id else "unknown",
                   "conclusion": "unknown",
                   # Common quality metrics
                   "coverage": None,
                   "mutation_score": None,
                   # Java-specific tools
-                  "checkstyle_violations": None,
-                  "spotbugs_bugs": None,
+                  "checkstyle_issues": None,
+                  "spotbugs_issues": None,
                   "pmd_violations": None,
                   "owasp_critical": None,
                   "owasp_high": None,
@@ -690,6 +806,19 @@ jobs:
                   # Track which tools ran
                   "tools_ran": {},
               }
+
+              # Deterministic correlation: if run_id is missing, search by correlation_id
+              expected_corr = entry.get("correlation_id", "")
+              if not run_id and expected_corr and workflow:
+                  print(f"No run_id for {repo_full}, searching by correlation_id {expected_corr}...")
+                  found_run_id = find_run_by_correlation_id(owner, repo, workflow, expected_corr)
+                  if found_run_id:
+                      run_id = found_run_id
+                      run_status["run_id"] = run_id
+                      run_status["status"] = "unknown"  # Reset status, will be updated by polling
+                      print(f"Found run_id {run_id} for {repo_full} via correlation_id")
+                  else:
+                      print(f"Could not find run by correlation_id for {repo_full}")
 
               if not run_id:
                   results.append(run_status)
@@ -740,31 +869,59 @@ jobs:
                                   if report_file and report_file.exists():
                                       try:
                                           report_data = json.loads(report_file.read_text())
-                                          results_data = report_data.get("results", {})
+                                          report_corr = report_data.get("hub_correlation_id", "")
+                                          run_status["correlation_id"] = report_corr or expected_corr
+                                          if expected_corr and report_corr and report_corr != expected_corr:
+                                              print(
+                                                  f"Correlation mismatch for {repo_full} run {run_id} "
+                                                  f"(expected {expected_corr}, got {report_corr}); searching for correct run..."
+                                              )
+                                              # Try to find the correct run by correlation ID
+                                              correct_run_id = find_run_by_correlation_id(owner, repo, workflow, expected_corr)
+                                              if correct_run_id and correct_run_id != run_id:
+                                                  print(f"Found correct run {correct_run_id}, re-fetching artifacts...")
+                                                  # Re-fetch artifact from correct run
+                                                  correct_artifacts = gh_get(f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{correct_run_id}/artifacts")
+                                                  correct_ci_artifact = next((a for a in correct_artifacts.get("artifacts", []) if a.get("name", "").endswith("ci-report")), None)
+                                                  if correct_ci_artifact:
+                                                      with tempfile.TemporaryDirectory() as tmpdir2:
+                                                          extracted2 = download_artifact(correct_ci_artifact["archive_download_url"], Path(tmpdir2))
+                                                          if extracted2:
+                                                              report_file2 = next(iter(Path(extracted2).rglob("report.json")), None)
+                                                              if report_file2 and report_file2.exists():
+                                                                  report_data = json.loads(report_file2.read_text())
+                                                                  run_status["run_id"] = correct_run_id
+                                                                  run_status["correlation_id"] = expected_corr
+                                                                  # Continue processing with correct report_data
+                                              else:
+                                                  print(f"Could not find correct run for {repo_full}, skipping artifact.")
+                                                  continue
+                                          results_data = report_data.get("results", {}) or {}
+                                          tool_metrics = report_data.get("tool_metrics", {}) or {}
                                           # Common quality metrics
                                           run_status["coverage"] = results_data.get("coverage")
                                           run_status["mutation_score"] = results_data.get("mutation_score")
                                           # Java-specific tools
-                                          run_status["checkstyle_violations"] = results_data.get("checkstyle_violations")
-                                          run_status["spotbugs_bugs"] = results_data.get("spotbugs_bugs")
-                                          run_status["pmd_violations"] = results_data.get("pmd_violations")
-                                          run_status["owasp_critical"] = results_data.get("owasp_critical")
-                                          run_status["owasp_high"] = results_data.get("owasp_high")
-                                          run_status["owasp_medium"] = results_data.get("owasp_medium")
+                                          run_status["checkstyle_issues"] = tool_metrics.get("checkstyle_issues")
+                                          run_status["spotbugs_issues"] = tool_metrics.get("spotbugs_issues")
+                                          run_status["pmd_violations"] = tool_metrics.get("pmd_violations")
+                                          run_status["owasp_critical"] = tool_metrics.get("owasp_critical")
+                                          run_status["owasp_high"] = tool_metrics.get("owasp_high")
+                                          run_status["owasp_medium"] = tool_metrics.get("owasp_medium")
                                           # Python-specific tools
                                           run_status["tests_passed"] = results_data.get("tests_passed")
                                           run_status["tests_failed"] = results_data.get("tests_failed")
-                                          run_status["ruff_errors"] = results_data.get("ruff_errors")
-                                          run_status["black_issues"] = results_data.get("black_issues")
-                                          run_status["isort_issues"] = results_data.get("isort_issues")
-                                          run_status["mypy_errors"] = results_data.get("mypy_errors")
-                                          run_status["bandit_high"] = results_data.get("bandit_high")
-                                          run_status["bandit_medium"] = results_data.get("bandit_medium")
-                                          run_status["pip_audit_vulns"] = results_data.get("pip_audit_vulns")
+                                          run_status["ruff_errors"] = tool_metrics.get("ruff_errors")
+                                          run_status["black_issues"] = tool_metrics.get("black_issues")
+                                          run_status["isort_issues"] = tool_metrics.get("isort_issues")
+                                          run_status["mypy_errors"] = tool_metrics.get("mypy_errors")
+                                          run_status["bandit_high"] = tool_metrics.get("bandit_high")
+                                          run_status["bandit_medium"] = tool_metrics.get("bandit_medium")
+                                          run_status["pip_audit_vulns"] = tool_metrics.get("pip_audit_vulns")
                                           # Cross-language security tools
-                                          run_status["semgrep_findings"] = results_data.get("semgrep_findings")
-                                          run_status["trivy_critical"] = results_data.get("trivy_critical")
-                                          run_status["trivy_high"] = results_data.get("trivy_high")
+                                          run_status["semgrep_findings"] = tool_metrics.get("semgrep_findings")
+                                          run_status["trivy_critical"] = tool_metrics.get("trivy_critical")
+                                          run_status["trivy_high"] = tool_metrics.get("trivy_high")
                                           # Track which tools ran
                                           run_status["tools_ran"] = report_data.get("tools_ran", {})
                                       except Exception as exc:  # noqa: PIE786
@@ -828,8 +985,8 @@ jobs:
           report["total_semgrep_findings"] = sum(semgrep_findings)
 
           # Aggregated code quality metrics
-          checkstyle_violations = collect_values("checkstyle_violations")
-          spotbugs_bugs = collect_values("spotbugs_bugs")
+          checkstyle_issues = collect_values("checkstyle_issues")
+          spotbugs_issues = collect_values("spotbugs_issues")
           pmd_violations = collect_values("pmd_violations")
           ruff_errors = collect_values("ruff_errors")
           black_issues = collect_values("black_issues")
@@ -837,7 +994,7 @@ jobs:
           mypy_errors = collect_values("mypy_errors")
 
           report["total_code_quality_issues"] = (
-              sum(checkstyle_violations) + sum(spotbugs_bugs) + sum(pmd_violations) +
+              sum(checkstyle_issues) + sum(spotbugs_issues) + sum(pmd_violations) +
               sum(ruff_errors) + sum(black_issues) + sum(isort_issues) + sum(mypy_errors)
           )
 
@@ -880,8 +1037,8 @@ jobs:
 
                   cov = fmt(entry.get('coverage'), '%')
                   mut = fmt(entry.get('mutation_score'), '%')
-                  cs = fmt(entry.get('checkstyle_violations'))
-                  sb = fmt(entry.get('spotbugs_bugs'))
+                  cs = fmt(entry.get('checkstyle_issues'))
+                  sb = fmt(entry.get('spotbugs_issues'))
                   pmd = fmt(entry.get('pmd_violations'))
 
                   oc = entry.get('owasp_critical')

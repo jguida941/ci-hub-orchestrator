@@ -1,0 +1,15 @@
+{
+  "title": "Mutation Effectiveness",
+  "description": "Visualizes resilience scores and test volumes for each repo.",
+  "source": "models/marts/mutation_effectiveness",
+  "charts": [
+    {
+      "type": "scatter",
+      "title": "Resilience vs Test Volume",
+      "x": "p95_tests",
+      "y": "avg_resilience_score",
+      "label": "repo"
+    }
+  ]
+}
+

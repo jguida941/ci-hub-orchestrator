@@ -101,6 +101,9 @@ jobs:
           repository: ${{ matrix.owner }}/${{ matrix.name }}
           path: repo
           fetch-depth: 0
+          token: ${{ secrets.HUB_DISPATCH_TOKEN || github.token }}
+          fetch-depth: 0
+          token: ${{ secrets.HUB_DISPATCH_TOKEN || github.token }}
 
       # ========================================
       # CODEQL ANALYSIS
@@ -178,7 +181,13 @@ jobs:
           pip install pip-audit
           pip install -r requirements.txt 2>/dev/null || true
           pip-audit --format=json --output=pip-audit-report.json 2>/dev/null || true
-          VULNS=$(jq 'length' pip-audit-report.json 2>/dev/null || echo 0)
+          VULNS=$(jq '
+            if type == "array" then
+              [.[] | .vulns // [] | length] | add // 0
+            elif .dependencies then
+              [.dependencies[] | .vulnerabilities // [] | length] | add // 0
+            else 0 end
+          ' pip-audit-report.json 2>/dev/null || echo 0)
           echo "vulnerabilities=$VULNS" >> $GITHUB_OUTPUT
         continue-on-error: true
 

@@ -4,18 +4,21 @@ import argparse
 import base64
 import json
 import re
+import shutil
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
 import textwrap
+import urllib.error
+import urllib.request
+import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 import yaml
 from jsonschema import Draft7Validator
 
 from cihub import __version__
-
 
 GIT_REMOTE_RE = re.compile(
     r"(?:github\.com[:/])(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$"
@@ -162,15 +165,36 @@ def elem_text(elem: ET.Element | None) -> str:
     return elem.text.strip()
 
 
+def resolve_executable(name: str) -> str:
+    return shutil.which(name) or name
+
+
+def parse_xml_text(text: str) -> ET.Element:
+    upper = text.upper()
+    if "<!DOCTYPE" in upper or "<!ENTITY" in upper:
+        raise ValueError("XML contains disallowed DTD/ENTITY declarations.")
+    return ET.fromstring(text)  # noqa: S314
+
+
+def parse_xml_file(path: Path) -> ET.Element:
+    return parse_xml_text(path.read_text(encoding="utf-8"))
+
+
+def safe_urlopen(req: urllib.request.Request, timeout: int):
+    parsed = urlparse(req.full_url)
+    if parsed.scheme != "https":
+        raise ValueError(f"Unsupported URL scheme: {parsed.scheme}")
+    return urllib.request.urlopen(req, timeout=timeout)  # noqa: S310
+
+
 def parse_pom_plugins(
     pom_path: Path,
 ) -> tuple[set[tuple[str, str]], set[tuple[str, str]], bool, str | None]:
     try:
-        tree = ET.parse(pom_path)
-    except ET.ParseError as exc:
+        root = parse_xml_file(pom_path)
+    except (ET.ParseError, ValueError) as exc:
         return set(), set(), False, f"Invalid pom.xml: {exc}"
 
-    root = tree.getroot()
     namespace = get_xml_namespace(root)
 
     def find_child(parent: ET.Element | None, tag: str) -> ET.Element | None:
@@ -201,11 +225,10 @@ def parse_pom_plugins(
 
 def parse_pom_modules(pom_path: Path) -> tuple[list[str], str | None]:
     try:
-        tree = ET.parse(pom_path)
-    except ET.ParseError as exc:
+        root = parse_xml_file(pom_path)
+    except (ET.ParseError, ValueError) as exc:
         return [], f"Invalid pom.xml: {exc}"
 
-    root = tree.getroot()
     namespace = get_xml_namespace(root)
     modules_elem = root.find(ns_tag(namespace, "modules"))
     modules: list[str] = []
@@ -221,11 +244,10 @@ def parse_pom_dependencies(
     pom_path: Path,
 ) -> tuple[set[tuple[str, str]], set[tuple[str, str]], str | None]:
     try:
-        tree = ET.parse(pom_path)
-    except ET.ParseError as exc:
+        root = parse_xml_file(pom_path)
+    except (ET.ParseError, ValueError) as exc:
         return set(), set(), f"Invalid pom.xml: {exc}"
 
-    root = tree.getroot()
     namespace = get_xml_namespace(root)
 
     def deps_from(parent: ET.Element | None) -> set[tuple[str, str]]:
@@ -303,17 +325,20 @@ def collect_java_pom_warnings(
             continue
         if plugin_matches(plugins_mgmt, group_id, artifact_id):
             warnings.append(
-                f"pom.xml: {tool} plugin is only in <pluginManagement>; move to <build><plugins>"
+                f"pom.xml: {tool} plugin is only in <pluginManagement>; "
+                "move to <build><plugins>"
             )
         else:
             warnings.append(
-                f"pom.xml: missing plugin for enabled tool '{tool}' ({group_id}:{artifact_id})"
+                f"pom.xml: missing plugin for enabled tool '{tool}' "
+                f"({group_id}:{artifact_id})"
             )
         missing_plugins.append((group_id, artifact_id))
 
     if has_modules and missing_plugins:
         warnings.append(
-            "pom.xml: multi-module project detected; add plugins to parent <build><plugins>"
+            "pom.xml: multi-module project detected; add plugins to parent "
+            "<build><plugins>"
         )
 
     return warnings, missing_plugins
@@ -376,11 +401,13 @@ def collect_java_dependency_warnings(
                 continue
             if dependency_matches(deps_mgmt, group_id, artifact_id):
                 warnings.append(
-                    f"{target}: {tool} dependency only in <dependencyManagement>; add to <dependencies>"
+                    f"{target}: {tool} dependency only in <dependencyManagement>; "
+                    "add to <dependencies>"
                 )
             else:
                 warnings.append(
-                    f"{target}: missing dependency for enabled tool '{tool}' ({group_id}:{artifact_id})"
+                    f"{target}: missing dependency for enabled tool '{tool}' "
+                    f"({group_id}:{artifact_id})"
                 )
             missing.append((target, (group_id, artifact_id)))
 
@@ -394,8 +421,8 @@ def load_plugin_snippets() -> dict[tuple[str, str], str]:
     snippets: dict[tuple[str, str], str] = {}
     for block in blocks:
         try:
-            elem = ET.fromstring(block)
-        except ET.ParseError:
+            elem = parse_xml_text(block)
+        except (ET.ParseError, ValueError):
             continue
         group_id = elem_text(elem.find("groupId"))
         artifact_id = elem_text(elem.find("artifactId"))
@@ -411,8 +438,8 @@ def load_dependency_snippets() -> dict[tuple[str, str], str]:
     snippets: dict[tuple[str, str], str] = {}
     for block in blocks:
         try:
-            elem = ET.fromstring(block)
-        except ET.ParseError:
+            elem = parse_xml_text(block)
+        except (ET.ParseError, ValueError):
             continue
         group_id = elem_text(elem.find("groupId"))
         artifact_id = elem_text(elem.find("artifactId"))
@@ -535,11 +562,19 @@ def parse_repo_from_remote(url: str) -> tuple[str | None, str | None]:
 
 def get_git_remote(repo_path: Path) -> str | None:
     try:
-        output = subprocess.check_output(
-            ["git", "-C", str(repo_path), "config", "--get", "remote.origin.url"],
+        git_bin = resolve_executable("git")
+        output = subprocess.check_output(  # noqa: S603
+            [
+                git_bin,
+                "-C",
+                str(repo_path),
+                "config",
+                "--get",
+                "remote.origin.url",
+            ],
             stderr=subprocess.DEVNULL,
             text=True,
-        )
+        )  # noqa: S603
         return output.strip() or None
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
@@ -547,11 +582,12 @@ def get_git_remote(repo_path: Path) -> str | None:
 
 def get_git_branch(repo_path: Path) -> str | None:
     try:
-        output = subprocess.check_output(
-            ["git", "-C", str(repo_path), "symbolic-ref", "--short", "HEAD"],
+        git_bin = resolve_executable("git")
+        output = subprocess.check_output(  # noqa: S603
+            [git_bin, "-C", str(repo_path), "symbolic-ref", "--short", "HEAD"],
             stderr=subprocess.DEVNULL,
             text=True,
-        )
+        )  # noqa: S603
         return output.strip() or None
     except (subprocess.CalledProcessError, FileNotFoundError):
         return None
@@ -651,7 +687,10 @@ def cmd_init(args: argparse.Namespace) -> int:
         name = repo_path.name
     if not owner:
         owner = "unknown"
-        print("Warning: could not detect repo owner; set repo.owner manually.", file=sys.stderr)
+        print(
+            "Warning: could not detect repo owner; set repo.owner manually.",
+            file=sys.stderr,
+        )
 
     branch = args.branch or get_git_branch(repo_path) or "main"
 
@@ -695,7 +734,9 @@ def cmd_update(args: argparse.Namespace) -> int:
 
     owner = args.owner or existing.get("repo", {}).get("owner", "")
     name = args.name or existing.get("repo", {}).get("name", "")
-    repo_existing = existing.get("repo", {}) if isinstance(existing.get("repo"), dict) else {}
+    repo_existing = (
+        existing.get("repo", {}) if isinstance(existing.get("repo"), dict) else {}
+    )
     branch = args.branch or repo_existing.get("default_branch", "main")
     subdir = args.subdir or repo_existing.get("subdir")
 
@@ -703,7 +744,10 @@ def cmd_update(args: argparse.Namespace) -> int:
         name = repo_path.name
     if not owner:
         owner = "unknown"
-        print("Warning: could not detect repo owner; set repo.owner manually.", file=sys.stderr)
+        print(
+            "Warning: could not detect repo owner; set repo.owner manually.",
+            file=sys.stderr,
+        )
 
     base = build_repo_config(language, owner, name, branch, subdir=subdir)
     merged = deep_merge(base, existing)
@@ -799,7 +843,10 @@ def apply_pom_fixes(
     plugin_block = "\n\n".join(blocks)
     updated_text, inserted = insert_plugins_into_pom(pom_text, plugin_block)
     if not inserted:
-        print("Failed to update pom.xml - unable to find insertion point.", file=sys.stderr)
+        print(
+            "Failed to update pom.xml - unable to find insertion point.",
+            file=sys.stderr,
+        )
         return 1
 
     if not apply:
@@ -936,8 +983,8 @@ def get_connected_repos(
                 if full not in seen:
                     seen.add(full)
                     repos.append(full)
-        except Exception:
-            pass
+        except Exception as exc:
+            print(f"Warning: failed to read {cfg_file}: {exc}", file=sys.stderr)
     return repos
 
 
@@ -972,7 +1019,8 @@ def get_repo_entries(
                     "default_branch": repo.get("default_branch", "main"),
                 }
             )
-        except Exception:
+        except Exception as exc:
+            print(f"Warning: failed to read {cfg_file}: {exc}", file=sys.stderr)
             continue
     return entries
 
@@ -993,7 +1041,8 @@ def render_dispatch_workflow(language: str, dispatch_workflow: str) -> str:
 def gh_api_json(
     path: str, method: str = "GET", payload: dict[str, Any] | None = None
 ) -> dict[str, Any]:
-    cmd = ["gh", "api"]
+    gh_bin = resolve_executable("gh")
+    cmd = [gh_bin, "api"]
     if method != "GET":
         cmd += ["-X", method]
     cmd.append(path)
@@ -1001,12 +1050,12 @@ def gh_api_json(
     if payload is not None:
         cmd += ["--input", "-"]
         input_data = json.dumps(payload)
-    result = subprocess.run(
+    result = subprocess.run(  # noqa: S603
         cmd,
         input=input_data,
         capture_output=True,
         text=True,
-    )
+    )  # noqa: S603
     if result.returncode != 0:
         msg = result.stderr.strip() or result.stdout.strip()
         raise RuntimeError(msg or "gh api failed")
@@ -1051,8 +1100,6 @@ def update_remote_file(
 def cmd_setup_secrets(args: argparse.Namespace) -> int:
     """Set HUB_DISPATCH_TOKEN on hub and optionally all connected repos."""
     import getpass
-    import urllib.error
-    import urllib.request
 
     hub_repo = args.hub_repo
     token = args.token
@@ -1067,11 +1114,14 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int:
         return 1
 
     if any(ch.isspace() for ch in token):
-        print("Error: Token contains whitespace; paste the raw token value.", file=sys.stderr)
+        print(
+            "Error: Token contains whitespace; paste the raw token value.",
+            file=sys.stderr,
+        )
         return 1
 
     def verify_token(pat: str) -> tuple[bool, str]:
-        req = urllib.request.Request(
+        req = urllib.request.Request(  # noqa: S310
             "https://api.github.com/user",
             headers={
                 "Authorization": f"token {pat}",
@@ -1080,7 +1130,7 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int:
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with safe_urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 scopes = resp.headers.get("X-OAuth-Scopes", "")
         except urllib.error.HTTPError as exc:
@@ -1095,8 +1145,11 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int:
         return True, f"user {login} ({scope_msg})"
 
     def verify_cross_repo_access(pat: str, target_repo: str) -> tuple[bool, str]:
-        """Verify token can access another repo's artifacts (required for orchestrator)."""
-        req = urllib.request.Request(
+        """Verify token can access another repo's artifacts.
+
+        Required for orchestrator downloads.
+        """
+        req = urllib.request.Request(  # noqa: S310
             f"https://api.github.com/repos/{target_repo}/actions/artifacts",
             headers={
                 "Authorization": f"token {pat}",
@@ -1105,7 +1158,7 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int:
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with safe_urlopen(req, timeout=10) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
                 count = data.get("total_count", 0)
                 return True, f"{count} artifacts accessible"
@@ -1131,18 +1184,26 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int:
             test_repo = connected[0]
             ok, message = verify_cross_repo_access(token, test_repo)
             if not ok:
-                print(f"Cross-repo access failed for {test_repo}: {message}", file=sys.stderr)
-                print("The token needs 'repo' scope to access other repos' artifacts.", file=sys.stderr)
+                print(
+                    f"Cross-repo access failed for {test_repo}: {message}",
+                    file=sys.stderr,
+                )
+                print(
+                    "The token needs 'repo' scope to access other repos' artifacts.",
+                    file=sys.stderr,
+                )
                 return 1
             print(f"Cross-repo access verified: {test_repo} ({message})")
 
+    gh_bin = resolve_executable("gh")
+
     def set_secret(repo: str) -> tuple[bool, str]:
-        result = subprocess.run(
-            ["gh", "secret", "set", "HUB_DISPATCH_TOKEN", "-R", repo],
+        result = subprocess.run(  # noqa: S603
+            [gh_bin, "secret", "set", "HUB_DISPATCH_TOKEN", "-R", repo],
             input=token,
             capture_output=True,
             text=True,
-        )
+        )  # noqa: S603
         if result.returncode != 0:
             return False, result.stderr.strip()
         return True, ""
@@ -1173,15 +1234,16 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int:
     print("\nConnected dispatch-enabled repos:")
     for repo in get_connected_repos():
         print(f"  - {repo}")
-    print("\nEnsure PAT has 'repo' scope (classic) or Actions R/W (fine-grained) on all repos.")
+    print(
+        "\nEnsure PAT has 'repo' scope (classic) or Actions R/W (fine-grained) "
+        "on all repos."
+    )
     return 0
 
 
 def cmd_setup_nvd(args: argparse.Namespace) -> int:
     """Set NVD_API_KEY on Java repos for OWASP Dependency Check."""
     import getpass
-    import urllib.error
-    import urllib.request
 
     nvd_key = args.nvd_key
 
@@ -1198,14 +1260,20 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int:
         return 1
 
     if any(ch.isspace() for ch in nvd_key):
-        print("Error: Key contains whitespace; paste the raw key value.", file=sys.stderr)
+        print(
+            "Error: Key contains whitespace; paste the raw key value.",
+            file=sys.stderr,
+        )
         return 1
 
     def verify_nvd_key(key: str) -> tuple[bool, str]:
         """Verify NVD API key by making a test request."""
         # NVD API test - fetch a known CVE
-        test_url = "https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=CVE-2021-44228"
-        req = urllib.request.Request(
+        test_url = (
+            "https://services.nvd.nist.gov/rest/json/cves/2.0"
+            "?cveId=CVE-2021-44228"
+        )
+        req = urllib.request.Request(  # noqa: S310
             test_url,
             headers={
                 "apiKey": key,
@@ -1213,7 +1281,7 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int:
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with safe_urlopen(req, timeout=15) as resp:
                 if resp.status == 200:
                     return True, "NVD API key is valid"
         except urllib.error.HTTPError as exc:
@@ -1234,19 +1302,24 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int:
             return 1
         print(f"NVD API key verified: {message}")
 
+    gh_bin = resolve_executable("gh")
+
     def set_secret(repo: str, secret_name: str, secret_value: str) -> tuple[bool, str]:
-        result = subprocess.run(
-            ["gh", "secret", "set", secret_name, "-R", repo],
+        result = subprocess.run(  # noqa: S603
+            [gh_bin, "secret", "set", secret_name, "-R", repo],
             input=secret_value,
             capture_output=True,
             text=True,
-        )
+        )  # noqa: S603
         if result.returncode != 0:
             return False, result.stderr.strip()
         return True, ""
 
     # Get Java repos
-    java_repos = get_connected_repos(only_dispatch_enabled=False, language_filter="java")
+    java_repos = get_connected_repos(
+        only_dispatch_enabled=False,
+        language_filter="java",
+    )
 
     if not java_repos:
         print("No Java repos found in config/repos/*.yaml")
@@ -1348,13 +1421,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     detect = subparsers.add_parser("detect", help="Detect repo language and tools")
     detect.add_argument("--repo", required=True, help="Path to repo")
-    detect.add_argument("--language", choices=["java", "python"], help="Override detection")
+    detect.add_argument(
+        "--language",
+        choices=["java", "python"],
+        help="Override detection",
+    )
     detect.add_argument("--explain", action="store_true", help="Show detection reasons")
     detect.set_defaults(func=cmd_detect)
 
     init = subparsers.add_parser("init", help="Generate .ci-hub.yml and hub-ci.yml")
     init.add_argument("--repo", required=True, help="Path to repo")
-    init.add_argument("--language", choices=["java", "python"], help="Override detection")
+    init.add_argument(
+        "--language",
+        choices=["java", "python"],
+        help="Override detection",
+    )
     init.add_argument("--owner", help="Repo owner (GitHub user/org)")
     init.add_argument("--name", help="Repo name")
     init.add_argument("--branch", help="Default branch (e.g., main)")
@@ -1365,12 +1446,20 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Fix pom.xml for Java repos (adds missing plugins/dependencies)",
     )
-    init.add_argument("--dry-run", action="store_true", help="Print output instead of writing")
+    init.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print output instead of writing",
+    )
     init.set_defaults(func=cmd_init)
 
     update = subparsers.add_parser("update", help="Refresh hub-ci.yml and .ci-hub.yml")
     update.add_argument("--repo", required=True, help="Path to repo")
-    update.add_argument("--language", choices=["java", "python"], help="Override detection")
+    update.add_argument(
+        "--language",
+        choices=["java", "python"],
+        help="Override detection",
+    )
     update.add_argument("--owner", help="Repo owner (GitHub user/org)")
     update.add_argument("--name", help="Repo name")
     update.add_argument("--branch", help="Default branch (e.g., main)")
@@ -1381,10 +1470,17 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Fix pom.xml for Java repos (adds missing plugins/dependencies)",
     )
-    update.add_argument("--dry-run", action="store_true", help="Print output instead of writing")
+    update.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print output instead of writing",
+    )
     update.set_defaults(func=cmd_update)
 
-    validate = subparsers.add_parser("validate", help="Validate .ci-hub.yml against schema")
+    validate = subparsers.add_parser(
+        "validate",
+        help="Validate .ci-hub.yml against schema",
+    )
     validate.add_argument("--repo", required=True, help="Path to repo")
     validate.add_argument(
         "--strict", action="store_true", help="Fail if pom.xml warnings are found"

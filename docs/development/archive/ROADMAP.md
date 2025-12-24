@@ -244,7 +244,7 @@ A **user-friendly CI/CD template repository** that can run pipelines for **any l
 | Honor `default_branch` per repo | P0 | Branch hardcoded |
 | Add permissions block | P0 | Missing permissions |
 | Fail on dispatch errors | P1 | Failures swallowed |
-| Implement or remove `force_all_tools` | P1 | Unused input |
+| Implement or remove `force_all_tools` | ✅ | Implemented via `repo.force_all_tools` |
 | Add config schema validation | P1 | No validation |
 
 **Deliverables:**

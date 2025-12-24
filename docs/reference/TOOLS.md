@@ -323,6 +323,7 @@ python:
 **Artifacts produced:**
 - `coverage.xml` - Cobertura format
 - `htmlcov/` - HTML report
+- JUnit XML (`test-results.xml` in reusable workflows, `pytest-junit.xml` in central mode)
 
 ---
 
@@ -419,7 +420,7 @@ python:
 - `max_black_issues`: integer (default: 0)
 
 **Artifacts produced:**
-- Check output (files that would be reformatted)
+- `black-output.txt`
 
 ---
 
@@ -436,7 +437,7 @@ python:
 - `max_isort_issues`: integer (default: 0)
 
 **Artifacts produced:**
-- Check output (files with unsorted imports)
+- `isort-output.txt`
 
 ---
 
@@ -458,7 +459,7 @@ python:
 - `run_mypy`: boolean (default: false)
 
 **Artifacts produced:**
-- stdout errors
+- `mypy-output.txt`
 
 ---
 
@@ -475,7 +476,7 @@ python:
 - `mutation_score_min`: number (default: 70)
 
 **Artifacts produced:**
-- mutmut results (killed/survived counts)
+- `mutmut-run.log`
 
 ---
 
@@ -491,7 +492,7 @@ python:
 - `run_hypothesis`: boolean (default: true)
 
 **Artifacts produced:**
-- Example counts in output
+- `hypothesis-output.txt`
 
 ---
 

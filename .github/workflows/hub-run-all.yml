@@ -464,9 +464,9 @@ jobs:
           BUGS=0
 
           if [ -f "mvnw" ]; then
-            ./mvnw -B -ntp com.github.spotbugs:spotbugs-maven-plugin:check 2>/dev/null || true
+            ./mvnw -B -ntp spotbugs:spotbugs 2>&1 || true
           else
-            mvn -B -ntp com.github.spotbugs:spotbugs-maven-plugin:check 2>/dev/null || true
+            mvn -B -ntp spotbugs:spotbugs 2>&1 || true
           fi
 
           for xml in $(find . -name "spotbugsXml.xml" 2>/dev/null); do
@@ -874,17 +874,17 @@ jobs:
           if [ "${{ matrix.language }}" = "java" ]; then
             {
               echo "## Tools Enabled"
-              echo "| Category | Tool | Configured | Ran |"
-              echo "|----------|------|------------|-----|"
-              echo "| Build | maven | true | true |"
-              echo "| Testing | JaCoCo Coverage | ${{ matrix.run_jacoco }} | ${{ steps.java-coverage.outcome == 'success' || steps.java-coverage.outcome == 'failure' }} |"
-              echo "| Testing | PITest | ${{ matrix.run_pitest }} | ${{ steps.java-mutation.outcome == 'success' || steps.java-mutation.outcome == 'failure' }} |"
-              echo "| Linting | Checkstyle | ${{ matrix.run_checkstyle }} | ${{ steps.java-checkstyle.outcome == 'success' || steps.java-checkstyle.outcome == 'failure' }} |"
-              echo "| Linting | PMD | ${{ matrix.run_pmd }} | ${{ steps.java-pmd.outcome == 'success' || steps.java-pmd.outcome == 'failure' }} |"
-              echo "| Linting | SpotBugs | ${{ matrix.run_spotbugs }} | ${{ steps.java-spotbugs.outcome == 'success' || steps.java-spotbugs.outcome == 'failure' }} |"
-              echo "| Security | OWASP Dependency-Check | ${{ matrix.run_owasp }} | ${{ steps.java-owasp.outcome == 'success' || steps.java-owasp.outcome == 'failure' }} |"
-              echo "| Security | Semgrep | ${{ matrix.run_semgrep }} | ${{ steps.semgrep.outcome == 'success' || steps.semgrep.outcome == 'failure' }} |"
-              echo "| Security | Trivy | ${{ matrix.run_trivy }} | ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }} |"
+              echo "| Category | Tool | Configured | Ran | Success |"
+              echo "|----------|------|------------|-----|---------|"
+              echo "| Build | maven | true | true | ${{ steps.java-build.outcome == 'success' }} |"
+              echo "| Testing | JaCoCo Coverage | ${{ matrix.run_jacoco }} | ${{ steps.java-coverage.outcome == 'success' || steps.java-coverage.outcome == 'failure' }} | ${{ steps.java-coverage.outcome == 'success' }} |"
+              echo "| Testing | PITest | ${{ matrix.run_pitest }} | ${{ steps.java-mutation.outcome == 'success' || steps.java-mutation.outcome == 'failure' }} | ${{ steps.java-mutation.outcome == 'success' }} |"
+              echo "| Linting | Checkstyle | ${{ matrix.run_checkstyle }} | ${{ steps.java-checkstyle.outcome == 'success' || steps.java-checkstyle.outcome == 'failure' }} | ${{ steps.java-checkstyle.outcome == 'success' }} |"
+              echo "| Linting | PMD | ${{ matrix.run_pmd }} | ${{ steps.java-pmd.outcome == 'success' || steps.java-pmd.outcome == 'failure' }} | ${{ steps.java-pmd.outcome == 'success' }} |"
+              echo "| Linting | SpotBugs | ${{ matrix.run_spotbugs }} | ${{ steps.java-spotbugs.outcome == 'success' || steps.java-spotbugs.outcome == 'failure' }} | ${{ steps.java-spotbugs.outcome == 'success' }} |"
+              echo "| Security | OWASP Dependency-Check | ${{ matrix.run_owasp }} | ${{ steps.java-owasp.outcome == 'success' || steps.java-owasp.outcome == 'failure' }} | ${{ steps.java-owasp.outcome == 'success' }} |"
+              echo "| Security | Semgrep | ${{ matrix.run_semgrep }} | ${{ steps.semgrep.outcome == 'success' || steps.semgrep.outcome == 'failure' }} | ${{ steps.semgrep.outcome == 'success' }} |"
+              echo "| Security | Trivy | ${{ matrix.run_trivy }} | ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }} | ${{ steps.trivy.outcome == 'success' }} |"
               echo ""
               echo "## Environment"
               echo "| Setting | Value |"
@@ -902,18 +902,18 @@ jobs:
           else
             {
               echo "## Tools Enabled"
-              echo "| Category | Tool | Configured | Ran |"
-              echo "|----------|------|------------|-----|"
-              echo "| Testing | pytest | ${{ matrix.run_pytest }} | ${{ steps.python-tests.outcome == 'success' || steps.python-tests.outcome == 'failure' }} |"
-              echo "| Testing | mutmut | ${{ matrix.run_mutmut }} | ${{ steps.python-mutmut.outcome == 'success' || steps.python-mutmut.outcome == 'failure' }} |"
-              echo "| Linting | Ruff | ${{ matrix.run_ruff }} | ${{ steps.python-ruff.outcome == 'success' || steps.python-ruff.outcome == 'failure' }} |"
-              echo "| Linting | Black | ${{ matrix.run_black }} | ${{ steps.python-black.outcome == 'success' || steps.python-black.outcome == 'failure' }} |"
-              echo "| Linting | isort | ${{ matrix.run_isort }} | ${{ steps.python-isort.outcome == 'success' || steps.python-isort.outcome == 'failure' }} |"
-              echo "| Linting | mypy | ${{ matrix.run_mypy }} | ${{ steps.python-mypy.outcome == 'success' || steps.python-mypy.outcome == 'failure' }} |"
-              echo "| Security | Bandit | ${{ matrix.run_bandit }} | ${{ steps.python-bandit.outcome == 'success' || steps.python-bandit.outcome == 'failure' }} |"
-              echo "| Security | pip-audit | ${{ matrix.run_pip_audit }} | ${{ steps.python-pipaudit.outcome == 'success' || steps.python-pipaudit.outcome == 'failure' }} |"
-              echo "| Security | Semgrep | ${{ matrix.run_semgrep }} | ${{ steps.semgrep.outcome == 'success' || steps.semgrep.outcome == 'failure' }} |"
-              echo "| Security | Trivy | ${{ matrix.run_trivy }} | ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }} |"
+              echo "| Category | Tool | Configured | Ran | Success |"
+              echo "|----------|------|------------|-----|---------|"
+              echo "| Testing | pytest | ${{ matrix.run_pytest }} | ${{ steps.python-tests.outcome == 'success' || steps.python-tests.outcome == 'failure' }} | ${{ steps.python-tests.outcome == 'success' }} |"
+              echo "| Testing | mutmut | ${{ matrix.run_mutmut }} | ${{ steps.python-mutmut.outcome == 'success' || steps.python-mutmut.outcome == 'failure' }} | ${{ steps.python-mutmut.outcome == 'success' }} |"
+              echo "| Linting | Ruff | ${{ matrix.run_ruff }} | ${{ steps.python-ruff.outcome == 'success' || steps.python-ruff.outcome == 'failure' }} | ${{ steps.python-ruff.outcome == 'success' }} |"
+              echo "| Linting | Black | ${{ matrix.run_black }} | ${{ steps.python-black.outcome == 'success' || steps.python-black.outcome == 'failure' }} | ${{ steps.python-black.outcome == 'success' }} |"
+              echo "| Linting | isort | ${{ matrix.run_isort }} | ${{ steps.python-isort.outcome == 'success' || steps.python-isort.outcome == 'failure' }} | ${{ steps.python-isort.outcome == 'success' }} |"
+              echo "| Linting | mypy | ${{ matrix.run_mypy }} | ${{ steps.python-mypy.outcome == 'success' || steps.python-mypy.outcome == 'failure' }} | ${{ steps.python-mypy.outcome == 'success' }} |"
+              echo "| Security | Bandit | ${{ matrix.run_bandit }} | ${{ steps.python-bandit.outcome == 'success' || steps.python-bandit.outcome == 'failure' }} | ${{ steps.python-bandit.outcome == 'success' }} |"
+              echo "| Security | pip-audit | ${{ matrix.run_pip_audit }} | ${{ steps.python-pipaudit.outcome == 'success' || steps.python-pipaudit.outcome == 'failure' }} | ${{ steps.python-pipaudit.outcome == 'success' }} |"
+              echo "| Security | Semgrep | ${{ matrix.run_semgrep }} | ${{ steps.semgrep.outcome == 'success' || steps.semgrep.outcome == 'failure' }} | ${{ steps.semgrep.outcome == 'success' }} |"
+              echo "| Security | Trivy | ${{ matrix.run_trivy }} | ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }} | ${{ steps.trivy.outcome == 'success' }} |"
               echo ""
               echo "## Environment"
               echo "| Setting | Value |"
@@ -1128,6 +1128,18 @@ jobs:
               "trivy": ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }},
               "codeql": ${{ steps.codeql.outcome == 'success' || steps.codeql.outcome == 'failure' }},
               "docker": ${{ steps.docker-build.outcome == 'success' || steps.docker-build.outcome == 'failure' }}
+            },
+            "tools_success": {
+              "jacoco": ${{ steps.java-coverage.outcome == 'success' }},
+              "checkstyle": ${{ steps.java-checkstyle.outcome == 'success' }},
+              "spotbugs": ${{ steps.java-spotbugs.outcome == 'success' }},
+              "pmd": ${{ steps.java-pmd.outcome == 'success' }},
+              "owasp": ${{ steps.java-owasp.outcome == 'success' }},
+              "pitest": ${{ steps.java-mutation.outcome == 'success' }},
+              "semgrep": ${{ steps.semgrep.outcome == 'success' }},
+              "trivy": ${{ steps.trivy.outcome == 'success' }},
+              "codeql": ${{ steps.codeql.outcome == 'success' }},
+              "docker": ${{ steps.docker-build.outcome == 'success' }}
             }
           }
           EOF
@@ -1222,6 +1234,21 @@ jobs:
               "trivy": ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }},
               "codeql": ${{ steps.codeql.outcome == 'success' || steps.codeql.outcome == 'failure' }},
               "docker": ${{ steps.docker-build.outcome == 'success' || steps.docker-build.outcome == 'failure' }}
+            },
+            "tools_success": {
+              "pytest": ${{ steps.python-tests.outcome == 'success' }},
+              "ruff": ${{ steps.python-ruff.outcome == 'success' }},
+              "bandit": ${{ steps.python-bandit.outcome == 'success' }},
+              "pip_audit": ${{ steps.python-pipaudit.outcome == 'success' }},
+              "mypy": ${{ steps.python-mypy.outcome == 'success' }},
+              "hypothesis": ${{ steps.python-hypothesis.outcome == 'success' }},
+              "black": ${{ steps.python-black.outcome == 'success' }},
+              "isort": ${{ steps.python-isort.outcome == 'success' }},
+              "mutmut": ${{ steps.python-mutmut.outcome == 'success' }},
+              "semgrep": ${{ steps.semgrep.outcome == 'success' }},
+              "trivy": ${{ steps.trivy.outcome == 'success' }},
+              "codeql": ${{ steps.codeql.outcome == 'success' }},
+              "docker": ${{ steps.docker-build.outcome == 'success' }}
             }
           }
           EOF

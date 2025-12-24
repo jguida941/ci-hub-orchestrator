@@ -41,6 +41,7 @@
       "pattern": "^[a-f0-9]{40}$"
     },
     "branch": { "type": "string" },
+    "hub_correlation_id": { "type": "string" },
     "timestamp": { "type": "string", "format": "date-time" },
     "python_version": { "type": "string" },
     "java_version": { "type": "string" },

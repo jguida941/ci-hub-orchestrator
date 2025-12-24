@@ -1,0 +1,7 @@
+ci_cd_hub:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: data/warehouse/ci_cd_hub.db
+      schema: analytics

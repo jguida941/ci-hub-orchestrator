@@ -1,0 +1,18 @@
+{
+  "globs": [
+    "README.md",
+    "docs/**/*.md",
+    "plan.md",
+    "policies/**/*.md",
+    "tools/**/*.md"
+  ],
+  "ignores": [
+    ".venv/**",
+    "artifacts/**",
+    "tmp/**",
+    "models/dbt_packages/**"
+  ],
+  "config": {
+    "default": true
+  }
+}

@@ -23,6 +23,7 @@ ALLOWED_NON_WORKFLOW_INPUTS = {
     "language",
     "dispatch_enabled",
     "run_group",
+    "force_all_tools",
     "badges_enabled",
     "codecov_enabled",
 }

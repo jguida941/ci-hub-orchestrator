@@ -30,8 +30,9 @@ The hub runs CI for multiple repositories. We need a consolidated view of result
       "repo": "owner/repo-a",
       "language": "java",
       "branch": "main",
-      "workflow": "java-ci.yml",
+      "workflow": "hub-java-ci.yml",
       "run_id": "123456",
+      "correlation_id": "12345678-1-repo-a",
       "status": "completed",
       "conclusion": "success",
       "coverage": 85,
@@ -41,8 +42,9 @@ The hub runs CI for multiple repositories. We need a consolidated view of result
       "repo": "owner/repo-b",
       "language": "python",
       "branch": "main",
-      "workflow": "python-ci.yml",
+      "workflow": "hub-python-ci.yml",
       "run_id": "123457",
+      "correlation_id": "12345678-1-repo-b",
       "status": "completed",
       "conclusion": "success",
       "coverage": 78,
@@ -73,6 +75,7 @@ Each entry contains exactly these fields:
 - `branch` (string): Branch from dispatch metadata
 - `workflow` (string): Workflow file from dispatch metadata
 - `run_id` (string or empty): GitHub Actions run ID (empty string if missing)
+- `correlation_id` (string): Hub correlation ID for deterministic matching (format: `{hub_run_id}-{run_attempt}-{config_basename}`)
 - `status` (string): Run status - one of:
   - `"completed"` - run finished
   - `"in_progress"`, `"queued"`, `"waiting"`, `"pending"` - run still active

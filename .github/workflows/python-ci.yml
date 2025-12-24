@@ -125,6 +125,10 @@ on:
         description: 'Prefix for artifact names (use when calling multiple times in same workflow)'
         type: string
         default: ''
+      hub_correlation_id:
+        description: 'Correlation ID from hub orchestrator for run matching'
+        type: string
+        default: ''
 
     secrets:
       CODECOV_TOKEN:
@@ -202,6 +206,15 @@ jobs:
             exit 1
           fi
 
+      - name: Upload Ruff Report
+        if: always() && inputs.run_ruff
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix }}ruff-report
+          path: ruff-report.json
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
       - name: Run Bandit
         if: inputs.run_bandit
         id: bandit
@@ -270,6 +283,15 @@ jobs:
             exit 1
           fi
 
+      - name: Upload Black Output
+        if: always() && inputs.run_black
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix }}black-output
+          path: black-output.txt
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
       - name: Run isort
         if: inputs.run_isort
         id: isort
@@ -294,6 +316,15 @@ jobs:
             echo "::error::isort import issues ($ISSUES) exceed max_isort_issues $MAX"
             exit 1
           fi
+
+      - name: Upload isort Output
+        if: always() && inputs.run_isort
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix }}isort-output
+          path: isort-output.txt
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
 
       - name: Lint Summary
         if: always()
@@ -605,6 +636,24 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Upload Test Results
+        if: always() && inputs.run_pytest
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix }}test-results
+          path: test-results.xml
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
+      - name: Upload Hypothesis Output
+        if: always() && inputs.run_hypothesis
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix }}hypothesis-output
+          path: hypothesis-output.txt
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
       - name: Upload Coverage Reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -772,6 +821,15 @@ jobs:
           ERRORS=$(grep -c ": error:" mypy-output.txt 2>/dev/null || echo 0)
           echo "errors=$ERRORS" >> "$GITHUB_OUTPUT"
 
+      - name: Upload mypy Output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix }}mypy-output
+          path: mypy-output.txt
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
+
       - name: Type Check Summary
         if: always()
         run: |
@@ -932,6 +990,15 @@ jobs:
           echo "Mutation Score: $SCORE% (killed=$KILLED, survived=$SURVIVED)"
         continue-on-error: true
         timeout-minutes: 15
+
+      - name: Upload mutmut Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.artifact_prefix }}mutmut-log
+          path: mutmut-run.log
+          retention-days: ${{ inputs.retention_days }}
+          if-no-files-found: ignore
 
       - name: Enforce Mutation Threshold
         run: |
@@ -1442,6 +1509,7 @@ jobs:
             "run_number": "${{ github.run_number }}",
             "commit": "${{ github.sha }}",
             "branch": "${{ github.ref_name }}",
+            "hub_correlation_id": "${{ inputs.hub_correlation_id }}",
             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
             "python_version": "${{ inputs.python_version }}",
             "results": {

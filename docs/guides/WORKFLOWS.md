@@ -30,7 +30,8 @@ Clones each configured repository and runs build, tests, and quality tools in th
 ### Outputs and Artifacts
 - Per-repo artifacts such as test reports and coverage reports
 - GitHub Step Summary with a per-repo metrics table (coverage, mutation, lint, security counts where applicable)
-- Per-repo JSON report under `reports/<repo>/report.json` (used by aggregation)
+- Per-repo JSON report under `reports/<config_basename>/report.json` (used by aggregation)
+- Per-repo summary snapshot under `reports/<config_basename>/summary.md`
 
 ### Notes
 - Central execution is the recommended default mode
@@ -78,7 +79,6 @@ Dispatches workflows inside target repos. This mode requires target repos to hav
 
 | Input | Type | Meaning |
 |-------|------|---------|
-| `force_all_tools` | boolean | Intended to force-enable all tools for every repo in the run (implementation depends on hub version). |
 | `repos` | string | Comma-separated repo names to dispatch. Empty means all repos. |
 
 ### Outputs and Artifacts
@@ -91,6 +91,7 @@ Dispatches workflows inside target repos. This mode requires target repos to hav
 - Keep this workflow separate from central execution so it cannot break the "repos stay clean" promise
 - If you want hub config toggles to control downstream runs, the orchestrator must pass computed inputs into the dispatch request
 - Uses each repo's `default_branch` from config when dispatching (no hard-coded `main`)
+- Repo-level override `repo.force_all_tools: true` (in config) force-enables all tools for that repo; default is `false`.
 
 ### Known Gaps (TODO)
 - [ ] Run ID capture is best-effort and not correlated to artifacts yet
@@ -247,7 +248,7 @@ See [CONFIG_REFERENCE.md](../reference/CONFIG_REFERENCE.md) for the full config 
 - Thresholds: `coverage_min`, `mutation_score_min`, `max_*` (vulns, ruff errors, black issues, isort issues, semgrep findings)
 
 ### Outputs and Artifacts
-- Artifacts: `coverage.xml`, `htmlcov/`, `bandit-report.json`, pip-audit output
+- Artifacts: `coverage.xml`, `htmlcov/`, `test-results.xml`, `ruff-report.json`, `black-output.txt`, `isort-output.txt`, `mypy-output.txt`, `bandit-report.json`, `pip-audit-report.json`, `mutmut-run.log`, `hypothesis-output.txt` (plus `semgrep-report.json` and `trivy-report.json` when enabled)
 - Job outputs: `build_status`, `coverage`
 
 ### Notes
@@ -261,7 +262,8 @@ The hub produces JSON intended for dashboards and for custom visualization.
 
 | Artifact | Produced By | Contents |
 |----------|-------------|----------|
-| `reports/<repo>/report.json` | hub-run-all and reusable workflows | Per-repo metrics: tool outcomes, coverage, mutation, vulnerability counts |
+| `reports/<config_basename>/report.json` | hub-run-all and reusable workflows | Per-repo metrics: tool outcomes, coverage, mutation, vulnerability counts |
+| `reports/<config_basename>/summary.md` | hub-run-all | Per-repo summary snapshot used for validation |
 | `reports/hub-report.json` | `aggregate_reports.py` (hub job) | Hub-wide summary: totals, pass/fail counts, timestamps |
 | `dashboards/overview.json` | static file | Dashboard definition for an aggregated overview across repos |
 | `dashboards/repo-detail.json` | static file | Dashboard definition for per-repo deep dive |

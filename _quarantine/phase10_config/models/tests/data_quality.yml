@@ -1,0 +1,43 @@
+version: 2
+models:
+  - name: stg_pipeline_runs
+    description: "Source view for pipeline_run.v1.2 telemetry."
+    tests:
+      - not_empty
+    columns:
+      - name: run_id
+        tests:
+          - not_null
+          - unique
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ["success", "failed", "canceled", "skipped"]
+      - name: resilience_score
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: cost_usd
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+  - name: run_health
+    description: "Aggregated run metrics by repo/environment."
+    tests:
+      - not_empty
+    columns:
+      - name: avg_resilience
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 1
+      - name: avg_cost_usd
+        tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0

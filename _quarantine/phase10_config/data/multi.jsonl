@@ -1,0 +1,10 @@
+{
+  "payloadType": "in-toto",
+  "payload": "eyJzdWJqZWN0IjogWwogIHsiZGlnZXN0IjogeyJzaGEyNTYiOiAiYWJjIn19LAogIHsiZGlnZXN0IjogeyJzaGEyNTYiOiAiZGVmIn19Cl19",
+  "signatures": []
+}
+{
+  "payloadType": "in-toto",
+  "payload": "eyJzdWJqZWN0IjogWwogIHsiZGlnZXN0IjogeyJzaGEyNTYiOiAiYWJjIn19LAogIHsiZGlnZXN0IjogeyJzaGEyNTYiOiAiZGVmIn19Cl19",
+  "signatures": []
+}

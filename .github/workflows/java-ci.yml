@@ -140,6 +140,10 @@ on:
         description: 'Prefix for artifact names (use when calling multiple times in same workflow)'
         type: string
         default: ''
+      hub_correlation_id:
+        description: 'Correlation ID from hub orchestrator for run matching'
+        type: string
+        default: ''
 
     secrets:
       NVD_API_KEY:
@@ -1545,6 +1549,7 @@ jobs:
             "run_number": "${{ github.run_number }}",
             "commit": "${{ github.sha }}",
             "branch": "${{ github.ref_name }}",
+            "hub_correlation_id": "${{ inputs.hub_correlation_id }}",
             "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
             "java_version": "${{ inputs.java_version }}",
             "results": {

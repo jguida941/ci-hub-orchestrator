@@ -16,7 +16,9 @@ from datetime import datetime
 from pathlib import Path
 
 
-def load_reports(reports_dir: Path, schema_mode: str = "warn") -> tuple[list[dict], int]:
+def load_reports(
+    reports_dir: Path, schema_mode: str = "warn"
+) -> tuple[list[dict], int]:
     """Load all report JSON files from the reports directory.
 
     Args:
@@ -34,7 +36,7 @@ def load_reports(reports_dir: Path, schema_mode: str = "warn") -> tuple[list[dic
 
     for report_file in reports_dir.glob("**/report.json"):
         try:
-            with open(report_file) as f:
+            with report_file.open(encoding="utf-8") as f:
                 report = json.load(f)
                 report["_source_file"] = str(report_file)
 
@@ -42,11 +44,18 @@ def load_reports(reports_dir: Path, schema_mode: str = "warn") -> tuple[list[dic
                 schema_version = report.get("schema_version")
                 if schema_version != "2.0":
                     if schema_mode == "strict":
-                        print(f"Skipping {report_file}: schema_version={schema_version}, expected '2.0'")
+                        print(
+                            f"Skipping {report_file}: schema_version={schema_version}, "
+                            "expected '2.0'"
+                        )
                         skipped += 1
                         continue
                     else:
-                        print(f"Warning: {report_file} has schema_version={schema_version}, expected '2.0'")
+                        print(
+                            "Warning: "
+                            f"{report_file} has schema_version={schema_version}, "
+                            "expected '2.0'"
+                        )
 
                 reports.append(report)
         except (json.JSONDecodeError, OSError) as e:
@@ -63,7 +72,11 @@ def detect_language(report: dict) -> str:
         return "python"
     # Fallback to tools_ran inspection
     tools_ran = report.get("tools_ran", {})
-    if tools_ran.get("jacoco") or tools_ran.get("checkstyle") or tools_ran.get("spotbugs"):
+    if (
+        tools_ran.get("jacoco")
+        or tools_ran.get("checkstyle")
+        or tools_ran.get("spotbugs")
+    ):
         return "java"
     if tools_ran.get("pytest") or tools_ran.get("ruff") or tools_ran.get("bandit"):
         return "python"
@@ -163,6 +176,9 @@ def generate_summary(reports: list[dict]) -> dict:
 
 def generate_html_dashboard(summary: dict) -> str:
     """Generate an HTML dashboard from the summary."""
+    total_tests = (
+        summary["tests"]["total_passed"] + summary["tests"]["total_failed"]
+    )
     repos_html = ""
     for repo in summary["repos"]:
         status_class = "success" if repo["status"] == "success" else "failure"
@@ -171,7 +187,7 @@ def generate_html_dashboard(summary: dict) -> str:
         tests_class = "success" if tests_failed == 0 else "failure"
         # Escape user-controlled values to prevent XSS
         name = html.escape(str(repo['name']))
-        language = html.escape(str(repo.get('language', 'unknown')))
+        language = html.escape(str(repo.get("language", "unknown")))
         branch = html.escape(str(repo['branch']))
         status = html.escape(str(repo['status']))
         timestamp = html.escape(str(repo['timestamp']))
@@ -197,7 +213,8 @@ def generate_html_dashboard(summary: dict) -> str:
     <style>
         * {{ box-sizing: border-box; margin: 0; padding: 0; }}
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                Roboto, sans-serif;
             background: #0d1117;
             color: #c9d1d9;
             padding: 2rem;
@@ -264,7 +281,9 @@ def generate_html_dashboard(summary: dict) -> str:
             <div class="card-label">Languages</div>
         </div>
         <div class="card">
-            <div class="card-value">{summary['tests']['total_passed']}/{summary['tests']['total_passed'] + summary['tests']['total_failed']}</div>
+            <div class="card-value">
+                {summary['tests']['total_passed']}/{total_tests}
+            </div>
             <div class="card-label">Tests Passed</div>
         </div>
     </div>
@@ -319,7 +338,10 @@ def main():
         "--schema-mode",
         choices=["warn", "strict"],
         default="warn",
-        help="Schema validation mode: 'warn' logs warning but includes report, 'strict' skips non-2.0 reports",
+        help=(
+            "Schema validation mode: 'warn' logs warning but includes report, "
+            "'strict' skips non-2.0 reports"
+        ),
     )
 
     args = parser.parse_args()

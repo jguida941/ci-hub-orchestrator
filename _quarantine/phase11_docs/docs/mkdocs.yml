@@ -1,0 +1,12 @@
+site_name: CI Intelligence Hub
+nav:
+  - Overview: OVERVIEW.md
+  - Agents: AGENTS.md
+  - Runbooks:
+      - Ops Runbook: OPS_RUNBOOK.md
+      - Disaster Recovery: DR_RUNBOOK.md
+  - Testing: TESTING.md
+  - Contributing: CONTRIBUTING.md
+  - Tools:
+      - Mutation Observatory: ../tools/mutation_observatory/README.md
+      - Cache Sentinel: ../tools/cache_sentinel/README.md

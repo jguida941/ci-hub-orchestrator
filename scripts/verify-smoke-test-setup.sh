@@ -66,7 +66,7 @@ echo "2. Smoke Test Workflow"
 echo "----------------------"
 
 check "smoke-test.yml exists" "[ -f '$REPO_ROOT/.github/workflows/smoke-test.yml' ]"
-check "workflow has workflow_dispatch trigger" "grep -Eq '^on:\\s*\\n(.*\\n)*\\s*workflow_dispatch:' '$REPO_ROOT/.github/workflows/smoke-test.yml'"
+check "workflow has workflow_dispatch trigger" "grep -q 'workflow_dispatch:' '$REPO_ROOT/.github/workflows/smoke-test.yml'"
 check "workflow has discover job" "grep -Eq '^  discover:' '$REPO_ROOT/.github/workflows/smoke-test.yml'"
 check "workflow has test-repo job" "grep -Eq '^  test-repo:' '$REPO_ROOT/.github/workflows/smoke-test.yml'"
 check "workflow has summary job" "grep -Eq '^  summary:' '$REPO_ROOT/.github/workflows/smoke-test.yml'"
@@ -85,13 +85,13 @@ check "smoke-test-python.yaml exists" "[ -f '$REPO_ROOT/config/repos/smoke-test-
 if [ -f "$REPO_ROOT/config/repos/smoke-test-java.yaml" ]; then
     check "Java config has repo.owner" "grep -Eq '^repo:\\s*$|^repo:' '$REPO_ROOT/config/repos/smoke-test-java.yaml' && grep -Eq '^\\s*owner:' '$REPO_ROOT/config/repos/smoke-test-java.yaml'"
     check "Java config has repo.name" "grep -Eq '^\\s*name:' '$REPO_ROOT/config/repos/smoke-test-java.yaml'"
-    check "Java config has language: java" "grep -Eq '^language:\\s*java' '$REPO_ROOT/config/repos/smoke-test-java.yaml'"
+    check "Java config has language: java" "grep -Eq '^\\s*language:\\s*java' '$REPO_ROOT/config/repos/smoke-test-java.yaml'"
 fi
 
 if [ -f "$REPO_ROOT/config/repos/smoke-test-python.yaml" ]; then
     check "Python config has repo.owner" "grep -Eq '^repo:\\s*$|^repo:' '$REPO_ROOT/config/repos/smoke-test-python.yaml' && grep -Eq '^\\s*owner:' '$REPO_ROOT/config/repos/smoke-test-python.yaml'"
     check "Python config has repo.name" "grep -Eq '^\\s*name:' '$REPO_ROOT/config/repos/smoke-test-python.yaml'"
-    check "Python config has language: python" "grep -Eq '^language:\\s*python' '$REPO_ROOT/config/repos/smoke-test-python.yaml'"
+    check "Python config has language: python" "grep -Eq '^\\s*language:\\s*python' '$REPO_ROOT/config/repos/smoke-test-python.yaml'"
 fi
 
 echo ""

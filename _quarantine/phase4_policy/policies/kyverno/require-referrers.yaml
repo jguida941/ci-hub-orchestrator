@@ -1,0 +1,58 @@
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: require-sbom-provenance-referrers
+  annotations:
+    policies.kyverno.io/title: Require SBOM + provenance referrers
+    policies.kyverno.io/description: >
+      Ensure every workload declares OCI referrers for CycloneDX/SPDX SBOMs and SLSA provenance.
+      Blocks admission until both annotations reference OCI URLs so downstream gates can verify them.
+spec:
+  validationFailureAction: Enforce
+  background: true
+  failurePolicy: Fail
+  rules:
+    - name: enforce-referrer-annotations
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+                - Deployment
+                - StatefulSet
+                - DaemonSet
+                - Job
+      validate:
+        message: "SBOM and provenance referrers (oci://...) are required for every workload"
+        anyPattern:
+          - metadata:
+              annotations:
+                ci-intel.dev/sbom-referrer: "oci://*"
+                ci-intel.dev/provenance-referrer: "oci://*"
+          - spec:
+              template:
+                metadata:
+                  annotations:
+                    ci-intel.dev/sbom-referrer: "oci://*"
+                    ci-intel.dev/provenance-referrer: "oci://*"
+    - name: enforce-referrer-annotations-cronjob
+      match:
+        any:
+          - resources:
+              kinds:
+                - CronJob
+      validate:
+        message: "SBOM and provenance referrers (oci://...) are required for every CronJob workload"
+        anyPattern:
+          - metadata:
+              annotations:
+                ci-intel.dev/sbom-referrer: "oci://*"
+                ci-intel.dev/provenance-referrer: "oci://*"
+          - spec:
+              jobTemplate:
+                spec:
+                  template:
+                    metadata:
+                      annotations:
+                        ci-intel.dev/sbom-referrer: "oci://*"
+                        ci-intel.dev/provenance-referrer: "oci://*"

@@ -38,58 +38,75 @@ catch (err) {
 }
 ```
 
-### Run ID Capture
+### Correlation ID Chain (Deterministic Matching)
 
-After dispatch succeeds, the orchestrator attempts to capture the triggered run's ID using exponential backoff polling (lines 314-346):
+The orchestrator uses a **deterministic correlation ID** to reliably match dispatched runs with their artifacts, eliminating race conditions from time-based matching.
+
+**Correlation ID Format:**
+```
+{hub_run_id}-{run_attempt}-{config_basename}
+```
+Example: `12345678-1-smoke-test-python`
+
+**End-to-End Flow:**
+
+1. **Dispatch Phase:** Orchestrator generates correlation ID and passes it as `hub_correlation_id` input:
+   ```javascript
+   const correlationId = `${context.runId}-${context.runAttempt}-${matrix.config_basename}`;
+   inputs.hub_correlation_id = correlationId;
+   ```
+
+2. **Target Workflow:** Receives `hub_correlation_id` input and embeds it in `report.json`:
+   ```json
+   {
+     "hub_correlation_id": "12345678-1-smoke-test-python",
+     "results": { ... },
+     "tool_metrics": { ... }
+   }
+   ```
+
+3. **Aggregation Phase:** Matches runs by correlation ID in artifacts, not by timestamp.
+
+### Run ID Capture (Initial Hint)
+
+After dispatch, the orchestrator attempts to capture the run ID using time-based polling as an optimization hint. This is **not the authoritative match** — correlation ID is.
 
 **Parameters:**
-- `MAX_POLL_MS`: 30 minutes (1,800,000 ms) - line 267
-- Initial delay: 5000 ms (5 seconds) - line 315
-- Backoff multiplier: 2x per iteration - line 340
-- Max delay: 30000 ms (30 seconds) - line 340
-- Time window: Looks for runs created ≥ `startedAt - 10000` (10 second grace period) - line 331
+- `MAX_POLL_MS`: 30 minutes (1,800,000 ms)
+- Initial delay: 5000 ms (5 seconds)
+- Backoff multiplier: 2x per iteration
+- Max delay: 30000 ms (30 seconds)
+- Time window: 2 second grace period (tightened from 10s)
 
-**Algorithm (lines 318-341):**
-```javascript
-let runId = '';
-let pollDelay = 5000;
-const deadline = startedAt + MAX_POLL_MS;
+**If run ID capture fails:** Aggregation will search runs by correlation ID.
 
-while (Date.now() < deadline) {
-  await new Promise((resolve) => setTimeout(resolve, pollDelay));
-  const runs = await github.rest.actions.listWorkflowRuns({
-    owner,
-    repo,
-    workflow_id: workflowId,
-    event: 'workflow_dispatch',
-    branch,
-    per_page: 5,
-  });
+### Deterministic Artifact Matching
 
-  const recent = runs.data.workflow_runs.find((run) => {
-    const created = new Date(run.created_at).getTime();
-    return created >= startedAt - 10000;
-  });
+In the aggregation phase, the orchestrator uses `find_run_by_correlation_id()` to:
 
-  if (recent) {
-    runId = String(recent.id);
-    core.info(`Captured run id ${runId} for ${repo}`);
-    break;
-  }
+1. **Handle missing run_id:** If time-based polling failed, search recent runs and match by `hub_correlation_id` in artifacts.
 
-  pollDelay = Math.min(pollDelay * 2, 30000); // backoff up to 30s
-}
+2. **Handle correlation mismatch:** If the captured run_id's artifact has a different correlation ID (race condition), search for the correct run.
+
+**Algorithm:**
+```python
+def find_run_by_correlation_id(owner, repo, workflow_id, correlation_id):
+    """Search recent runs and match by hub_correlation_id in artifact."""
+    runs = gh_get(f"/.../workflows/{workflow_id}/runs?per_page=20")
+    for run in runs["workflow_runs"]:
+        artifact = get_ci_report_artifact(run["id"])
+        if artifact:
+            report = download_and_parse(artifact)
+            if report.get("hub_correlation_id") == correlation_id:
+                return run["id"]
+    return None
 ```
 
-**Failure Behavior:** If run ID cannot be captured within 30 minutes, the job fails (lines 343-346):
-```javascript
-if (!runId) {
-  core.setFailed(`Dispatched ${workflowId} for ${repo}, but could not determine run id.`);
-  return;
-}
-```
-
-Outputs are still set (lines 348-350), and metadata is saved with `job.status` reflecting the failure (lines 363-384).
+**Benefits:**
+- No race conditions — correlation is deterministic
+- Works with queued/delayed runs — no time window dependency
+- Self-healing — finds correct run even if initial capture was wrong
+- Survives retries — `run_attempt` in ID handles re-runs
 
 ### Completion Polling
 
@@ -189,19 +206,22 @@ permissions:
 
 **Positive:**
 - Standard GitHub mechanism (REST API via `workflow_dispatch`)
-- Typed inputs passed to target workflows (lines 266-295)
-- Exponential backoff prevents API rate limiting (dispatch run ID capture: line 340; aggregation polling: line 533)
+- Typed inputs passed to target workflows
+- Exponential backoff prevents API rate limiting
 - No changes required to target repos beyond having the workflow
-- Parallel dispatch via matrix strategy (lines 147-149)
+- Parallel dispatch via matrix strategy
 - Aggregation polls to completion with configurable timeout
+- **Deterministic correlation:** `hub_correlation_id` eliminates race conditions in run matching
+- **Self-healing:** Aggregation can find correct run even if initial time-based capture failed
+- **Retry-safe:** Correlation ID includes `run_attempt` for re-run scenarios
 
 **Negative:**
-- Run ID capture may fail under heavy GitHub API load or timing issues
-- Two-phase polling: trigger-builds captures run ID (no completion wait), aggregate-reports polls to completion
+- Two-phase polling: trigger-builds captures run ID hint, aggregate-reports polls to completion
 - Requires PAT for private cross-repo access (not included in workflow - must be configured)
-- Target workflows must define `workflow_dispatch` trigger with exact input names
-- 30-minute timeout may be insufficient for slow builds (both run ID capture and completion polling)
-- Aggregation failure logic is strict: any non-success conclusion fails the entire hub run (lines 572-576, 622-626)
+- Target workflows must define `workflow_dispatch` trigger with exact input names including `hub_correlation_id`
+- 30-minute timeout may be insufficient for slow builds
+- Aggregation failure logic is strict: any non-success conclusion fails the entire hub run
+- Artifact-based correlation search adds API calls (mitigated by checking only recent runs)
 
 ## Implementation References
 
@@ -223,9 +243,9 @@ permissions:
 
 ## Future Work
 
-- **Configurable timeouts:** Allow per-repo timeout settings for both run ID capture and completion polling
+- **Configurable timeouts:** Allow per-repo timeout settings for completion polling
 - **Retry logic for dispatch:** Retry transient dispatch failures (network errors, rate limits) - currently any failure is terminal
 - **Graceful degradation:** Option to continue aggregation even if some runs fail (currently strict: any failure = hub failure)
-- **Unified polling:** Consider consolidating run ID capture and completion polling into single phase
-- **PAT documentation:** Document PAT setup for cross-repo private access (currently undocumented)
+- **PAT documentation:** Document PAT setup for cross-repo private access
+- ~~**Unified polling:** Consider consolidating run ID capture and completion polling into single phase~~ — Addressed by deterministic correlation; time-based capture is now just an optimization hint
 

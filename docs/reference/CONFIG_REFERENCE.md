@@ -91,6 +91,7 @@ Config validation failed for config/repos/my-app.yaml:
 | `repo.default_branch` | string | No | `main` | Branch for CI runs |
 | `repo.run_group` | enum | No | `full` | Group tag to filter runs (e.g., `full`, `fixtures`, `smoke`) |
 | `repo.dispatch_enabled` | boolean | No | `true` | If `false`, hub skips dispatch mode for this repo |
+| `repo.force_all_tools` | boolean | No | `false` | Force-enable all tools for this repo (overrides individual `tool.enabled` flags) |
 
 **Example:**
 ```yaml

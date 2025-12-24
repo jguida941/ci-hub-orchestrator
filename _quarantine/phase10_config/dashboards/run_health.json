@@ -1,0 +1,22 @@
+{
+  "title": "Run Health Overview",
+  "description": "Tracks resilience and cost per repo/environment using warehouse snapshots.",
+  "source": "models/marts/run_health",
+  "charts": [
+    {
+      "type": "bar",
+      "title": "Avg Resilience by Repo",
+      "x": "repo",
+      "y": "avg_resilience",
+      "breakdown": "environment"
+    },
+    {
+      "type": "line",
+      "title": "Average Cost (USD)",
+      "x": "repo",
+      "y": "avg_cost_usd",
+      "breakdown": "environment"
+    }
+  ]
+}
+

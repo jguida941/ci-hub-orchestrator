@@ -162,7 +162,7 @@ See `python-ci.yml:1434-1480` and `java-ci.yml:1519-1575` for implementation.
 # Test from any repo
 jobs:
   test:
-    uses: jguida941/ci-cd-hub/.github/workflows/python-ci.yml@main
+    uses: jguida941/ci-cd-hub/.github/workflows/python-ci.yml@v1
     with:
       python_version: '3.12'
     secrets: inherit

@@ -105,12 +105,15 @@ def parse_bool(value: str) -> bool | None:
     return None
 
 
-def parse_summary_tools(summary_text: str) -> tuple[dict[str, bool], dict[str, bool]]:
-    """Parse Tools Enabled table, returning (configured, ran) dicts."""
+def parse_summary_tools(
+    summary_text: str,
+) -> tuple[dict[str, bool], dict[str, bool], dict[str, bool]]:
+    """Parse Tools Enabled table, returning (configured, ran, success) dicts."""
     lines = summary_text.splitlines()
     in_tools = False
     configured: dict[str, bool] = {}
     ran: dict[str, bool] = {}
+    success: dict[str, bool] = {}
     for line in lines:
         if line.strip() == "## Tools Enabled":
             in_tools = True
@@ -130,21 +133,34 @@ def parse_summary_tools(summary_text: str) -> tuple[dict[str, bool], dict[str, b
         if cells[1].lower() == "tool" or cells[2].lower() in ("enabled", "configured"):
             continue
         tool = cells[1]
-        # New 4-column format: Category | Tool | Configured | Ran
-        if len(cells) >= 4:
+        # New 5-column format: Category | Tool | Configured | Ran | Success
+        if len(cells) >= 5:
+            conf_val = parse_bool(cells[2])
+            ran_val = parse_bool(cells[3])
+            success_val = parse_bool(cells[4])
+            if conf_val is not None:
+                configured[tool] = conf_val
+            if ran_val is not None:
+                ran[tool] = ran_val
+            if success_val is not None:
+                success[tool] = success_val
+        # Old 4-column format: Category | Tool | Configured | Ran
+        elif len(cells) >= 4:
             conf_val = parse_bool(cells[2])
             ran_val = parse_bool(cells[3])
             if conf_val is not None:
                 configured[tool] = conf_val
             if ran_val is not None:
                 ran[tool] = ran_val
+                success[tool] = ran_val  # Assume success = ran for old format
         else:
             # Old 3-column format: Category | Tool | Enabled
             enabled = parse_bool(cells[2])
             if enabled is not None:
                 configured[tool] = enabled
-                ran[tool] = enabled  # Assume ran = configured for old format
-    return configured, ran
+                ran[tool] = enabled
+                success[tool] = enabled
+    return configured, ran, success
 
 
 def iter_existing_patterns(root: Path, patterns: Iterable[str]) -> bool:
@@ -192,16 +208,22 @@ def compare_summary(
 def compare_artifacts(
     reports_dir: Path,
     tools_ran: dict[str, Any],
+    tools_success: dict[str, Any],
     artifact_map: dict[str, list[str]],
 ) -> list[str]:
+    """Only check for artifacts from tools that ran AND succeeded."""
     warnings: list[str] = []
     for tool, patterns in artifact_map.items():
-        enabled = bool(tools_ran.get(tool))
-        if not enabled:
+        ran = bool(tools_ran.get(tool))
+        succeeded = bool(tools_success.get(tool))
+        if not ran:
+            continue
+        # Only expect artifacts if the tool succeeded
+        if not succeeded:
             continue
         if not iter_existing_patterns(reports_dir, patterns):
             warnings.append(
-                f"artifact missing for enabled tool '{tool}' (patterns: {patterns})"
+                f"artifact missing for successful tool '{tool}' (patterns: {patterns})"
             )
     return warnings
 
@@ -234,11 +256,13 @@ def main() -> int:
     language = detect_language(report)
     tools_ran = report.get("tools_ran", {})
     tools_configured = report.get("tools_configured", {})
+    tools_success = report.get("tools_success", {})
     if not isinstance(tools_ran, dict):
         print("report.json missing tools_ran object", file=sys.stderr)
         return 2
 
     warnings: list[str] = []
+    summary_success: dict[str, bool] = {}
 
     # Check for drift between configured and ran
     if tools_configured:
@@ -249,7 +273,7 @@ def main() -> int:
         if not summary_path.exists():
             print(f"summary file not found: {summary_path}", file=sys.stderr)
             return 2
-        summary_configured, summary_ran = parse_summary_tools(
+        summary_configured, summary_ran, summary_success = parse_summary_tools(
             summary_path.read_text(encoding="utf-8")
         )
         mapping = JAVA_SUMMARY_MAP if language == "java" else PYTHON_SUMMARY_MAP
@@ -265,7 +289,16 @@ def main() -> int:
             print(f"reports dir not found: {reports_dir}", file=sys.stderr)
             return 2
         artifact_map = JAVA_ARTIFACTS if language == "java" else PYTHON_ARTIFACTS
-        warnings.extend(compare_artifacts(reports_dir, tools_ran, artifact_map))
+        # Use success status from report.json if available, otherwise from summary
+        # Convert summary keys (display names) to report keys
+        mapping = JAVA_SUMMARY_MAP if language == "java" else PYTHON_SUMMARY_MAP
+        effective_success = dict(tools_success)
+        for label, key in mapping.items():
+            if key not in effective_success and label in summary_success:
+                effective_success[key] = summary_success[label]
+        warnings.extend(
+            compare_artifacts(reports_dir, tools_ran, effective_success, artifact_map)
+        )
 
     if warnings:
         print("Summary validation warnings:")

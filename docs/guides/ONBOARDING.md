@@ -107,7 +107,7 @@ on:
 
 jobs:
   ci:
-    uses: jguida941/ci-cd-hub/.github/workflows/java-ci.yml@main
+    uses: jguida941/ci-cd-hub/.github/workflows/java-ci.yml@v1
     with:
       java_version: '21'
       run_jacoco: true
@@ -134,7 +134,7 @@ on:
 
 jobs:
   ci:
-    uses: jguida941/ci-cd-hub/.github/workflows/python-ci.yml@main
+    uses: jguida941/ci-cd-hub/.github/workflows/python-ci.yml@v1
     with:
       python_version: '3.12'
       run_pytest: true

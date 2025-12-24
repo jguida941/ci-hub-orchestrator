@@ -1,0 +1,22 @@
+{
+  "backup": {
+    "path": "backup.json",
+    "sha256": "sha256:bee16000b8ce8e911f1b57fe05861cdc8338e6fd4c1e8f7be576459dc44f2dc4",
+    "captured_at": "2025-01-15T12:00:00Z"
+  },
+  "sbom": {
+    "path": "sbom.json"
+  },
+  "provenance": {
+    "path": "provenance.json"
+  },
+  "restore": {
+    "script": "../../data-quality-and-dr/dr_recall.sh",
+    "output_dir": "../../artifacts/dr/restore",
+    "copy_backup": true
+  },
+  "policies": {
+    "max_rpo_minutes": 10080,
+    "max_rto_seconds": 600
+  }
+}
