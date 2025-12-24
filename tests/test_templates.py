@@ -7,6 +7,7 @@ Validates that:
 3. Templates don't reference stale repo names
 """
 
+import re
 import sys
 from pathlib import Path
 
@@ -238,6 +239,18 @@ class TestDispatchTemplates:
         data = load_yaml(self.PYTHON_DISPATCH)
         assert isinstance(data, dict), "Python dispatch should be a mapping"
         assert "on" in data or "jobs" in data, "Should look like a workflow"
+
+
+class TestHubRunAllSummary:
+    """Guard against summary fallbacks masking disabled tools."""
+
+    HUB_RUN_ALL = ROOT / ".github" / "workflows" / "hub-run-all.yml"
+
+    def test_summary_does_not_force_true(self) -> None:
+        content = self.HUB_RUN_ALL.read_text(encoding="utf-8")
+        assert not re.search(r"matrix\.run_[A-Za-z0-9_]+\s*\|\|", content), (
+            "hub-run-all.yml should not force matrix.run_* values with '||' fallbacks"
+        )
 
 
 class TestActualConfigs:

@@ -873,18 +873,20 @@ jobs:
           | Category | Tool | Enabled |
           |----------|------|---------|
           | Build | maven | true |
-          | Testing | JaCoCo Coverage | ${{ matrix.run_jacoco || 'true' }} |
-          | Testing | PITest | ${{ matrix.run_pitest || 'true' }} |
-          | Linting | Checkstyle | ${{ matrix.run_checkstyle || 'true' }} |
-          | Linting | PMD | ${{ matrix.run_pmd || 'true' }} |
-          | Linting | SpotBugs | ${{ matrix.run_spotbugs || 'true' }} |
-          | Security | OWASP Dependency-Check | ${{ matrix.run_owasp || 'true' }} |
-          | Security | Semgrep | ${{ matrix.run_semgrep || 'false' }} |
-          | Security | Trivy | ${{ matrix.run_trivy || 'false' }} |
+          | Testing | JaCoCo Coverage | ${{ matrix.run_jacoco }} |
+          | Testing | PITest | ${{ matrix.run_pitest }} |
+          | Linting | Checkstyle | ${{ matrix.run_checkstyle }} |
+          | Linting | PMD | ${{ matrix.run_pmd }} |
+          | Linting | SpotBugs | ${{ matrix.run_spotbugs }} |
+          | Security | OWASP Dependency-Check | ${{ matrix.run_owasp }} |
+          | Security | Semgrep | ${{ matrix.run_semgrep }} |
+          | Security | Trivy | ${{ matrix.run_trivy }} |
 
           ## Environment
           | Setting | Value |
           |---------|-------|
+          | Config | ${{ matrix.config_basename }} |
+          | Run Group | ${{ matrix.run_group }} |
           | Repository | ${{ matrix.owner }}/${{ matrix.name }} |
           | Branch | ${{ matrix.branch }} |
           | Language | Java |
@@ -898,20 +900,22 @@ jobs:
           ## Tools Enabled
           | Category | Tool | Enabled |
           |----------|------|---------|
-          | Testing | pytest | ${{ matrix.run_pytest || 'true' }} |
-          | Testing | mutmut | ${{ matrix.run_mutmut || 'true' }} |
-          | Linting | Ruff | ${{ matrix.run_ruff || 'true' }} |
-          | Linting | Black | ${{ matrix.run_black || 'true' }} |
-          | Linting | isort | ${{ matrix.run_isort || 'true' }} |
-          | Linting | mypy | ${{ matrix.run_mypy || 'false' }} |
-          | Security | Bandit | ${{ matrix.run_bandit || 'true' }} |
-          | Security | pip-audit | ${{ matrix.run_pip_audit || 'true' }} |
-          | Security | Semgrep | ${{ matrix.run_semgrep || 'false' }} |
-          | Security | Trivy | ${{ matrix.run_trivy || 'false' }} |
+          | Testing | pytest | ${{ matrix.run_pytest }} |
+          | Testing | mutmut | ${{ matrix.run_mutmut }} |
+          | Linting | Ruff | ${{ matrix.run_ruff }} |
+          | Linting | Black | ${{ matrix.run_black }} |
+          | Linting | isort | ${{ matrix.run_isort }} |
+          | Linting | mypy | ${{ matrix.run_mypy }} |
+          | Security | Bandit | ${{ matrix.run_bandit }} |
+          | Security | pip-audit | ${{ matrix.run_pip_audit }} |
+          | Security | Semgrep | ${{ matrix.run_semgrep }} |
+          | Security | Trivy | ${{ matrix.run_trivy }} |
 
           ## Environment
           | Setting | Value |
           |---------|-------|
+          | Config | ${{ matrix.config_basename }} |
+          | Run Group | ${{ matrix.run_group }} |
           | Repository | ${{ matrix.owner }}/${{ matrix.name }} |
           | Branch | ${{ matrix.branch }} |
           | Language | Python |
