@@ -8,8 +8,10 @@ if str(ROOT) not in sys.path:
 from cihub.cli import (
     apply_dependency_fixes,
     apply_pom_fixes,
+    build_parser,
     collect_java_dependency_warnings,
     collect_java_pom_warnings,
+    get_java_tool_flags,
 )
 
 
@@ -146,3 +148,24 @@ def test_apply_dependency_fixes_multi_module(tmp_path: Path) -> None:
     assert result == 0
     updated = module_pom.read_text(encoding="utf-8")
     assert "<artifactId>jqwik</artifactId>" in updated
+
+
+def test_get_java_tool_flags_defaults() -> None:
+    flags = get_java_tool_flags({})
+    assert flags["jacoco"] is True
+    assert flags["checkstyle"] is True
+    assert flags["spotbugs"] is True
+    assert flags["pmd"] is True
+    assert flags["owasp"] is True
+    assert flags["pitest"] is True
+    assert flags["jqwik"] is False
+    assert flags["semgrep"] is False
+    assert flags["trivy"] is False
+    assert flags["codeql"] is False
+    assert flags["docker"] is False
+
+
+def test_update_parser_accepts_fix_pom() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["update", "--repo", ".", "--fix-pom"])
+    assert args.fix_pom is True

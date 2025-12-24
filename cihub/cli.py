@@ -664,6 +664,23 @@ def cmd_init(args: argparse.Namespace) -> int:
     workflow_content = render_caller_workflow(language)
     write_text(workflow_path, workflow_content, args.dry_run)
 
+    if language == "java" and not args.dry_run:
+        effective = load_effective_config(repo_path)
+        pom_warnings, _ = collect_java_pom_warnings(repo_path, effective)
+        dep_warnings, _ = collect_java_dependency_warnings(repo_path, effective)
+        warnings = pom_warnings + dep_warnings
+        if warnings:
+            print("POM warnings:")
+            for warning in warnings:
+                print(f"  - {warning}")
+            if args.fix_pom:
+                status = apply_pom_fixes(repo_path, effective, apply=True)
+                status = max(
+                    status, apply_dependency_fixes(repo_path, effective, apply=True)
+                )
+                return status
+            print("Run: cihub fix-pom --repo . --apply")
+
     return 0
 
 
@@ -1346,7 +1363,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument(
         "--fix-pom",
         action="store_true",
-        help="Fix pom.xml for Java repos (adds missing plugins)",
+        help="Fix pom.xml for Java repos (adds missing plugins/dependencies)",
     )
     init.add_argument("--dry-run", action="store_true", help="Print output instead of writing")
     init.set_defaults(func=cmd_init)
@@ -1362,7 +1379,7 @@ def build_parser() -> argparse.ArgumentParser:
     update.add_argument(
         "--fix-pom",
         action="store_true",
-        help="Fix pom.xml for Java repos (adds missing plugins)",
+        help="Fix pom.xml for Java repos (adds missing plugins/dependencies)",
     )
     update.add_argument("--dry-run", action="store_true", help="Print output instead of writing")
     update.set_defaults(func=cmd_update)
