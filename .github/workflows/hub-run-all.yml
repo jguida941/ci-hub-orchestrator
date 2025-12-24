@@ -870,17 +870,17 @@ jobs:
           if [ "${{ matrix.language }}" = "java" ]; then
             cat >> $GITHUB_STEP_SUMMARY << EOF
           ## Tools Enabled
-          | Category | Tool | Enabled |
-          |----------|------|---------|
-          | Build | maven | true |
-          | Testing | JaCoCo Coverage | ${{ matrix.run_jacoco }} |
-          | Testing | PITest | ${{ matrix.run_pitest }} |
-          | Linting | Checkstyle | ${{ matrix.run_checkstyle }} |
-          | Linting | PMD | ${{ matrix.run_pmd }} |
-          | Linting | SpotBugs | ${{ matrix.run_spotbugs }} |
-          | Security | OWASP Dependency-Check | ${{ matrix.run_owasp }} |
-          | Security | Semgrep | ${{ matrix.run_semgrep }} |
-          | Security | Trivy | ${{ matrix.run_trivy }} |
+          | Category | Tool | Configured | Ran |
+          |----------|------|------------|-----|
+          | Build | maven | true | true |
+          | Testing | JaCoCo Coverage | ${{ matrix.run_jacoco }} | ${{ steps.java-coverage.outcome == 'success' || steps.java-coverage.outcome == 'failure' }} |
+          | Testing | PITest | ${{ matrix.run_pitest }} | ${{ steps.java-mutation.outcome == 'success' || steps.java-mutation.outcome == 'failure' }} |
+          | Linting | Checkstyle | ${{ matrix.run_checkstyle }} | ${{ steps.java-checkstyle.outcome == 'success' || steps.java-checkstyle.outcome == 'failure' }} |
+          | Linting | PMD | ${{ matrix.run_pmd }} | ${{ steps.java-pmd.outcome == 'success' || steps.java-pmd.outcome == 'failure' }} |
+          | Linting | SpotBugs | ${{ matrix.run_spotbugs }} | ${{ steps.java-spotbugs.outcome == 'success' || steps.java-spotbugs.outcome == 'failure' }} |
+          | Security | OWASP Dependency-Check | ${{ matrix.run_owasp }} | ${{ steps.java-owasp.outcome == 'success' || steps.java-owasp.outcome == 'failure' }} |
+          | Security | Semgrep | ${{ matrix.run_semgrep }} | ${{ steps.semgrep.outcome == 'success' || steps.semgrep.outcome == 'failure' }} |
+          | Security | Trivy | ${{ matrix.run_trivy }} | ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }} |
 
           ## Environment
           | Setting | Value |
@@ -898,18 +898,18 @@ jobs:
           else
             cat >> $GITHUB_STEP_SUMMARY << EOF
           ## Tools Enabled
-          | Category | Tool | Enabled |
-          |----------|------|---------|
-          | Testing | pytest | ${{ matrix.run_pytest }} |
-          | Testing | mutmut | ${{ matrix.run_mutmut }} |
-          | Linting | Ruff | ${{ matrix.run_ruff }} |
-          | Linting | Black | ${{ matrix.run_black }} |
-          | Linting | isort | ${{ matrix.run_isort }} |
-          | Linting | mypy | ${{ matrix.run_mypy }} |
-          | Security | Bandit | ${{ matrix.run_bandit }} |
-          | Security | pip-audit | ${{ matrix.run_pip_audit }} |
-          | Security | Semgrep | ${{ matrix.run_semgrep }} |
-          | Security | Trivy | ${{ matrix.run_trivy }} |
+          | Category | Tool | Configured | Ran |
+          |----------|------|------------|-----|
+          | Testing | pytest | ${{ matrix.run_pytest }} | ${{ steps.python-tests.outcome == 'success' || steps.python-tests.outcome == 'failure' }} |
+          | Testing | mutmut | ${{ matrix.run_mutmut }} | ${{ steps.python-mutmut.outcome == 'success' || steps.python-mutmut.outcome == 'failure' }} |
+          | Linting | Ruff | ${{ matrix.run_ruff }} | ${{ steps.python-ruff.outcome == 'success' || steps.python-ruff.outcome == 'failure' }} |
+          | Linting | Black | ${{ matrix.run_black }} | ${{ steps.python-black.outcome == 'success' || steps.python-black.outcome == 'failure' }} |
+          | Linting | isort | ${{ matrix.run_isort }} | ${{ steps.python-isort.outcome == 'success' || steps.python-isort.outcome == 'failure' }} |
+          | Linting | mypy | ${{ matrix.run_mypy }} | ${{ steps.python-mypy.outcome == 'success' || steps.python-mypy.outcome == 'failure' }} |
+          | Security | Bandit | ${{ matrix.run_bandit }} | ${{ steps.python-bandit.outcome == 'success' || steps.python-bandit.outcome == 'failure' }} |
+          | Security | pip-audit | ${{ matrix.run_pip_audit }} | ${{ steps.python-pipaudit.outcome == 'success' || steps.python-pipaudit.outcome == 'failure' }} |
+          | Security | Semgrep | ${{ matrix.run_semgrep }} | ${{ steps.semgrep.outcome == 'success' || steps.semgrep.outcome == 'failure' }} |
+          | Security | Trivy | ${{ matrix.run_trivy }} | ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }} |
 
           ## Environment
           | Setting | Value |
@@ -1025,6 +1025,210 @@ jobs:
             echo "| Semgrep | ${{ steps.semgrep.outputs.findings == '0' && 'Passed' || 'Findings' }} |" >> $GITHUB_STEP_SUMMARY
           fi
 
+      - name: Write Summary and Report JSON
+        if: always()
+        run: |
+          REPORT_SUFFIX="${{ matrix.config_basename }}${{ matrix.subdir != '' && format('-{0}', matrix.subdir) || '' }}"
+          REPORT_DIR="reports/${REPORT_SUFFIX}"
+          mkdir -p "$REPORT_DIR"
+
+          if [ -f "$GITHUB_STEP_SUMMARY" ]; then
+            cp "$GITHUB_STEP_SUMMARY" "$REPORT_DIR/summary.md"
+          fi
+
+          COMMIT_SHA=$(git -C repo rev-parse HEAD 2>/dev/null || echo "")
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          WORKFLOW_REF="${{ github.repository }}/.github/workflows/hub-run-all.yml@${{ github.ref_name }}"
+
+          if [ "${{ matrix.language }}" = "java" ]; then
+            BUILD_STATUS="success"
+            if [ "${{ steps.java-tests.outputs.failed || 0 }}" -gt 0 ]; then
+              BUILD_STATUS="failure"
+            fi
+
+            CRITICAL_VULNS=${{ steps.java-owasp.outputs.critical || 0 }}
+            HIGH_VULNS=${{ steps.java-owasp.outputs.high || 0 }}
+            MEDIUM_VULNS=${{ steps.java-owasp.outputs.medium || 0 }}
+
+            TRIVY_CRITICAL=${{ steps.trivy.outputs.critical || 0 }}
+            TRIVY_HIGH=${{ steps.trivy.outputs.high || 0 }}
+            TRIVY_MEDIUM=0
+            if [ -f "repo/trivy-report.json" ]; then
+              TRIVY_MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' repo/trivy-report.json 2>/dev/null || echo 0)
+            fi
+
+            CRITICAL_VULNS=$((CRITICAL_VULNS + TRIVY_CRITICAL))
+            HIGH_VULNS=$((HIGH_VULNS + TRIVY_HIGH))
+            MEDIUM_VULNS=$((MEDIUM_VULNS + TRIVY_MEDIUM))
+
+            cat > "$REPORT_DIR/report.json" << EOF
+          {
+            "schema_version": "2.0",
+            "metadata": {
+              "workflow_version": "v1.0.0",
+              "workflow_ref": "${WORKFLOW_REF}",
+              "generated_at": "${TIMESTAMP}"
+            },
+            "repository": "${{ matrix.owner }}/${{ matrix.name }}",
+            "run_id": "${{ github.run_id }}",
+            "run_number": "${{ github.run_number }}",
+            "commit": "${COMMIT_SHA}",
+            "branch": "${{ matrix.branch }}",
+            "timestamp": "${TIMESTAMP}",
+            "java_version": "21",
+            "results": {
+              "build": "${BUILD_STATUS}",
+              "coverage": ${{ steps.java-coverage.outputs.percent || 0 }},
+              "mutation_score": ${{ steps.java-mutation.outputs.score || 0 }},
+              "tests_passed": ${{ steps.java-tests.outputs.passed || 0 }},
+              "tests_failed": ${{ steps.java-tests.outputs.failed || 0 }},
+              "critical_vulns": ${CRITICAL_VULNS},
+              "high_vulns": ${HIGH_VULNS},
+              "medium_vulns": ${MEDIUM_VULNS}
+            },
+            "tool_metrics": {
+              "checkstyle_issues": ${{ steps.java-checkstyle.outputs.violations || 0 }},
+              "spotbugs_issues": ${{ steps.java-spotbugs.outputs.count || 0 }},
+              "pmd_violations": ${{ steps.java-pmd.outputs.violations || 0 }},
+              "owasp_critical": ${{ steps.java-owasp.outputs.critical || 0 }},
+              "owasp_high": ${{ steps.java-owasp.outputs.high || 0 }},
+              "semgrep_findings": ${{ steps.semgrep.outputs.findings || 0 }},
+              "trivy_critical": ${{ steps.trivy.outputs.critical || 0 }},
+              "trivy_high": ${{ steps.trivy.outputs.high || 0 }}
+            },
+            "tools_configured": {
+              "jacoco": ${{ matrix.run_jacoco }},
+              "checkstyle": ${{ matrix.run_checkstyle }},
+              "spotbugs": ${{ matrix.run_spotbugs }},
+              "pmd": ${{ matrix.run_pmd }},
+              "owasp": ${{ matrix.run_owasp }},
+              "pitest": ${{ matrix.run_pitest }},
+              "semgrep": ${{ matrix.run_semgrep }},
+              "trivy": ${{ matrix.run_trivy }},
+              "codeql": ${{ matrix.run_codeql }},
+              "docker": ${{ matrix.run_docker }}
+            },
+            "tools_ran": {
+              "jacoco": ${{ steps.java-coverage.outcome == 'success' || steps.java-coverage.outcome == 'failure' }},
+              "checkstyle": ${{ steps.java-checkstyle.outcome == 'success' || steps.java-checkstyle.outcome == 'failure' }},
+              "spotbugs": ${{ steps.java-spotbugs.outcome == 'success' || steps.java-spotbugs.outcome == 'failure' }},
+              "pmd": ${{ steps.java-pmd.outcome == 'success' || steps.java-pmd.outcome == 'failure' }},
+              "owasp": ${{ steps.java-owasp.outcome == 'success' || steps.java-owasp.outcome == 'failure' }},
+              "pitest": ${{ steps.java-mutation.outcome == 'success' || steps.java-mutation.outcome == 'failure' }},
+              "semgrep": ${{ steps.semgrep.outcome == 'success' || steps.semgrep.outcome == 'failure' }},
+              "trivy": ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }},
+              "codeql": ${{ steps.codeql.outcome == 'success' || steps.codeql.outcome == 'failure' }},
+              "docker": ${{ steps.docker-build.outcome == 'success' || steps.docker-build.outcome == 'failure' }}
+            }
+          }
+          EOF
+          else
+            TEST_STATUS="skipped"
+            if [ "${{ matrix.run_pytest }}" = "true" ]; then
+              if [ "${{ steps.python-tests.outputs.failed || 0 }}" -gt 0 ]; then
+                TEST_STATUS="failure"
+              else
+                TEST_STATUS="success"
+              fi
+            fi
+
+            CRITICAL_VULNS=0
+            HIGH_VULNS=${{ steps.python-pipaudit.outputs.vulnerabilities || 0 }}
+            MEDIUM_VULNS=0
+
+            TRIVY_CRITICAL=${{ steps.trivy.outputs.critical || 0 }}
+            TRIVY_HIGH=${{ steps.trivy.outputs.high || 0 }}
+            TRIVY_MEDIUM=0
+            if [ -f "repo/trivy-report.json" ]; then
+              TRIVY_MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' repo/trivy-report.json 2>/dev/null || echo 0)
+            fi
+
+            CRITICAL_VULNS=$((CRITICAL_VULNS + TRIVY_CRITICAL))
+            HIGH_VULNS=$((HIGH_VULNS + TRIVY_HIGH))
+            MEDIUM_VULNS=$((MEDIUM_VULNS + TRIVY_MEDIUM))
+
+            cat > "$REPORT_DIR/report.json" << EOF
+          {
+            "schema_version": "2.0",
+            "metadata": {
+              "workflow_version": "v1.0.0",
+              "workflow_ref": "${WORKFLOW_REF}",
+              "generated_at": "${TIMESTAMP}"
+            },
+            "repository": "${{ matrix.owner }}/${{ matrix.name }}",
+            "run_id": "${{ github.run_id }}",
+            "run_number": "${{ github.run_number }}",
+            "commit": "${COMMIT_SHA}",
+            "branch": "${{ matrix.branch }}",
+            "timestamp": "${TIMESTAMP}",
+            "python_version": "3.12",
+            "results": {
+              "test": "${TEST_STATUS}",
+              "coverage": ${{ steps.python-tests.outputs.coverage || 0 }},
+              "mutation_score": ${{ steps.python-mutmut.outputs.score || 0 }},
+              "tests_passed": ${{ steps.python-tests.outputs.passed || 0 }},
+              "tests_failed": ${{ steps.python-tests.outputs.failed || 0 }},
+              "critical_vulns": ${CRITICAL_VULNS},
+              "high_vulns": ${HIGH_VULNS},
+              "medium_vulns": ${MEDIUM_VULNS}
+            },
+            "tool_metrics": {
+              "ruff_errors": ${{ steps.python-ruff.outputs.errors || 0 }},
+              "mypy_errors": ${{ steps.python-mypy.outputs.errors || 0 }},
+              "bandit_high": ${{ steps.python-bandit.outputs.high || 0 }},
+              "bandit_medium": ${{ steps.python-bandit.outputs.medium || 0 }},
+              "black_issues": ${{ steps.python-black.outputs.issues || 0 }},
+              "isort_issues": ${{ steps.python-isort.outputs.issues || 0 }},
+              "pip_audit_vulns": ${{ steps.python-pipaudit.outputs.vulnerabilities || 0 }},
+              "semgrep_findings": ${{ steps.semgrep.outputs.findings || 0 }},
+              "trivy_critical": ${{ steps.trivy.outputs.critical || 0 }},
+              "trivy_high": ${{ steps.trivy.outputs.high || 0 }}
+            },
+            "tools_configured": {
+              "pytest": ${{ matrix.run_pytest }},
+              "ruff": ${{ matrix.run_ruff }},
+              "bandit": ${{ matrix.run_bandit }},
+              "pip_audit": ${{ matrix.run_pip_audit }},
+              "mypy": ${{ matrix.run_mypy }},
+              "hypothesis": ${{ matrix.run_hypothesis }},
+              "black": ${{ matrix.run_black }},
+              "isort": ${{ matrix.run_isort }},
+              "mutmut": ${{ matrix.run_mutmut }},
+              "semgrep": ${{ matrix.run_semgrep }},
+              "trivy": ${{ matrix.run_trivy }},
+              "codeql": ${{ matrix.run_codeql }},
+              "docker": ${{ matrix.run_docker }}
+            },
+            "tools_ran": {
+              "pytest": ${{ steps.python-tests.outcome == 'success' || steps.python-tests.outcome == 'failure' }},
+              "ruff": ${{ steps.python-ruff.outcome == 'success' || steps.python-ruff.outcome == 'failure' }},
+              "bandit": ${{ steps.python-bandit.outcome == 'success' || steps.python-bandit.outcome == 'failure' }},
+              "pip_audit": ${{ steps.python-pipaudit.outcome == 'success' || steps.python-pipaudit.outcome == 'failure' }},
+              "mypy": ${{ steps.python-mypy.outcome == 'success' || steps.python-mypy.outcome == 'failure' }},
+              "hypothesis": ${{ steps.python-hypothesis.outcome == 'success' || steps.python-hypothesis.outcome == 'failure' }},
+              "black": ${{ steps.python-black.outcome == 'success' || steps.python-black.outcome == 'failure' }},
+              "isort": ${{ steps.python-isort.outcome == 'success' || steps.python-isort.outcome == 'failure' }},
+              "mutmut": ${{ steps.python-mutmut.outcome == 'success' || steps.python-mutmut.outcome == 'failure' }},
+              "semgrep": ${{ steps.semgrep.outcome == 'success' || steps.semgrep.outcome == 'failure' }},
+              "trivy": ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }},
+              "codeql": ${{ steps.codeql.outcome == 'success' || steps.codeql.outcome == 'failure' }},
+              "docker": ${{ steps.docker-build.outcome == 'success' || steps.docker-build.outcome == 'failure' }}
+            }
+          }
+          EOF
+          fi
+
+      - name: Validate Summary
+        if: always()
+        run: |
+          REPORT_SUFFIX="${{ matrix.config_basename }}${{ matrix.subdir != '' && format('-{0}', matrix.subdir) || '' }}"
+          REPORT_DIR="reports/${REPORT_SUFFIX}"
+          python3 hub/scripts/validate_summary.py \
+            --report "$REPORT_DIR/report.json" \
+            --summary "$REPORT_DIR/summary.md" \
+            --reports-dir repo \
+            --strict
+
       # ========================================
       # UPLOAD ARTIFACTS
       # ========================================
@@ -1054,6 +1258,8 @@ jobs:
             repo/black-output.txt
             repo/isort-output.txt
             repo/mypy-output.txt
+            reports/**/report.json
+            reports/**/summary.md
           retention-days: 30
           if-no-files-found: ignore
 

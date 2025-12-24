@@ -3,7 +3,8 @@
 Validate that workflow summaries and artifacts match report.json tool flags.
 
 Usage:
-  python scripts/validate_summary.py --report report.json [--summary summary.md] [--reports-dir all-reports] [--strict]
+  python scripts/validate_summary.py --report report.json \
+    [--summary summary.md] [--reports-dir all-reports] [--strict]
 """
 
 from __future__ import annotations
@@ -13,7 +14,6 @@ import json
 import sys
 from pathlib import Path
 from typing import Any, Iterable
-
 
 JAVA_SUMMARY_MAP = {
     "JaCoCo Coverage": "jacoco",
@@ -51,10 +51,15 @@ JAVA_ARTIFACTS = {
 }
 
 PYTHON_ARTIFACTS = {
-    "pytest": ["**/coverage.xml", "**/test-results.xml"],
+    "pytest": ["**/coverage.xml", "**/test-results.xml", "**/pytest-junit.xml"],
     "ruff": ["**/ruff-report.json"],
     "bandit": ["**/bandit-report.json"],
     "pip_audit": ["**/pip-audit-report.json"],
+    "black": ["**/black-output.txt"],
+    "isort": ["**/isort-output.txt"],
+    "mypy": ["**/mypy-output.txt"],
+    "mutmut": ["**/mutmut-run.log"],
+    "hypothesis": ["**/hypothesis-output.txt"],
     "semgrep": ["**/semgrep-report.json"],
     "trivy": ["**/trivy-report.json"],
 }
@@ -175,6 +180,23 @@ def compare_artifacts(
     return warnings
 
 
+def compare_configured_vs_ran(
+    tools_configured: dict[str, Any],
+    tools_ran: dict[str, Any],
+) -> list[str]:
+    """Check for drift between what was configured and what actually ran."""
+    warnings: list[str] = []
+    for tool, configured in tools_configured.items():
+        if tool not in tools_ran:
+            continue
+        ran = tools_ran.get(tool, False)
+        if configured and not ran:
+            warnings.append(
+                f"DRIFT: '{tool}' was configured=true but did NOT run (ran=false)"
+            )
+    return warnings
+
+
 def main() -> int:
     args = parse_args()
     report_path = Path(args.report)
@@ -185,11 +207,16 @@ def main() -> int:
     report = load_report(report_path)
     language = detect_language(report)
     tools_ran = report.get("tools_ran", {})
+    tools_configured = report.get("tools_configured", {})
     if not isinstance(tools_ran, dict):
         print("report.json missing tools_ran object", file=sys.stderr)
         return 2
 
     warnings: list[str] = []
+
+    # Check for drift between configured and ran
+    if tools_configured:
+        warnings.extend(compare_configured_vs_ran(tools_configured, tools_ran))
 
     if args.summary:
         summary_path = Path(args.summary)
