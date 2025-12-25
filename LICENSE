@@ -1,0 +1,59 @@
+                                 Elastic License 2.0
+                                 ==================
+
+Version: 2.0, January 2021
+
+Copyright (c) 2025 jguida941. All Rights Reserved.
+
+1. Definitions
+
+   a. "Software" means the contents of the directory where this license is placed,
+      excluding any directory or file that expressly contains a different license.
+
+   b. "Licensor" means the copyright holder(s) of the Software.
+
+   c. "You" (or "Your") means an individual or Legal Entity exercising permissions
+      granted by this license.
+
+   d. "Commercial Use" means:
+       i. revenue-generating activity, or
+      ii. use of the software to provide a service to third parties, or
+     iii. use of the software to make the software available to third parties.
+
+2. License Grant
+
+   Subject to the terms and conditions of this License, Licensor hereby grants You
+   a non-exclusive, worldwide, revocable, non-sublicensable, non-transferable,
+   limited copyright license to:
+     a. view, modify, and create derivative works of the Software for
+        personal, internal, or evaluation purposes;
+     b. reproduce and distribute the Software in source and binary forms solely
+        for personal or internal use;
+     c. use the Software only for the purposes permitted under this License.
+
+3. Restrictions
+
+   You may NOT, under any circumstances:
+     a. use, run, or host the Software in a commercial or revenue-generating
+        environment without an explicit, written license from the Licensor;
+     b. provide the Software (in source or binary form) to any third party
+        for use outside Your organization without prior written permission;
+     c. modify any notices in the Software that refer to the Elastic License
+        or copyright;
+     d. make the Software available as a cloud service, platform, or hosted
+        offering without express written consent from the Licensor.
+
+4. Termination
+
+   a. This License and your rights under it terminate automatically if You
+      violate any term of this License.
+
+   b. Upon termination, You must stop all use of the Software and delete all
+      copies You have.
+
+5. Disclaimer
+
+   The Software is provided "AS IS" without warranty of any kind, express or
+   implied.
+
+END OF TERMS

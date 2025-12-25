@@ -179,5 +179,13 @@ pytest tests/
 ruff check .
 ```
 
+## License
+
+CI-CD Hub is licensed under the [Elastic License 2.0](LICENSE).
+
+See the `LICENSE` file for details.
+Use for personal, internal, or evaluation purposes only.
+Commercial or third-party use requires permission.
+
 ## Support
 Open issues in `ci-cd-hub` with run URLs and the config file you used. Include whether you ran central (`hub-run-all.yml`) or dispatch (`hub-orchestrator.yml`).
