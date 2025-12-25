@@ -510,15 +510,24 @@ jobs:
           fetch-depth: 0
 
       - name: Gitleaks
+        id: gitleaks
         uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Report result
-        if: success()
+        if: always()
         run: |
-          echo "## Secret Detection" >> $GITHUB_STEP_SUMMARY
-          echo "PASS - no leaks detected" >> $GITHUB_STEP_SUMMARY
+          COMMITS=$(git rev-list --count HEAD)
+          FILES=$(git ls-files | wc -l)
+
+          echo "## Secret Detection (gitleaks)" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Commits scanned | $COMMITS |" >> $GITHUB_STEP_SUMMARY
+          echo "| Files in repo | $FILES |" >> $GITHUB_STEP_SUMMARY
+          echo "| Leaks found | ${{ steps.gitleaks.outcome == 'success' && '0' || 'CHECK LOGS' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Result | ${{ steps.gitleaks.outcome == 'success' && 'PASS' || 'FAIL' }} |" >> $GITHUB_STEP_SUMMARY
 
   trivy:
     name: Trivy Scan
@@ -817,24 +826,70 @@ jobs:
           echo "| Supply Chain | dependency-review | Blocks vulnerable dependency changes | $(status "${{ needs.dependency-review.result }}") |" >> $GITHUB_STEP_SUMMARY
           echo "| Supply Chain | scorecard | OpenSSF security posture checks | $(status "${{ needs.scorecard.result }}") |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Failed or Skipped Checks" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          append_if_not_success() {
+            local name="$1"
+            local result="$2"
+            if [ "$result" != "success" ]; then
+              echo "| $name | $(status "$result") |" >> $GITHUB_STEP_SUMMARY
+            fi
+          }
+
+          append_if_not_success "actionlint" "${{ needs.actionlint.result }}"
+          append_if_not_success "zizmor" "${{ needs.zizmor.result }}"
+          append_if_not_success "ruff" "${{ needs.lint.result }}"
+          append_if_not_success "syntax" "${{ needs.syntax-check.result }}"
+          append_if_not_success "mypy" "${{ needs.type-check.result }}"
+          append_if_not_success "yamllint" "${{ needs.yaml-lint.result }}"
+          append_if_not_success "pytest" "${{ needs.unit-tests.result }}"
+          append_if_not_success "mutmut" "${{ needs.mutation-tests.result }}"
+          append_if_not_success "bandit" "${{ needs.bandit.result }}"
+          append_if_not_success "pip-audit" "${{ needs.pip-audit.result }}"
+          append_if_not_success "gitleaks" "${{ needs.secret-scan.result }}"
+          append_if_not_success "trivy" "${{ needs.trivy.result }}"
+          append_if_not_success "templates" "${{ needs.validate-templates.result }}"
+          append_if_not_success "configs" "${{ needs.validate-configs.result }}"
+          append_if_not_success "matrix" "${{ needs.verify-matrix-keys.result }}"
+          append_if_not_success "licenses" "${{ needs.license-check.result }}"
+          append_if_not_success "dependency-review" "${{ needs.dependency-review.result }}"
+          append_if_not_success "scorecard" "${{ needs.scorecard.result }}"
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "See individual job logs for detailed metrics (coverage %, mutation score, findings count)." >> $GITHUB_STEP_SUMMARY
 
       - name: Check critical failures
         run: |
           FAILED=0
 
+          fail_if_hard() {
+            local name="$1"
+            local result="$2"
+            local message="$3"
+            if [ "$result" = "failure" ] || [ "$result" = "cancelled" ]; then
+              echo "::error::${name} failed - ${message}"
+              FAILED=1
+            fi
+          }
+
           # Workflow security - must pass
-          [ "${{ needs.actionlint.result }}" != "success" ] && echo "::error::actionlint failed - fix workflow syntax" && FAILED=1
+          fail_if_hard "actionlint" "${{ needs.actionlint.result }}" "fix workflow syntax"
+          fail_if_hard "zizmor" "${{ needs.zizmor.result }}" "address workflow security findings"
 
           # Code quality gates - must pass
-          [ "${{ needs.type-check.result }}" != "success" ] && echo "::error::Type check failed - fix mypy errors" && FAILED=1
-          [ "${{ needs.yaml-lint.result }}" != "success" ] && echo "::error::YAML lint failed - fix config syntax" && FAILED=1
+          fail_if_hard "mypy" "${{ needs.type-check.result }}" "fix mypy errors"
+          fail_if_hard "yamllint" "${{ needs.yaml-lint.result }}" "fix config syntax"
 
           # Critical code checks that must pass
-          [ "${{ needs.unit-tests.result }}" != "success" ] && echo "::error::Unit tests failed" && FAILED=1
-          [ "${{ needs.bandit.result }}" != "success" ] && echo "::error::Security scan failed" && FAILED=1
-          [ "${{ needs.secret-scan.result }}" != "success" ] && echo "::error::Secret detection failed" && FAILED=1
-          [ "${{ needs.validate-configs.result }}" != "success" ] && echo "::error::Config validation failed" && FAILED=1
+          fail_if_hard "unit-tests" "${{ needs.unit-tests.result }}" "unit tests failed"
+          fail_if_hard "bandit" "${{ needs.bandit.result }}" "security scan failed"
+          fail_if_hard "gitleaks" "${{ needs.secret-scan.result }}" "secret detection failed"
+          fail_if_hard "validate-configs" "${{ needs.validate-configs.result }}" "config validation failed"
+
+          # Supply chain checks - must pass when they run
+          fail_if_hard "dependency-review" "${{ needs.dependency-review.result }}" "dependency review failed"
+          fail_if_hard "scorecard" "${{ needs.scorecard.result }}" "scorecard checks failed"
 
           if [ "$FAILED" -eq 1 ]; then
             exit 1
