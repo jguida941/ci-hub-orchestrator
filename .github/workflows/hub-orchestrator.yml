@@ -229,13 +229,16 @@ jobs:
               print("Warning: repo-local .ci-hub.yml is not a mapping; ignoring.")
               repo_local = {}
 
-          # Prevent repo-local config from overriding repo identity
+          # Prevent repo-local config from overriding repo identity and dispatch settings
+          # These are controlled by the hub, not the repo
           if isinstance(repo_local, dict):
               repo_block = repo_local.get("repo")
               if isinstance(repo_block, dict):
                   repo_block.pop("owner", None)
                   repo_block.pop("name", None)
                   repo_block.pop("language", None)
+                  repo_block.pop("dispatch_workflow", None)
+                  repo_block.pop("dispatch_enabled", None)
                   repo_local["repo"] = repo_block
 
           # Deep merge (repo overrides defaults)
