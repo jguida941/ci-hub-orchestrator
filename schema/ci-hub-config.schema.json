@@ -34,7 +34,7 @@
         "default_branch": { "type": "string", "default": "main" },
         "subdir": { "type": "string", "description": "Optional subdirectory within the repo", "pattern": "^(?!/)(?!.*\\.\\.).+$" },
         "dispatch_enabled": { "type": "boolean", "description": "Allow orchestrator dispatch (default true)", "default": true },
-        "dispatch_workflow": { "type": "string", "description": "Workflow file to dispatch to (e.g., java-ci-dispatch.yml)", "default": "" },
+        "dispatch_workflow": { "type": "string", "description": "Workflow file to dispatch to (hub-ci.yml for single-language, hub-java-ci.yml or hub-python-ci.yml for monorepos)", "default": "hub-ci.yml", "enum": ["hub-ci.yml", "hub-java-ci.yml", "hub-python-ci.yml", ""] },
         "run_group": { "type": "string", "description": "Grouping label for selective runs (e.g., full, fixtures, smoke)", "default": "full", "enum": ["full", "fixtures", "smoke", "security", "compliance"] },
         "force_all_tools": { "type": "boolean", "description": "Force-enable all tools for this repo (overrides tool.enabled toggles)", "default": false }
       },

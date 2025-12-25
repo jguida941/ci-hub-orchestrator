@@ -152,3 +152,23 @@ def test_java_caller_template_matches_workflow():
 
     unexpected = sorted(template_inputs - workflow_inputs)
     assert not unexpected, f"Java caller has unknown inputs: {unexpected}"
+
+
+def test_dispatch_workflow_valid_values():
+    """Ensure dispatch_workflow only allows supported values."""
+    valid_values = ["hub-ci.yml", "hub-java-ci.yml", "hub-python-ci.yml", ""]
+
+    for value in valid_values:
+        cfg = build_config("java")
+        cfg["repo"]["dispatch_workflow"] = value
+        errors = validate_against_schema(cfg)
+        assert not errors, f"dispatch_workflow={value!r} should be valid: {errors}"
+
+    # Test invalid value
+    cfg = build_config("java")
+    cfg["repo"]["dispatch_workflow"] = "invalid-workflow.yml"
+    errors = validate_against_schema(cfg)
+    assert errors, "dispatch_workflow='invalid-workflow.yml' should fail validation"
+    assert any(
+        "dispatch_workflow" in e for e in errors
+    ), f"Error should mention dispatch_workflow: {errors}"
