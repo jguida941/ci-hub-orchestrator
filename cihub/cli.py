@@ -1008,14 +1008,18 @@ def get_repo_entries(
             if not owner or not name:
                 continue
             full = f"{owner}/{name}"
-            if full in seen:
+            dispatch_workflow = repo.get("dispatch_workflow", "hub-ci.yml")
+            # Deduplicate by (repo, dispatch_workflow) to allow syncing
+            # multiple workflow files for repos with both Java and Python configs
+            key = f"{full}:{dispatch_workflow}"
+            if key in seen:
                 continue
-            seen.add(full)
+            seen.add(key)
             entries.append(
                 {
                     "full": full,
                     "language": repo.get("language", ""),
-                    "dispatch_workflow": repo.get("dispatch_workflow", "hub-ci.yml"),
+                    "dispatch_workflow": dispatch_workflow,
                     "default_branch": repo.get("default_branch", "main"),
                 }
             )
