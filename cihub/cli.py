@@ -1101,6 +1101,22 @@ def update_remote_file(
     gh_api_json(f"/repos/{repo}/contents/{path}", method="PUT", payload=payload)
 
 
+def delete_remote_file(
+    repo: str,
+    path: str,
+    branch: str,
+    sha: str,
+    message: str,
+) -> None:
+    """Delete a file from a GitHub repo via the GitHub API."""
+    payload: dict[str, Any] = {
+        "message": message,
+        "sha": sha,
+        "branch": branch,
+    }
+    gh_api_json(f"/repos/{repo}/contents/{path}", method="DELETE", payload=payload)
+
+
 def cmd_setup_secrets(args: argparse.Namespace) -> int:
     """Set HUB_DISPATCH_TOKEN on hub and optionally all connected repos."""
     import getpass
@@ -1383,32 +1399,60 @@ def cmd_sync_templates(args: argparse.Namespace) -> int:
             continue
 
         remote = fetch_remote_file(repo, path, branch)
+        workflow_synced = False
+
         if remote and remote.get("content") == desired:
             print(f"✅ {repo} {path} up to date")
-            continue
-
-        if args.check:
+            workflow_synced = True
+        elif args.check:
             print(f"❌ {repo} {path} out of date")
             failures += 1
-            continue
-
-        if args.dry_run:
+        elif args.dry_run:
             print(f"# Would update {repo} {path}")
-            continue
+        else:
+            try:
+                update_remote_file(
+                    repo,
+                    path,
+                    branch,
+                    desired,
+                    args.commit_message,
+                    remote.get("sha") if remote else None,
+                )
+                print(f"✅ {repo} {path} updated")
+                workflow_synced = True
+            except RuntimeError as exc:
+                print(f"❌ {repo} {path} update failed: {exc}", file=sys.stderr)
+                failures += 1
 
-        try:
-            update_remote_file(
-                repo,
-                path,
-                branch,
-                desired,
-                args.commit_message,
-                remote.get("sha") if remote else None,
-            )
-            print(f"✅ {repo} {path} updated")
-        except RuntimeError as exc:
-            print(f"❌ {repo} {path} update failed: {exc}", file=sys.stderr)
-            failures += 1
+        # Check for stale workflow files (old naming convention)
+        stale_workflow_names = ["hub-java-ci.yml", "hub-python-ci.yml"]
+        for stale_name in stale_workflow_names:
+            if stale_name == dispatch_workflow:
+                continue  # Don't delete the current workflow
+            stale_path = f".github/workflows/{stale_name}"
+            stale_file = fetch_remote_file(repo, stale_path, branch)
+            if stale_file and stale_file.get("sha"):
+                if args.check:
+                    print(f"❌ {repo} {stale_path} stale (should be deleted)")
+                    failures += 1
+                elif args.dry_run:
+                    print(f"# Would delete {repo} {stale_path} (stale)")
+                elif workflow_synced:
+                    try:
+                        delete_remote_file(
+                            repo,
+                            stale_path,
+                            branch,
+                            stale_file["sha"],
+                            "Remove stale workflow (migrated to hub-ci.yml)",
+                        )
+                        print(f"🗑️  {repo} {stale_path} deleted (stale)")
+                    except RuntimeError as exc:
+                        print(
+                            f"⚠️  {repo} {stale_path} delete failed: {exc}",
+                            file=sys.stderr,
+                        )
 
     if args.check and failures:
         print(f"Template drift detected in {failures} repo(s).", file=sys.stderr)

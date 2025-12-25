@@ -10,7 +10,7 @@ repo:
   language: java
   default_branch: main
   dispatch_enabled: true
-  dispatch_workflow: hub-java-ci.yml  # Reusable workflow caller
+  dispatch_workflow: hub-ci.yml  # Reusable workflow caller
 
 java:
   version: "21"

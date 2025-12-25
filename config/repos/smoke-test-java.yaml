@@ -11,7 +11,7 @@ repo:
   language: java
   default_branch: main
   run_group: smoke
-  dispatch_workflow: hub-java-ci.yml  # Reusable workflow caller
+  dispatch_workflow: hub-ci.yml  # Reusable workflow caller
 
 java:
   version: "21"
