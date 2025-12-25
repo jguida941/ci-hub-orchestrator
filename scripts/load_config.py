@@ -119,6 +119,15 @@ def load_config(
     if repo_config_path:
         repo_local_config = load_yaml_file(repo_config_path)
         if repo_local_config:
+            # Block repo-local from overriding protected keys (hub controls these)
+            repo_block = repo_local_config.get("repo", {})
+            if isinstance(repo_block, dict):
+                repo_block.pop("owner", None)
+                repo_block.pop("name", None)
+                repo_block.pop("language", None)
+                repo_block.pop("dispatch_workflow", None)
+                repo_block.pop("dispatch_enabled", None)
+                repo_local_config["repo"] = repo_block
             config = deep_merge(config, repo_local_config)
 
     # Validate merged config once more
