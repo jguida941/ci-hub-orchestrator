@@ -1459,6 +1459,47 @@ def cmd_sync_templates(args: argparse.Namespace) -> int:
         return 1
     if failures:
         return 1
+
+    # Update v1 tag to current HEAD so caller workflows get latest reusable workflows
+    if args.update_tag and not args.check and not args.dry_run:
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            head_sha = result.stdout.strip()
+
+            # Check current v1 tag
+            result = subprocess.run(
+                ["git", "rev-parse", "v1"],
+                capture_output=True,
+                text=True,
+            )
+            current_v1 = result.stdout.strip() if result.returncode == 0 else None
+
+            if current_v1 == head_sha:
+                print("✅ v1 tag already at HEAD")
+            else:
+                # Update v1 tag locally
+                subprocess.run(
+                    ["git", "tag", "-f", "v1", "HEAD"],
+                    check=True,
+                    capture_output=True,
+                )
+                # Push to origin
+                subprocess.run(
+                    ["git", "push", "origin", "v1", "--force"],
+                    check=True,
+                    capture_output=True,
+                )
+                print(f"✅ v1 tag updated: {current_v1[:7] if current_v1 else 'none'} → {head_sha[:7]}")
+        except subprocess.CalledProcessError as exc:
+            print(f"⚠️  Failed to update v1 tag: {exc}", file=sys.stderr)
+    elif args.dry_run and args.update_tag:
+        print("# Would update v1 tag to HEAD")
+
     return 0
 
 
@@ -1618,6 +1659,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--commit-message",
         default="chore: sync hub templates",
         help="Commit message for synced templates",
+    )
+    sync_templates.add_argument(
+        "--update-tag",
+        action="store_true",
+        default=True,
+        help="Update v1 tag to current HEAD (default: true)",
+    )
+    sync_templates.add_argument(
+        "--no-update-tag",
+        action="store_false",
+        dest="update_tag",
+        help="Skip updating v1 tag",
     )
     sync_templates.set_defaults(func=cmd_sync_templates)
 
