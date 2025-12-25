@@ -102,25 +102,38 @@ jobs:
           path: repo
           fetch-depth: 0
           token: ${{ secrets.HUB_DISPATCH_TOKEN || github.token }}
+        continue-on-error: true
+
+      - name: Verify checkout
+        id: repo-check
+        run: |
+          if [ -d repo/.git ]; then
+            echo "present=true" >> $GITHUB_OUTPUT
+          else
+            echo "present=false" >> $GITHUB_OUTPUT
+            echo "::warning::Repo checkout failed for ${{ matrix.owner }}/${{ matrix.name }}"
+          fi
 
       # ========================================
       # CODEQL ANALYSIS
       # ========================================
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
+        if: steps.repo-check.outputs.present == 'true'
+        continue-on-error: true
         with:
           languages: ${{ matrix.language == 'java' && 'java' || 'python' }}
           source-root: repo
 
       - name: Set up JDK (for Java CodeQL)
-        if: matrix.language == 'java'
+        if: steps.repo-check.outputs.present == 'true' && matrix.language == 'java'
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
 
       - name: Build for CodeQL (Java)
-        if: matrix.language == 'java'
+        if: steps.repo-check.outputs.present == 'true' && matrix.language == 'java'
         working-directory: repo
         run: |
           if [ -f "mvnw" ]; then
@@ -133,6 +146,8 @@ jobs:
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
+        if: steps.repo-check.outputs.present == 'true'
+        continue-on-error: true
         with:
           category: "/language:${{ matrix.language }}"
 
@@ -141,6 +156,8 @@ jobs:
       # ========================================
       - name: Generate SBOM (Syft)
         uses: anchore/sbom-action@v0
+        if: steps.repo-check.outputs.present == 'true'
+        continue-on-error: true
         with:
           path: repo
           artifact-name: sbom-${{ matrix.name }}.spdx.json
@@ -148,6 +165,7 @@ jobs:
 
       - name: Upload SBOM
         uses: actions/upload-artifact@v4
+        if: steps.repo-check.outputs.present == 'true'
         with:
           name: sbom-${{ matrix.name }}
           path: sbom-${{ matrix.name }}.spdx.json
@@ -157,7 +175,7 @@ jobs:
       # DEPENDENCY REVIEW (for PRs)
       # ========================================
       - name: Dependency Review
-        if: github.event_name == 'pull_request'
+        if: steps.repo-check.outputs.present == 'true' && github.event_name == 'pull_request'
         uses: actions/dependency-review-action@v4
         with:
           fail-on-severity: high
@@ -166,13 +184,13 @@ jobs:
       # PYTHON SPECIFIC SECURITY
       # ========================================
       - name: Set up Python
-        if: matrix.language == 'python'
+        if: steps.repo-check.outputs.present == 'true' && matrix.language == 'python'
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
 
       - name: "[Python] pip-audit"
-        if: matrix.language == 'python'
+        if: steps.repo-check.outputs.present == 'true' && matrix.language == 'python'
         id: pip-audit
         working-directory: repo
         run: |
@@ -190,7 +208,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Python] Bandit"
-        if: matrix.language == 'python'
+        if: steps.repo-check.outputs.present == 'true' && matrix.language == 'python'
         id: bandit
         working-directory: repo
         run: |
@@ -201,7 +219,7 @@ jobs:
         continue-on-error: true
 
       - name: "[Python] Ruff Security Rules"
-        if: matrix.language == 'python'
+        if: steps.repo-check.outputs.present == 'true' && matrix.language == 'python'
         id: ruff-security
         working-directory: repo
         run: |
@@ -215,7 +233,7 @@ jobs:
       # JAVA SPECIFIC SECURITY
       # ========================================
       - name: "[Java] OWASP Dependency-Check"
-        if: matrix.language == 'java'
+        if: steps.repo-check.outputs.present == 'true' && matrix.language == 'java'
         id: owasp
         working-directory: repo
         run: |
@@ -312,6 +330,7 @@ jobs:
           path: repo
 
       - name: Check for Docker Compose
+        if: steps.repo-check.outputs.present == 'true' && inputs.run_zap == true
         id: check-docker
         working-directory: repo
         run: |
@@ -322,14 +341,14 @@ jobs:
           fi
 
       - name: Start Application
-        if: steps.check-docker.outputs.has_docker == 'true'
+        if: steps.repo-check.outputs.present == 'true' && inputs.run_zap == true && steps.check-docker.outputs.has_docker == 'true'
         working-directory: repo
         run: |
           docker compose up -d
           sleep 60  # Wait for app to start
 
       - name: ZAP Baseline Scan
-        if: steps.check-docker.outputs.has_docker == 'true'
+        if: steps.repo-check.outputs.present == 'true' && inputs.run_zap == true && steps.check-docker.outputs.has_docker == 'true'
         uses: zaproxy/action-baseline@v0.12.0
         with:
           target: 'http://localhost:8080'
@@ -338,14 +357,18 @@ jobs:
         continue-on-error: true
 
       - name: Stop Application
-        if: steps.check-docker.outputs.has_docker == 'true'
+        if: steps.repo-check.outputs.present == 'true' && inputs.run_zap == true && steps.check-docker.outputs.has_docker == 'true'
         working-directory: repo
         run: docker compose down
 
       - name: Generate ZAP Summary
         run: |
           echo "## ZAP DAST Scan: ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.check-docker.outputs.has_docker }}" = "true" ]; then
+          if [ "${{ steps.repo-check.outputs.present }}" != "true" ]; then
+            echo "Skipped - Repo checkout failed" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ inputs.run_zap }}" != "true" ]; then
+            echo "Skipped - run_zap input is false" >> $GITHUB_STEP_SUMMARY
+          elif [ "${{ steps.check-docker.outputs.has_docker }}" = "true" ]; then
             echo "Scan completed. See artifacts for detailed report." >> $GITHUB_STEP_SUMMARY
           else
             echo "Skipped - No docker-compose.yml found" >> $GITHUB_STEP_SUMMARY

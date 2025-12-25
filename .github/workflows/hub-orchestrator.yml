@@ -852,8 +852,8 @@ jobs:
                   results.append(run_status)
                   continue
 
-              # If completed and succeeded, try to download artifacts
-              if run_status["status"] == "completed" and run_status["conclusion"] == "success":
+              # If completed, try to download artifacts even on failure to capture report.json
+              if run_status["status"] == "completed":
                   try:
                       artifacts = gh_get(f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts")
                       ci_artifacts = artifacts.get("artifacts", [])
