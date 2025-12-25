@@ -1735,7 +1735,7 @@ jobs:
               "trivy_critical": ${{ needs.trivy.outputs.critical || 0 }},
               "trivy_high": ${{ needs.trivy.outputs.high || 0 }}
             },
-            "tools_ran": {
+            "tools_configured": {
               "jacoco": ${{ inputs.run_jacoco }},
               "checkstyle": ${{ inputs.run_checkstyle }},
               "spotbugs": ${{ inputs.run_spotbugs }},
@@ -1747,6 +1747,32 @@ jobs:
               "trivy": ${{ inputs.run_trivy }},
               "codeql": ${{ inputs.run_codeql }},
               "docker": ${{ inputs.run_docker }}
+            },
+            "tools_ran": {
+              "jacoco": ${{ inputs.run_jacoco == true && needs.build-test.result != 'skipped' }},
+              "checkstyle": ${{ inputs.run_checkstyle == true && needs.build-test.result != 'skipped' }},
+              "spotbugs": ${{ inputs.run_spotbugs == true && needs.build-test.result != 'skipped' }},
+              "pmd": ${{ inputs.run_pmd == true && needs.pmd.result != 'skipped' }},
+              "owasp": ${{ inputs.run_owasp == true && needs.build-test.result != 'skipped' }},
+              "pitest": ${{ inputs.run_pitest == true && needs.mutation-test.result != 'skipped' }},
+              "jqwik": ${{ inputs.run_jqwik == true && needs.build-test.result != 'skipped' }},
+              "semgrep": ${{ inputs.run_semgrep == true && needs.semgrep.result != 'skipped' }},
+              "trivy": ${{ inputs.run_trivy == true && needs.trivy.result != 'skipped' }},
+              "codeql": ${{ inputs.run_codeql == true }},
+              "docker": ${{ inputs.run_docker == true }}
+            },
+            "tools_success": {
+              "jacoco": ${{ inputs.run_jacoco == true && needs.build-test.result == 'success' }},
+              "checkstyle": ${{ inputs.run_checkstyle == true && needs.build-test.result == 'success' }},
+              "spotbugs": ${{ inputs.run_spotbugs == true && needs.build-test.result == 'success' }},
+              "pmd": ${{ inputs.run_pmd == true && needs.pmd.result == 'success' }},
+              "owasp": ${{ inputs.run_owasp == true && needs.build-test.result == 'success' }},
+              "pitest": ${{ inputs.run_pitest == true && needs.mutation-test.result == 'success' }},
+              "jqwik": ${{ inputs.run_jqwik == true && needs.build-test.result == 'success' }},
+              "semgrep": ${{ inputs.run_semgrep == true && needs.semgrep.result == 'success' }},
+              "trivy": ${{ inputs.run_trivy == true && needs.trivy.result == 'success' }},
+              "codeql": ${{ inputs.run_codeql == true }},
+              "docker": ${{ inputs.run_docker == true }}
             },
             "thresholds": {
               "coverage_min": ${{ needs.build-test.outputs.eff_coverage_min }},

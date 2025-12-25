@@ -1677,7 +1677,7 @@ jobs:
               "trivy_critical": ${{ needs.trivy.outputs.critical || 0 }},
               "trivy_high": ${{ needs.trivy.outputs.high || 0 }}
             },
-            "tools_ran": {
+            "tools_configured": {
               "pytest": ${{ inputs.run_pytest }},
               "ruff": ${{ inputs.run_ruff }},
               "bandit": ${{ inputs.run_bandit }},
@@ -1691,6 +1691,36 @@ jobs:
               "trivy": ${{ inputs.run_trivy }},
               "docker": ${{ inputs.run_docker }},
               "codeql": ${{ inputs.run_codeql }}
+            },
+            "tools_ran": {
+              "pytest": ${{ inputs.run_pytest == true && needs.test.result != 'skipped' }},
+              "ruff": ${{ inputs.run_ruff == true && needs.lint.result != 'skipped' }},
+              "bandit": ${{ inputs.run_bandit == true && needs.security.result != 'skipped' }},
+              "pip_audit": ${{ inputs.run_pip_audit == true && needs.security.result != 'skipped' }},
+              "mypy": ${{ inputs.run_mypy == true && needs.typecheck.result != 'skipped' }},
+              "hypothesis": ${{ inputs.run_hypothesis == true && needs.test.result != 'skipped' }},
+              "black": ${{ inputs.run_black == true && needs.lint.result != 'skipped' }},
+              "isort": ${{ inputs.run_isort == true && needs.lint.result != 'skipped' }},
+              "mutmut": ${{ inputs.run_mutmut == true && needs.mutation-test.result != 'skipped' }},
+              "semgrep": ${{ inputs.run_semgrep == true && needs.semgrep.result != 'skipped' }},
+              "trivy": ${{ inputs.run_trivy == true && needs.trivy.result != 'skipped' }},
+              "docker": ${{ inputs.run_docker == true }},
+              "codeql": ${{ inputs.run_codeql == true }}
+            },
+            "tools_success": {
+              "pytest": ${{ inputs.run_pytest == true && needs.test.result == 'success' }},
+              "ruff": ${{ inputs.run_ruff == true && needs.lint.result == 'success' }},
+              "bandit": ${{ inputs.run_bandit == true && needs.security.result == 'success' }},
+              "pip_audit": ${{ inputs.run_pip_audit == true && needs.security.result == 'success' }},
+              "mypy": ${{ inputs.run_mypy == true && needs.typecheck.result == 'success' }},
+              "hypothesis": ${{ inputs.run_hypothesis == true && needs.test.result == 'success' }},
+              "black": ${{ inputs.run_black == true && needs.lint.result == 'success' }},
+              "isort": ${{ inputs.run_isort == true && needs.lint.result == 'success' }},
+              "mutmut": ${{ inputs.run_mutmut == true && needs.mutation-test.result == 'success' }},
+              "semgrep": ${{ inputs.run_semgrep == true && needs.semgrep.result == 'success' }},
+              "trivy": ${{ inputs.run_trivy == true && needs.trivy.result == 'success' }},
+              "docker": ${{ inputs.run_docker == true }},
+              "codeql": ${{ inputs.run_codeql == true }}
             }
           }
           EOF
