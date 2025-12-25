@@ -842,6 +842,47 @@ jobs:
           echo "| Supply Chain | scorecard | true | $(ran "${{ needs.scorecard.result }}") | $(ok "${{ needs.scorecard.result }}") |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Failures/Skips
+          echo "### Failed or Skipped Checks" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          checks=(
+            "actionlint:${{ needs.actionlint.result }}"
+            "zizmor:${{ needs.zizmor.result }}"
+            "ruff:${{ needs.lint.result }}"
+            "syntax:${{ needs.syntax-check.result }}"
+            "mypy:${{ needs.type-check.result }}"
+            "yamllint:${{ needs.yaml-lint.result }}"
+            "pytest:${{ needs.unit-tests.result }}"
+            "mutmut:${{ needs.mutation-tests.result }}"
+            "bandit:${{ needs.bandit.result }}"
+            "pip-audit:${{ needs.pip-audit.result }}"
+            "gitleaks:${{ needs.secret-scan.result }}"
+            "trivy:${{ needs.trivy.result }}"
+            "templates:${{ needs.validate-templates.result }}"
+            "configs:${{ needs.validate-configs.result }}"
+            "matrix-keys:${{ needs.verify-matrix-keys.result }}"
+            "licenses:${{ needs.license-check.result }}"
+            "dependency-review:${{ needs.dependency-review.result }}"
+            "scorecard:${{ needs.scorecard.result }}"
+          )
+
+          has_issues=0
+          for item in "${checks[@]}"; do
+            name="${item%%:*}"
+            status="${item##*:}"
+            if [ "$status" != "success" ]; then
+              has_issues=1
+              echo "| $name | $status |" >> $GITHUB_STEP_SUMMARY
+            fi
+          done
+          if [ "$has_issues" -eq 0 ]; then
+            echo "| None | success |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
           # Quality Gates
           echo "### Quality Gates" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
