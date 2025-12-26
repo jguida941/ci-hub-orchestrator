@@ -8,10 +8,16 @@ from pathlib import Path
 
 import yaml
 
-from cihub.cli import build_repo_config, deep_merge, hub_root
-from cihub.config.io import ensure_dirs, load_defaults, load_profile, save_yaml_file
+from cihub.cli import build_repo_config, hub_root
+from cihub.config.io import (
+    ensure_dirs,
+    load_defaults,
+    load_profile_strict,
+    save_yaml_file,
+)
+from cihub.config.merge import deep_merge
 from cihub.config.paths import PathConfig
-from cihub.wizard import HAS_WIZARD
+from cihub.wizard import HAS_WIZARD, WizardCancelled
 
 
 def _apply_repo_defaults(config: dict, defaults: dict) -> dict:
@@ -55,7 +61,14 @@ def cmd_new(args: argparse.Namespace) -> int:
         from cihub.wizard.core import WizardRunner  # noqa: I001
 
         runner = WizardRunner(Console(), paths)
-        config = runner.run_new_wizard(name, profile=args.profile)
+        try:
+            config = runner.run_new_wizard(name, profile=args.profile)
+        except WizardCancelled:
+            print("Cancelled.", file=sys.stderr)
+            return 130
+        except FileNotFoundError as exc:
+            print(str(exc), file=sys.stderr)
+            return 2
     else:
         if not args.owner or not args.language:
             print(
@@ -72,7 +85,11 @@ def cmd_new(args: argparse.Namespace) -> int:
         )
         config = _apply_repo_defaults(config, defaults)
         if args.profile:
-            profile_cfg = load_profile(paths, args.profile)
+            try:
+                profile_cfg = load_profile_strict(paths, args.profile)
+            except FileNotFoundError as exc:
+                print(str(exc), file=sys.stderr)
+                return 2
             _validate_profile_language(profile_cfg, args.language)
             config = deep_merge(config, profile_cfg)
 
@@ -89,5 +106,5 @@ def cmd_new(args: argparse.Namespace) -> int:
             return 3
 
     save_yaml_file(repo_file, config, dry_run=False)
-    print(f"✅ Created {repo_file}")
+    print(f"[OK] Created {repo_file}")
     return 0

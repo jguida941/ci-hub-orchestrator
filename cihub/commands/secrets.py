@@ -124,7 +124,7 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int:
     if not ok:
         print(f"Failed: {error}", file=sys.stderr)
         return 1
-    print(f"  ✅ {hub_repo}")
+    print(f"  [OK] {hub_repo}")
 
     if args.all:
         print("\nSetting on connected repos...")
@@ -134,12 +134,12 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int:
                 continue
             ok, error = set_secret(repo)
             if ok:
-                print(f"  ✅ {repo}")
+                print(f"  [OK] {repo}")
             else:
                 suffix = " (no admin access)"
                 if error:
                     suffix = f" ({error})"
-                print(f"  ❌ {repo}{suffix}")
+                print(f"  [FAIL] {repo}{suffix}")
 
     print("\nConnected dispatch-enabled repos:")
     for repo in get_connected_repos():
@@ -238,11 +238,11 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int:
     for repo in java_repos:
         ok, error = set_secret(repo, "NVD_API_KEY", nvd_key)
         if ok:
-            print(f"  ✅ {repo}")
+            print(f"  [OK] {repo}")
             success_count += 1
         else:
             suffix = " (no admin access)" if not error else f" ({error})"
-            print(f"  ❌ {repo}{suffix}")
+            print(f"  [FAIL] {repo}{suffix}")
 
     print(f"\nSet NVD_API_KEY on {success_count}/{len(java_repos)} Java repos.")
     if success_count < len(java_repos):

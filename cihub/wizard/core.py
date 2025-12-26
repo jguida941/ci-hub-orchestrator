@@ -3,25 +3,25 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from typing import TypeVar
 
-import questionary
+import questionary  # type: ignore[import-untyped]
 from rich.console import Console
 
-from cihub.config.io import load_defaults, load_profile
+from cihub.config.io import load_defaults, load_profile_strict
 from cihub.config.merge import deep_merge
 from cihub.config.paths import PathConfig
-from cihub.wizard.questions.java_tools import configure_java_tools
-from cihub.wizard.questions.language import (
-    select_build_tool,
-    select_java_version,
-    select_language,
-    select_python_version,
-)
-from cihub.wizard.questions.python_tools import configure_python_tools
-from cihub.wizard.questions.security import configure_security_tools
-from cihub.wizard.questions.thresholds import configure_thresholds
+from cihub.wizard import WizardCancelled
 from cihub.wizard.styles import get_style
 from cihub.wizard.validators import validate_repo_name
+
+T = TypeVar("T")
+
+
+def _check_cancelled(value: T | None, ctx: str) -> T:
+    if value is None:
+        raise WizardCancelled(f"{ctx} cancelled")
+    return value
 
 
 class WizardRunner:
@@ -34,41 +34,64 @@ class WizardRunner:
     def _load_base(self, profile: str | None) -> dict:
         defaults = load_defaults(self.paths)
         if profile:
-            profile_cfg = load_profile(self.paths, profile)
+            profile_cfg = load_profile_strict(self.paths, profile)
             return deep_merge(defaults, profile_cfg)
         return defaults
 
     def _prompt_repo(self, name: str | None, base: dict) -> dict:
         repo_defaults = base.get("repo", {})
-        owner = questionary.text(
-            "Repo owner (org/user):",
-            default=repo_defaults.get("owner", ""),
-            style=get_style(),
-        ).ask()
-        repo_name = questionary.text(
-            "Repo name:",
-            default=name or repo_defaults.get("name", ""),
-            validate=validate_repo_name,
-            style=get_style(),
-        ).ask()
-        use_central_runner = questionary.confirm(
-            "Use central runner?",
-            default=bool(repo_defaults.get("use_central_runner", True)),
-            style=get_style(),
-        ).ask()
-        repo_side_execution = questionary.confirm(
-            "Enable repo-side execution (writes workflows)?",
-            default=bool(repo_defaults.get("repo_side_execution", False)),
-            style=get_style(),
-        ).ask()
+        owner = _check_cancelled(
+            questionary.text(
+                "Repo owner (org/user):",
+                default=repo_defaults.get("owner", ""),
+                style=get_style(),
+            ).ask(),
+            "Repo owner",
+        )
+        repo_name = _check_cancelled(
+            questionary.text(
+                "Repo name:",
+                default=name or repo_defaults.get("name", ""),
+                validate=validate_repo_name,
+                style=get_style(),
+            ).ask(),
+            "Repo name",
+        )
+        use_central_runner = _check_cancelled(
+            questionary.confirm(
+                "Use central runner?",
+                default=bool(repo_defaults.get("use_central_runner", True)),
+                style=get_style(),
+            ).ask(),
+            "Central runner prompt",
+        )
+        repo_side_execution = _check_cancelled(
+            questionary.confirm(
+                "Enable repo-side execution (writes workflows)?",
+                default=bool(repo_defaults.get("repo_side_execution", False)),
+                style=get_style(),
+            ).ask(),
+            "Repo-side execution prompt",
+        )
         return {
-            "owner": owner,
-            "name": repo_name,
+            "owner": str(owner),
+            "name": str(repo_name),
             "use_central_runner": bool(use_central_runner),
             "repo_side_execution": bool(repo_side_execution),
         }
 
     def _apply_language_prompts(self, config: dict) -> dict:
+        from cihub.wizard.questions.java_tools import configure_java_tools
+        from cihub.wizard.questions.language import (
+            select_build_tool,
+            select_java_version,
+            select_language,
+            select_python_version,
+        )
+        from cihub.wizard.questions.python_tools import configure_python_tools
+        from cihub.wizard.questions.security import configure_security_tools
+        from cihub.wizard.questions.thresholds import configure_thresholds
+
         defaults = config
         language = select_language(default=defaults.get("language", "java"))
         config["language"] = language

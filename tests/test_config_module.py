@@ -646,6 +646,18 @@ class TestDeepMerge:
 
         assert base["nested"]["value"] == 1
 
+    def test_overlay_nested_dicts_deeply_copied(self):
+        """Overlay nested dicts are deeply copied, not shallow copied."""
+        base = {}
+        overlay = {"nested": {"deep": {"value": 1}}}
+
+        result = deep_merge(base, overlay)
+        # Modify deeply nested value in result
+        result["nested"]["deep"]["value"] = 999
+
+        # Original overlay must be unchanged (requires deepcopy, not copy)
+        assert overlay["nested"]["deep"]["value"] == 1
+
 
 # =============================================================================
 # build_effective_config Tests
@@ -739,6 +751,17 @@ class TestBuildEffectiveConfig:
         assert result["java"]["tools"]["jacoco"] is True
         assert result["java"]["tools"]["checkstyle"] is False
         assert result["java"]["tools"]["pmd"] is True
+
+    def test_defaults_deeply_copied(self):
+        """Defaults are deeply copied, not shallow copied."""
+        defaults = {"nested": {"deep": {"value": 1}}}
+
+        result = build_effective_config(defaults)
+        # Modify deeply nested value in result
+        result["nested"]["deep"]["value"] = 999
+
+        # Original defaults must be unchanged (requires deepcopy, not copy)
+        assert defaults["nested"]["deep"]["value"] == 1
 
 
 # =============================================================================

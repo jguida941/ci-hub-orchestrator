@@ -52,8 +52,8 @@ check() {
 echo "1. Documentation Files"
 echo "----------------------"
 
-check "SMOKE_TEST.md exists" "[ -f '$REPO_ROOT/docs/development/SMOKE_TEST.md' ]"
-check "SMOKE_TEST_REPOS.md exists" "[ -f '$REPO_ROOT/docs/development/SMOKE_TEST_REPOS.md' ]"
+check "SMOKE_TEST.md exists" "[ -f '$REPO_ROOT/docs/development/execution/SMOKE_TEST.md' ]"
+check "SMOKE_TEST_REPOS.md exists" "[ -f '$REPO_ROOT/docs/development/execution/SMOKE_TEST_REPOS.md' ]"
 check "docs/README.md index exists" "[ -f '$REPO_ROOT/docs/README.md' ]"
 check "WORKFLOWS.md mentions Smoke Test" "grep -Eq '^Smoke Test' '$REPO_ROOT/docs/guides/WORKFLOWS.md' || grep -q 'Smoke Test' '$REPO_ROOT/docs/guides/WORKFLOWS.md'"
 
@@ -166,14 +166,14 @@ if [ $FAILED -eq 0 ]; then
     echo "Next steps:"
     echo "  1. Run smoke test: gh workflow run smoke-test.yml"
     echo "  2. Or via GitHub UI: Actions → Smoke Test → Run workflow"
-    echo "  3. Review docs/development/SMOKE_TEST.md for detailed guide"
+    echo "  3. Review docs/development/execution/SMOKE_TEST.md for detailed guide"
     echo ""
     exit 0
 else
     echo -e "${RED}✗ Some checks failed!${NC}"
     echo ""
     echo "Please fix the issues above before running the smoke test."
-    echo "See docs/development/SMOKE_TEST.md for troubleshooting."
+    echo "See docs/development/execution/SMOKE_TEST.md for troubleshooting."
     echo ""
     exit 1
 fi

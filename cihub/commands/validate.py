@@ -11,8 +11,8 @@ from cihub.cli import (
     collect_java_pom_warnings,
     hub_root,
     load_effective_config,
-    read_yaml,
 )
+from cihub.config.io import load_yaml_file
 from cihub.config.paths import PathConfig
 from cihub.config.schema import validate_config as validate_config_schema
 
@@ -23,7 +23,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
     if not config_path.exists():
         print(f"Config not found: {config_path}", file=sys.stderr)
         return 2
-    config = read_yaml(config_path)
+    config = load_yaml_file(config_path)
     paths = PathConfig(str(hub_root()))
     errors = validate_config_schema(config, paths)
     if errors:

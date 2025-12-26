@@ -2,9 +2,46 @@
 
 from __future__ import annotations
 
-import questionary
+import questionary  # type: ignore[import-untyped]
 
+from cihub.wizard.core import _check_cancelled
 from cihub.wizard.styles import get_style
+
+
+def _prompt_security_tools(base: dict) -> dict:
+    semgrep_default = base.get("semgrep", {}).get("enabled", False)
+    trivy_default = base.get("trivy", {}).get("enabled", False)
+    codeql_default = base.get("codeql", {}).get("enabled", False)
+
+    semgrep = _check_cancelled(
+        questionary.confirm(
+            "Enable semgrep?",
+            default=bool(semgrep_default),
+            style=get_style(),
+        ).ask(),
+        "Semgrep toggle",
+    )
+    trivy = _check_cancelled(
+        questionary.confirm(
+            "Enable trivy?",
+            default=bool(trivy_default),
+            style=get_style(),
+        ).ask(),
+        "Trivy toggle",
+    )
+    codeql = _check_cancelled(
+        questionary.confirm(
+            "Enable codeql?",
+            default=bool(codeql_default),
+            style=get_style(),
+        ).ask(),
+        "CodeQL toggle",
+    )
+    return {
+        "semgrep": {"enabled": bool(semgrep)},
+        "trivy": {"enabled": bool(trivy)},
+        "codeql": {"enabled": bool(codeql)},
+    }
 
 
 def configure_security_tools(language: str, defaults: dict) -> dict:
@@ -15,60 +52,8 @@ def configure_security_tools(language: str, defaults: dict) -> dict:
     overrides: dict = {}
     if language == "java":
         base = defaults.get("java", {}).get("tools", {})
-        semgrep_default = base.get("semgrep", {}).get("enabled", False)
-        trivy_default = base.get("trivy", {}).get("enabled", False)
-        codeql_default = base.get("codeql", {}).get("enabled", False)
-        semgrep = questionary.confirm(
-            "Enable semgrep?",
-            default=bool(semgrep_default),
-            style=get_style(),
-        ).ask()
-        trivy = questionary.confirm(
-            "Enable trivy?",
-            default=bool(trivy_default),
-            style=get_style(),
-        ).ask()
-        codeql = questionary.confirm(
-            "Enable codeql?",
-            default=bool(codeql_default),
-            style=get_style(),
-        ).ask()
-        overrides = {
-            "java": {
-                "tools": {
-                    "semgrep": {"enabled": bool(semgrep)},
-                    "trivy": {"enabled": bool(trivy)},
-                    "codeql": {"enabled": bool(codeql)},
-                }
-            }
-        }
+        overrides = {"java": {"tools": _prompt_security_tools(base)}}
     elif language == "python":
         base = defaults.get("python", {}).get("tools", {})
-        semgrep_default = base.get("semgrep", {}).get("enabled", False)
-        trivy_default = base.get("trivy", {}).get("enabled", False)
-        codeql_default = base.get("codeql", {}).get("enabled", False)
-        semgrep = questionary.confirm(
-            "Enable semgrep?",
-            default=bool(semgrep_default),
-            style=get_style(),
-        ).ask()
-        trivy = questionary.confirm(
-            "Enable trivy?",
-            default=bool(trivy_default),
-            style=get_style(),
-        ).ask()
-        codeql = questionary.confirm(
-            "Enable codeql?",
-            default=bool(codeql_default),
-            style=get_style(),
-        ).ask()
-        overrides = {
-            "python": {
-                "tools": {
-                    "semgrep": {"enabled": bool(semgrep)},
-                    "trivy": {"enabled": bool(trivy)},
-                    "codeql": {"enabled": bool(codeql)},
-                }
-            }
-        }
+        overrides = {"python": {"tools": _prompt_security_tools(base)}}
     return overrides

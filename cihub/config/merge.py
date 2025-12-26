@@ -61,7 +61,7 @@ def build_effective_config(
     Returns:
         The merged effective configuration.
     """
-    result = defaults.copy()
+    result = copy.deepcopy(defaults)
 
     if profile:
         result = deep_merge(result, profile)

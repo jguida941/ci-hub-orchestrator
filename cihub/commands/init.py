@@ -6,6 +6,8 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 from cihub.cli import (
     apply_dependency_fixes,
     apply_pom_fixes,
@@ -20,10 +22,10 @@ from cihub.cli import (
     render_caller_workflow,
     resolve_language,
     write_text,
-    write_yaml,
 )
+from cihub.config.io import save_yaml_file
 from cihub.config.paths import PathConfig
-from cihub.wizard import HAS_WIZARD
+from cihub.wizard import HAS_WIZARD, WizardCancelled
 
 
 def cmd_init(args: argparse.Namespace) -> int:
@@ -62,12 +64,23 @@ def cmd_init(args: argparse.Namespace) -> int:
         from cihub.wizard.core import WizardRunner
 
         runner = WizardRunner(Console(), PathConfig(str(hub_root())))
-        config = runner.run_init_wizard(detected_config)
+        try:
+            config = runner.run_init_wizard(detected_config)
+        except WizardCancelled:
+            print("Cancelled.", file=sys.stderr)
+            return 130
         language = config.get("language", language)
     else:
         config = detected_config
     config_path = repo_path / ".ci-hub.yml"
-    write_yaml(config_path, config, args.dry_run)
+    if args.dry_run:
+        payload = yaml.safe_dump(
+            config, sort_keys=False, default_flow_style=False, allow_unicode=True
+        )
+        print(f"# Would write: {config_path}")
+        print(payload)
+    else:
+        save_yaml_file(config_path, config, dry_run=False)
 
     workflow_path = repo_path / ".github" / "workflows" / "hub-ci.yml"
     workflow_content = render_caller_workflow(language)

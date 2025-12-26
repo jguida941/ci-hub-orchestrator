@@ -6,26 +6,27 @@ import argparse
 import sys
 from pathlib import Path
 
+import yaml
+
 from cihub.cli import (
     apply_dependency_fixes,
     apply_pom_fixes,
     build_repo_config,
     collect_java_dependency_warnings,
     collect_java_pom_warnings,
-    deep_merge,
     load_effective_config,
-    read_yaml,
     render_caller_workflow,
     resolve_language,
     write_text,
-    write_yaml,
 )
+from cihub.config.io import load_yaml_file, save_yaml_file
+from cihub.config.merge import deep_merge
 
 
 def cmd_update(args: argparse.Namespace) -> int:
     repo_path = Path(args.repo).resolve()
     config_path = repo_path / ".ci-hub.yml"
-    existing = read_yaml(config_path) if config_path.exists() else {}
+    existing = load_yaml_file(config_path) if config_path.exists() else {}
 
     language = args.language or existing.get("language")
     if not language:
@@ -50,7 +51,14 @@ def cmd_update(args: argparse.Namespace) -> int:
 
     base = build_repo_config(language, owner, name, branch, subdir=subdir)
     merged = deep_merge(base, existing)
-    write_yaml(config_path, merged, args.dry_run)
+    if args.dry_run:
+        payload = yaml.safe_dump(
+            merged, sort_keys=False, default_flow_style=False, allow_unicode=True
+        )
+        print(f"# Would write: {config_path}")
+        print(payload)
+    else:
+        save_yaml_file(config_path, merged, dry_run=False)
 
     workflow_path = repo_path / ".github" / "workflows" / "hub-ci.yml"
     workflow_content = render_caller_workflow(language)

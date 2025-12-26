@@ -18,7 +18,7 @@ from cihub.config.io import (
 )
 from cihub.config.merge import build_effective_config
 from cihub.config.paths import PathConfig
-from cihub.wizard import HAS_WIZARD
+from cihub.wizard import HAS_WIZARD, WizardCancelled
 
 
 class ConfigError(RuntimeError):
@@ -63,13 +63,20 @@ def _resolve_tool_path(
     elif config.get("language"):
         language = config.get("language")
 
+    java_tools = defaults.get("java", {}).get("tools", {}) or {}
+    python_tools = defaults.get("python", {}).get("tools", {}) or {}
+
     if language == "java":
+        if tool not in java_tools:
+            raise ConfigError(f"Unknown tool: {tool}")
         return f"java.tools.{tool}.enabled"
     if language == "python":
+        if tool not in python_tools:
+            raise ConfigError(f"Unknown tool: {tool}")
         return f"python.tools.{tool}.enabled"
 
-    java_has = tool in (defaults.get("java", {}).get("tools", {}) or {})
-    python_has = tool in (defaults.get("python", {}).get("tools", {}) or {})
+    java_has = tool in java_tools
+    python_has = tool in python_tools
     if java_has and not python_has:
         return f"java.tools.{tool}.enabled"
     if python_has and not java_has:
@@ -105,12 +112,16 @@ def cmd_config(args: argparse.Namespace) -> int:
     try:
         if args.subcommand in (None, "edit"):
             existing = _load_repo(paths, repo)
-            updated = _apply_wizard(paths, existing)
+            try:
+                updated = _apply_wizard(paths, existing)
+            except WizardCancelled:
+                print("Cancelled.", file=sys.stderr)
+                return 130
             if args.dry_run:
                 _dump_config(updated)
                 return 0
             save_repo_config(paths, repo, updated, dry_run=False)
-            print(f"✅ Updated {paths.repo_file(repo)}")
+            print(f"[OK] Updated {paths.repo_file(repo)}", file=sys.stderr)
             return 0
 
         if args.subcommand == "show":
@@ -130,7 +141,7 @@ def cmd_config(args: argparse.Namespace) -> int:
                 _dump_config(config)
                 return 0
             save_repo_config(paths, repo, config, dry_run=False)
-            print(f"✅ Updated {paths.repo_file(repo)}")
+            print(f"[OK] Updated {paths.repo_file(repo)}", file=sys.stderr)
             return 0
 
         if args.subcommand in {"enable", "disable"}:
@@ -141,7 +152,7 @@ def cmd_config(args: argparse.Namespace) -> int:
                 _dump_config(config)
                 return 0
             save_repo_config(paths, repo, config, dry_run=False)
-            print(f"✅ Updated {paths.repo_file(repo)}")
+            print(f"[OK] Updated {paths.repo_file(repo)}", file=sys.stderr)
             return 0
 
         raise ConfigError(f"Unsupported config command: {args.subcommand}")

@@ -53,10 +53,10 @@ def cmd_sync_templates(args: argparse.Namespace) -> int:
         workflow_synced = False
 
         if remote and remote.get("content") == desired:
-            print(f"✅ {repo} {path} up to date")
+            print(f"[OK] {repo} {path} up to date")
             workflow_synced = True
         elif args.check:
-            print(f"❌ {repo} {path} out of date")
+            print(f"[FAIL] {repo} {path} out of date")
             failures += 1
         elif args.dry_run:
             print(f"# Would update {repo} {path}")
@@ -70,10 +70,10 @@ def cmd_sync_templates(args: argparse.Namespace) -> int:
                     args.commit_message,
                     remote.get("sha") if remote else None,
                 )
-                print(f"✅ {repo} {path} updated")
+                print(f"[OK] {repo} {path} updated")
                 workflow_synced = True
             except RuntimeError as exc:
-                print(f"❌ {repo} {path} update failed: {exc}", file=sys.stderr)
+                print(f"[FAIL] {repo} {path} update failed: {exc}", file=sys.stderr)
                 failures += 1
 
         if dispatch_workflow == "hub-ci.yml":
@@ -83,7 +83,7 @@ def cmd_sync_templates(args: argparse.Namespace) -> int:
                 stale_file = fetch_remote_file(repo, stale_path, branch)
                 if stale_file and stale_file.get("sha"):
                     if args.check:
-                        print(f"❌ {repo} {stale_path} stale (should be deleted)")
+                        print(f"[FAIL] {repo} {stale_path} stale (should be deleted)")
                         failures += 1
                     elif args.dry_run:
                         print(f"# Would delete {repo} {stale_path} (stale)")
@@ -96,10 +96,10 @@ def cmd_sync_templates(args: argparse.Namespace) -> int:
                                 stale_file["sha"],
                                 "Remove stale workflow (migrated to hub-ci.yml)",
                             )
-                            print(f"🗑️  {repo} {stale_path} deleted (stale)")
+                            print(f"[OK] {repo} {stale_path} deleted (stale)")
                         except RuntimeError as exc:
                             print(
-                                f"⚠️  {repo} {stale_path} delete failed: {exc}",
+                                f"[WARN] {repo} {stale_path} delete failed: {exc}",
                                 file=sys.stderr,
                             )
 
@@ -128,8 +128,23 @@ def cmd_sync_templates(args: argparse.Namespace) -> int:
             current_v1 = result.stdout.strip() if result.returncode == 0 else None
 
             if current_v1 == head_sha:
-                print("✅ v1 tag already at HEAD")
+                print("[OK] v1 tag already at HEAD")
             else:
+                # Security: Require confirmation for force-push operations
+                if not getattr(args, "yes", False):
+                    print(
+                        f"Warning: This will force-push v1 tag from "
+                        f"{current_v1[:7] if current_v1 else 'none'} to {head_sha[:7]}"
+                    )
+                    print(
+                        "This affects all repositories referencing "
+                        "jguida941/hub-release/.github/workflows/*@v1"
+                    )
+                    confirm = input("Continue? [y/N] ").strip().lower()
+                    if confirm not in ("y", "yes"):
+                        print("Aborted.")
+                        return 0
+
                 subprocess.run(  # noqa: S603
                     [git_bin, "tag", "-f", "v1", "HEAD"],
                     check=True,
@@ -141,11 +156,11 @@ def cmd_sync_templates(args: argparse.Namespace) -> int:
                     capture_output=True,
                 )
                 print(
-                    "✅ v1 tag updated: "
-                    f"{current_v1[:7] if current_v1 else 'none'} → {head_sha[:7]}"
+                    "[OK] v1 tag updated: "
+                    f"{current_v1[:7] if current_v1 else 'none'} -> {head_sha[:7]}"
                 )
         except subprocess.CalledProcessError as exc:
-            print(f"⚠️  Failed to update v1 tag: {exc}", file=sys.stderr)
+            print(f"[WARN] Failed to update v1 tag: {exc}", file=sys.stderr)
     elif args.dry_run and args.update_tag:
         print("# Would update v1 tag to HEAD")
 

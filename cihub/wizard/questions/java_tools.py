@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from copy import deepcopy
 
-import questionary
+import questionary  # type: ignore[import-untyped]
 
+from cihub.wizard.core import _check_cancelled
 from cihub.wizard.styles import get_style
 
 JAVA_TOOL_ORDER = [
@@ -37,10 +38,13 @@ def configure_java_tools(defaults: dict) -> dict:
         if tool not in tools:
             continue
         enabled = tools[tool].get("enabled", False)
-        answer = questionary.confirm(
-            f"Enable {tool}?",
-            default=bool(enabled),
-            style=get_style(),
-        ).ask()
+        answer = _check_cancelled(
+            questionary.confirm(
+                f"Enable {tool}?",
+                default=bool(enabled),
+                style=get_style(),
+            ).ask(),
+            f"{tool} toggle",
+        )
         tools[tool]["enabled"] = bool(answer)
     return tools

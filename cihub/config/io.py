@@ -100,6 +100,25 @@ def load_profile(paths: PathConfig, name: str) -> dict[str, Any]:
     return load_yaml_file(paths.profile_file(name))
 
 
+def load_profile_strict(paths: PathConfig, name: str) -> dict[str, Any]:
+    """Load a profile configuration, failing if missing.
+
+    Args:
+        paths: PathConfig instance.
+        name: Profile name (without .yaml extension).
+
+    Returns:
+        Dictionary containing the profile configuration.
+
+    Raises:
+        FileNotFoundError: If the profile file does not exist.
+    """
+    profile_path = Path(paths.profile_file(name))
+    if not profile_path.exists():
+        raise FileNotFoundError(f"Profile not found: {profile_path}")
+    return load_yaml_file(profile_path)
+
+
 def load_repo_config(paths: PathConfig, repo: str) -> dict[str, Any]:
     """Load a repository-specific configuration.
 

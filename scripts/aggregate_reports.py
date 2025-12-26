@@ -12,13 +12,14 @@ Usage:
 import argparse
 import html
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 
 def load_reports(
     reports_dir: Path, schema_mode: str = "warn"
-) -> tuple[list[dict], int]:
+) -> tuple[list[dict[str, Any]], int]:
     """Load all report JSON files from the reports directory.
 
     Args:
@@ -28,7 +29,7 @@ def load_reports(
     Returns:
         Tuple of (reports list, skipped count)
     """
-    reports = []
+    reports: list[dict[str, Any]] = []
     skipped = 0
 
     if not reports_dir.exists():
@@ -64,7 +65,7 @@ def load_reports(
     return reports, skipped
 
 
-def detect_language(report: dict) -> str:
+def detect_language(report: dict[str, Any]) -> str:
     """Detect language from report fields."""
     if report.get("java_version"):
         return "java"
@@ -83,7 +84,7 @@ def detect_language(report: dict) -> str:
     return "unknown"
 
 
-def get_status(report: dict) -> str:
+def get_status(report: dict[str, Any]) -> str:
     """Get build/test status from report (handles both Java and Python)."""
     results = report.get("results", {})
     # Python uses 'test', Java uses 'build'
@@ -91,10 +92,10 @@ def get_status(report: dict) -> str:
     return status
 
 
-def generate_summary(reports: list[dict]) -> dict:
+def generate_summary(reports: list[dict[str, Any]]) -> dict[str, Any]:
     """Generate a summary from all reports."""
     summary = {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "schema_version": "2.0",
         "total_repos": len(reports),
         "languages": {},
@@ -105,7 +106,7 @@ def generate_summary(reports: list[dict]) -> dict:
     }
 
     # Aggregate tool statistics across all repos
-    tool_stats: dict = {}
+    tool_stats: dict[str, dict[str, int]] = {}
 
     for report in reports:
         repo_name = report.get("repository", "unknown")

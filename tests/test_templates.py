@@ -7,9 +7,11 @@ Validates that:
 3. Templates don't reference stale repo names
 """
 
+import argparse
 import re
 import sys
 from pathlib import Path
+from unittest import mock
 
 import pytest
 
@@ -323,3 +325,322 @@ class TestActualConfigs:
             assert "repo" in cfg
         except ConfigValidationError as e:
             pytest.fail(f"{config_path.stem} failed validation: {e}")
+
+
+# ==============================================================================
+# Tests for cmd_sync_templates (cihub/commands/templates.py)
+# ==============================================================================
+
+
+class TestSyncTemplatesCommand:
+    """Tests for the sync-templates command logic."""
+
+    @pytest.fixture
+    def mock_get_repo_entries(self):
+        """Mock get_repo_entries to return test repos."""
+        with mock.patch("cihub.commands.templates.get_repo_entries") as m:
+            m.return_value = [
+                {
+                    "full": "owner/python-repo",
+                    "language": "python",
+                    "dispatch_workflow": "hub-ci.yml",
+                    "default_branch": "main",
+                },
+                {
+                    "full": "owner/java-repo",
+                    "language": "java",
+                    "dispatch_workflow": "hub-ci.yml",
+                    "default_branch": "main",
+                },
+            ]
+            yield m
+
+    @pytest.fixture
+    def mock_render_dispatch_workflow(self):
+        """Mock render_dispatch_workflow."""
+        with mock.patch("cihub.commands.templates.render_dispatch_workflow") as m:
+            m.return_value = "# Generated workflow content"
+            yield m
+
+    @pytest.fixture
+    def mock_fetch_remote_file(self):
+        """Mock fetch_remote_file."""
+        with mock.patch("cihub.commands.templates.fetch_remote_file") as m:
+            yield m
+
+    @pytest.fixture
+    def mock_update_remote_file(self):
+        """Mock update_remote_file."""
+        with mock.patch("cihub.commands.templates.update_remote_file") as m:
+            yield m
+
+    @pytest.fixture
+    def mock_delete_remote_file(self):
+        """Mock delete_remote_file."""
+        with mock.patch("cihub.commands.templates.delete_remote_file") as m:
+            yield m
+
+    def test_sync_no_repos(self, capsys) -> None:
+        """Handle case when no repos found."""
+        from cihub.commands.templates import cmd_sync_templates
+
+        with mock.patch("cihub.commands.templates.get_repo_entries") as m:
+            m.return_value = []
+            args = argparse.Namespace(
+                repo=None,
+                include_disabled=False,
+                check=False,
+                dry_run=False,
+                commit_message="chore: sync templates",
+                update_tag=False,
+            )
+            result = cmd_sync_templates(args)
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "No repos found" in captured.out
+
+    def test_sync_remote_up_to_date(
+        self,
+        mock_get_repo_entries,
+        mock_render_dispatch_workflow,
+        mock_fetch_remote_file,
+        capsys,
+    ) -> None:
+        """Report OK when remote matches desired content."""
+        from cihub.commands.templates import cmd_sync_templates
+
+        mock_fetch_remote_file.return_value = {
+            "content": "# Generated workflow content"
+        }
+
+        args = argparse.Namespace(
+            repo=None,
+            include_disabled=False,
+            check=False,
+            dry_run=False,
+            commit_message="chore: sync templates",
+            update_tag=False,
+        )
+        result = cmd_sync_templates(args)
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "[OK]" in captured.out
+        assert "up to date" in captured.out
+
+    def test_sync_check_mode_detects_drift(
+        self,
+        mock_get_repo_entries,
+        mock_render_dispatch_workflow,
+        mock_fetch_remote_file,
+        capsys,
+    ) -> None:
+        """Check mode reports drift without updating."""
+        from cihub.commands.templates import cmd_sync_templates
+
+        mock_fetch_remote_file.return_value = {"content": "# Old content"}
+
+        args = argparse.Namespace(
+            repo=None,
+            include_disabled=False,
+            check=True,
+            dry_run=False,
+            commit_message="chore: sync templates",
+            update_tag=False,
+        )
+        result = cmd_sync_templates(args)
+        assert result == 1
+        captured = capsys.readouterr()
+        assert "[FAIL]" in captured.out
+        assert "out of date" in captured.out
+        assert "drift detected" in captured.err
+
+    def test_sync_dry_run_mode(
+        self,
+        mock_get_repo_entries,
+        mock_render_dispatch_workflow,
+        mock_fetch_remote_file,
+        mock_update_remote_file,
+        capsys,
+    ) -> None:
+        """Dry run shows what would be updated without doing it."""
+        from cihub.commands.templates import cmd_sync_templates
+
+        mock_fetch_remote_file.return_value = {"content": "# Old content"}
+
+        args = argparse.Namespace(
+            repo=None,
+            include_disabled=False,
+            check=False,
+            dry_run=True,
+            commit_message="chore: sync templates",
+            update_tag=False,
+        )
+        result = cmd_sync_templates(args)
+        assert result == 0
+        captured = capsys.readouterr()
+        assert "Would update" in captured.out
+        mock_update_remote_file.assert_not_called()
+
+    def test_sync_updates_remote(
+        self,
+        mock_get_repo_entries,
+        mock_render_dispatch_workflow,
+        mock_fetch_remote_file,
+        mock_update_remote_file,
+        capsys,
+    ) -> None:
+        """Sync updates remote file when content differs."""
+        from cihub.commands.templates import cmd_sync_templates
+
+        mock_fetch_remote_file.return_value = {
+            "content": "# Old content",
+            "sha": "abc123",
+        }
+
+        args = argparse.Namespace(
+            repo=None,
+            include_disabled=False,
+            check=False,
+            dry_run=False,
+            commit_message="chore: sync templates",
+            update_tag=False,
+        )
+        result = cmd_sync_templates(args)
+        assert result == 0
+        mock_update_remote_file.assert_called()
+        captured = capsys.readouterr()
+        assert "updated" in captured.out
+
+    def test_sync_specific_repo(
+        self,
+        mock_render_dispatch_workflow,
+        mock_fetch_remote_file,
+        capsys,
+    ) -> None:
+        """Sync only specific repo when --repo provided."""
+        from cihub.commands.templates import cmd_sync_templates
+
+        with mock.patch("cihub.commands.templates.get_repo_entries") as m:
+            m.return_value = [
+                {
+                    "full": "owner/python-repo",
+                    "language": "python",
+                    "dispatch_workflow": "hub-ci.yml",
+                    "default_branch": "main",
+                },
+                {
+                    "full": "owner/java-repo",
+                    "language": "java",
+                    "dispatch_workflow": "hub-ci.yml",
+                    "default_branch": "main",
+                },
+            ]
+            mock_fetch_remote_file.return_value = {
+                "content": "# Generated workflow content"
+            }
+
+            args = argparse.Namespace(
+                repo=["owner/python-repo"],
+                include_disabled=False,
+                check=False,
+                dry_run=False,
+                commit_message="chore: sync templates",
+                update_tag=False,
+            )
+            result = cmd_sync_templates(args)
+            assert result == 0
+            captured = capsys.readouterr()
+            assert "python-repo" in captured.out
+            # Only python-repo should appear, not java-repo
+            assert captured.out.count("[OK]") == 1
+
+    def test_sync_repo_not_found(self, capsys) -> None:
+        """Error when specified repo not found in configs."""
+        from cihub.commands.templates import cmd_sync_templates
+
+        with mock.patch("cihub.commands.templates.get_repo_entries") as m:
+            m.return_value = [
+                {
+                    "full": "owner/existing-repo",
+                    "language": "python",
+                    "dispatch_workflow": "hub-ci.yml",
+                    "default_branch": "main",
+                },
+            ]
+            args = argparse.Namespace(
+                repo=["owner/nonexistent-repo"],
+                include_disabled=False,
+                check=False,
+                dry_run=False,
+                commit_message="chore: sync templates",
+                update_tag=False,
+            )
+            result = cmd_sync_templates(args)
+            assert result == 2
+            captured = capsys.readouterr()
+            assert "not found" in captured.err
+
+    def test_sync_render_error(
+        self,
+        mock_get_repo_entries,
+        capsys,
+    ) -> None:
+        """Handle render error gracefully."""
+        from cihub.commands.templates import cmd_sync_templates
+
+        with mock.patch("cihub.commands.templates.render_dispatch_workflow") as m:
+            m.side_effect = ValueError("Unsupported language")
+            args = argparse.Namespace(
+                repo=None,
+                include_disabled=False,
+                check=False,
+                dry_run=False,
+                commit_message="chore: sync templates",
+                update_tag=False,
+            )
+            result = cmd_sync_templates(args)
+            assert result == 1
+            captured = capsys.readouterr()
+            assert "Error" in captured.err
+
+    def test_sync_deletes_stale_workflows(
+        self,
+        mock_render_dispatch_workflow,
+        mock_fetch_remote_file,
+        mock_update_remote_file,
+        mock_delete_remote_file,
+        capsys,
+    ) -> None:
+        """Delete stale workflows after successful sync to hub-ci.yml."""
+        from cihub.commands.templates import cmd_sync_templates
+
+        with mock.patch("cihub.commands.templates.get_repo_entries") as m:
+            m.return_value = [
+                {
+                    "full": "owner/repo",
+                    "language": "python",
+                    "dispatch_workflow": "hub-ci.yml",
+                    "default_branch": "main",
+                },
+            ]
+            # Main workflow is up to date
+            # Stale workflow exists
+            mock_fetch_remote_file.side_effect = [
+                {"content": "# Generated workflow content"},  # hub-ci.yml
+                {"sha": "stale123"},  # hub-java-ci.yml (stale)
+                None,  # hub-python-ci.yml (not found)
+            ]
+
+            args = argparse.Namespace(
+                repo=None,
+                include_disabled=False,
+                check=False,
+                dry_run=False,
+                commit_message="chore: sync templates",
+                update_tag=False,
+            )
+            result = cmd_sync_templates(args)
+            assert result == 0
+            mock_delete_remote_file.assert_called_once()
+            captured = capsys.readouterr()
+            assert "deleted" in captured.out

@@ -10,14 +10,15 @@ import sys
 import textwrap
 import urllib.error
 import urllib.request
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import yaml
+import defusedxml.ElementTree as ET  # Secure XML parsing (prevents XXE)
 
 from cihub import __version__
+from cihub.config.io import load_yaml_file
+from cihub.config.merge import deep_merge
 
 GIT_REMOTE_RE = re.compile(
     r"(?:github\.com[:/])(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$"
@@ -41,27 +42,6 @@ def hub_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def read_yaml(path: Path) -> dict[str, Any]:
-    if not path.exists():
-        return {}
-    data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    if not isinstance(data, dict):
-        raise ValueError(f"{path} must be a mapping at top level")
-    return data
-
-
-def write_yaml(path: Path, data: dict[str, Any], dry_run: bool) -> None:
-    payload = yaml.safe_dump(
-        data, sort_keys=False, default_flow_style=False, allow_unicode=True
-    )
-    if dry_run:
-        print(f"# Would write: {path}")
-        print(payload)
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(payload, encoding="utf-8")
-
-
 def write_text(path: Path, content: str, dry_run: bool) -> None:
     if dry_run:
         print(f"# Would write: {path}")
@@ -69,23 +49,6 @@ def write_text(path: Path, content: str, dry_run: bool) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
-
-
-def deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
-    result: dict[str, Any] = {}
-    for key in base:
-        if key in override:
-            b, o = base[key], override[key]
-            if isinstance(b, dict) and isinstance(o, dict):
-                result[key] = deep_merge(b, o)
-            else:
-                result[key] = o
-        else:
-            result[key] = base[key]
-    for key in override:
-        if key not in base:
-            result[key] = override[key]
-    return result
 
 
 def detect_language(repo_path: Path) -> tuple[str | None, list[str]]:
@@ -113,9 +76,9 @@ def detect_language(repo_path: Path) -> tuple[str | None, list[str]]:
 
 def load_effective_config(repo_path: Path) -> dict[str, Any]:
     defaults_path = hub_root() / "config" / "defaults.yaml"
-    defaults = read_yaml(defaults_path)
+    defaults = load_yaml_file(defaults_path)
     local_path = repo_path / ".ci-hub.yml"
-    local_config = read_yaml(local_path)
+    local_config = load_yaml_file(local_path)
     merged = deep_merge(defaults, local_config)
     repo_info = merged.get("repo", {})
     if repo_info.get("language"):
@@ -168,11 +131,64 @@ def resolve_executable(name: str) -> str:
     return shutil.which(name) or name
 
 
+def validate_repo_path(repo_path: Path) -> Path:
+    """Validate and canonicalize a repository path.
+
+    Prevents path traversal attacks and ensures the path is a valid directory.
+
+    Args:
+        repo_path: The path to validate.
+
+    Returns:
+        The canonicalized path.
+
+    Raises:
+        ValueError: If the path is invalid or not a directory.
+    """
+    # Resolve to absolute path (handles symlinks)
+    resolved = repo_path.resolve()
+
+    # Ensure it's a directory
+    if not resolved.is_dir():
+        raise ValueError(f"Repository path is not a valid directory: {repo_path}")
+
+    return resolved
+
+
+def validate_subdir(subdir: str) -> str:
+    """Validate a subdirectory path to prevent path traversal.
+
+    Args:
+        subdir: The subdirectory path to validate.
+
+    Returns:
+        The validated subdirectory path.
+
+    Raises:
+        ValueError: If the path contains traversal sequences.
+    """
+    if not subdir:
+        return subdir
+
+    # Normalize the path
+    normalized = Path(subdir).as_posix()
+
+    # Check for path traversal attempts
+    if ".." in normalized.split("/"):
+        raise ValueError(f"Invalid subdirectory (path traversal detected): {subdir}")
+
+    # Ensure it's a relative path
+    if normalized.startswith("/"):
+        raise ValueError(f"Subdirectory must be a relative path: {subdir}")
+
+    return subdir
+
+
 def parse_xml_text(text: str) -> ET.Element:
-    upper = text.upper()
-    if "<!DOCTYPE" in upper or "<!ENTITY" in upper:
-        raise ValueError("XML contains disallowed DTD/ENTITY declarations.")
-    return ET.fromstring(text)  # noqa: S314
+    """Parse XML text securely using defusedxml (prevents XXE attacks)."""
+    if "<!DOCTYPE" in text or "<!ENTITY" in text:
+        raise ValueError("disallowed DTD")
+    return ET.fromstring(text)
 
 
 def parse_xml_file(path: Path) -> ET.Element:
@@ -559,12 +575,14 @@ def parse_repo_from_remote(url: str) -> tuple[str | None, str | None]:
 
 def get_git_remote(repo_path: Path) -> str | None:
     try:
+        # Validate repo path to prevent path traversal
+        validated_path = validate_repo_path(repo_path)
         git_bin = resolve_executable("git")
         output = subprocess.check_output(  # noqa: S603
             [
                 git_bin,
                 "-C",
-                str(repo_path),
+                str(validated_path),
                 "config",
                 "--get",
                 "remote.origin.url",
@@ -573,20 +591,22 @@ def get_git_remote(repo_path: Path) -> str | None:
             text=True,
         )  # noqa: S603
         return output.strip() or None
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
         return None
 
 
 def get_git_branch(repo_path: Path) -> str | None:
     try:
+        # Validate repo path to prevent path traversal
+        validated_path = validate_repo_path(repo_path)
         git_bin = resolve_executable("git")
         output = subprocess.check_output(  # noqa: S603
-            [git_bin, "-C", str(repo_path), "symbolic-ref", "--short", "HEAD"],
+            [git_bin, "-C", str(validated_path), "symbolic-ref", "--short", "HEAD"],
             stderr=subprocess.DEVNULL,
             text=True,
         )  # noqa: S603
         return output.strip() or None
-    except (subprocess.CalledProcessError, FileNotFoundError):
+    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
         return None
 
 
@@ -598,7 +618,7 @@ def build_repo_config(
     subdir: str | None = None,
 ) -> dict[str, Any]:
     template_path = hub_root() / "templates" / "repo" / ".ci-hub.yml"
-    base = read_yaml(template_path)
+    base = load_yaml_file(template_path)
 
     repo_block = base.get("repo", {}) if isinstance(base.get("repo"), dict) else {}
     repo_block["owner"] = owner
@@ -806,7 +826,7 @@ def get_connected_repos(
         if cfg_file.name.endswith(".disabled"):
             continue
         try:
-            data = read_yaml(cfg_file)
+            data = load_yaml_file(cfg_file)
             repo = data.get("repo", {})
             if only_dispatch_enabled and repo.get("dispatch_enabled", True) is False:
                 continue
@@ -837,7 +857,7 @@ def get_repo_entries(
         if cfg_file.name.endswith(".disabled"):
             continue
         try:
-            data = read_yaml(cfg_file)
+            data = load_yaml_file(cfg_file)
             repo = data.get("repo", {})
             if only_dispatch_enabled and repo.get("dispatch_enabled", True) is False:
                 continue
@@ -1184,6 +1204,12 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_false",
         dest="update_tag",
         help="Skip updating v1 tag",
+    )
+    sync_templates.add_argument(
+        "--yes",
+        "-y",
+        action="store_true",
+        help="Skip confirmation prompts (for force-push operations)",
     )
     sync_templates.set_defaults(func=cmd_sync_templates)
 

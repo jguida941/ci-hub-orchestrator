@@ -13,6 +13,7 @@ keywords = ["ci", "cd", "github-actions", "devops", "automation"]
 dependencies = [
     "pyyaml>=6.0",
     "jsonschema>=4.21.0",
+    "defusedxml>=0.7.1",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +28,7 @@ dev = [
     # Type Checking
     "mypy>=1.8.0",
     "types-PyYAML>=6.0",
+    "types-jsonschema>=4.0",
     # Security
     "bandit[toml]>=1.7.9",
     "pip-audit>=2.7.0",
@@ -62,6 +64,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 
 [tool.mutmut]
-paths_to_mutate = "cihub/"
-tests_dir = "tests/"
-runner = "python -m pytest -x --tb=no -q"
+paths_to_mutate = ["cihub/config/merge.py"]
+tests_dir = ["tests/"]
+also_copy = ["cihub/", "scripts/", "config/", "schema/", "templates/", ".github/", "pyproject.toml"]
+mutate_only_covered_lines = true

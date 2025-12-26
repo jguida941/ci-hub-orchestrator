@@ -31,6 +31,7 @@ import time
 import zipfile
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 from urllib import request
 
 import yaml
@@ -54,7 +55,7 @@ class GitHubAPI:
 
     def get(
         self, url: str, retries: int = 3, backoff: float = 2.0, timeout: int = 30
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Make GET request with retry logic."""
         attempt = 0
         while True:
@@ -105,9 +106,9 @@ class GitHubAPI:
             return None
 
 
-def load_dispatch_metadata(dispatch_dir: Path) -> list[dict]:
+def load_dispatch_metadata(dispatch_dir: Path) -> list[dict[str, Any]]:
     """Load all dispatch metadata JSON files."""
-    entries = []
+    entries: list[dict[str, Any]] = []
     for path in dispatch_dir.rglob("*.json"):
         try:
             data = json.loads(path.read_text())
@@ -118,7 +119,7 @@ def load_dispatch_metadata(dispatch_dir: Path) -> list[dict]:
     return entries
 
 
-def create_run_status(entry: dict) -> dict:
+def create_run_status(entry: dict[str, Any]) -> dict[str, Any]:
     """Create initial run status structure from dispatch metadata."""
     repo = entry.get("repo", "unknown/unknown")
     run_id = entry.get("run_id")
@@ -214,7 +215,9 @@ def poll_run_completion(
             return "fetch_failed", "unknown"
 
 
-def extract_metrics_from_report(report_data: dict, run_status: dict) -> None:
+def extract_metrics_from_report(
+    report_data: dict[str, Any], run_status: dict[str, Any]
+) -> None:
     """Extract metrics from report.json into run_status (mutates run_status)."""
     results_data = report_data.get("results", {}) or {}
     tool_metrics = report_data.get("tool_metrics", {}) or {}
@@ -261,7 +264,7 @@ def fetch_and_validate_artifact(
     expected_correlation_id: str,
     workflow: str,
     token: str,
-) -> dict | None:
+) -> dict[str, Any] | None:
     """Fetch ci-report artifact and validate correlation ID.
 
     Returns report_data if valid, None otherwise.
@@ -348,10 +351,10 @@ def fetch_and_validate_artifact(
         return None
 
 
-def aggregate_results(results: list[dict]) -> dict:
+def aggregate_results(results: list[dict[str, Any]]) -> dict[str, Any]:
     """Aggregate metrics across all results."""
 
-    def collect_values(key: str) -> list:
+    def collect_values(key: str) -> list[float]:
         return [r[key] for r in results if isinstance(r.get(key), (int, float))]
 
     # Quality metrics
@@ -378,7 +381,7 @@ def aggregate_results(results: list[dict]) -> dict:
     isort_issues = collect_values("isort_issues")
     mypy_errors = collect_values("mypy_errors")
 
-    aggregated = {}
+    aggregated: dict[str, Any] = {}
 
     if coverages:
         aggregated["coverage_average"] = round(sum(coverages) / len(coverages), 1)
@@ -406,8 +409,8 @@ def aggregate_results(results: list[dict]) -> dict:
 
 
 def generate_summary_markdown(
-    results: list[dict],
-    report: dict,
+    results: list[dict[str, Any]],
+    report: dict[str, Any],
     total_repos: int,
     dispatched: int,
     missing: int,
