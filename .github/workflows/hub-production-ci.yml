@@ -347,7 +347,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: unit-tests
     permissions:
-      contents: read
+      contents: write
     env:
       PYTHON_VERSION: '3.12'
     steps:
@@ -475,6 +475,39 @@ jobs:
             mutants/
             mutmut-run.log
           retention-days: 7
+
+      - name: Update mutation badge
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        run: |
+          SCORE="${{ steps.mutmut.outputs.mutation_score }}"
+          if [ -z "$SCORE" ]; then
+            echo "No mutation score available, skipping badge update"
+            exit 0
+          fi
+
+          # Determine color based on score
+          if [ "$SCORE" -ge 90 ]; then
+            COLOR="brightgreen"
+          elif [ "$SCORE" -ge 80 ]; then
+            COLOR="green"
+          elif [ "$SCORE" -ge 70 ]; then
+            COLOR="yellowgreen"
+          elif [ "$SCORE" -ge 60 ]; then
+            COLOR="yellow"
+          else
+            COLOR="red"
+          fi
+
+          mkdir -p badges
+          cat > badges/mutation.json << EOF
+          {"schemaVersion": 1, "label": "mutation", "message": "${SCORE}%", "color": "${COLOR}"}
+          EOF
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add badges/mutation.json
+          git diff --staged --quiet || git commit -m "chore: update mutation badge [skip ci]"
+          git push
 
   # ============================================================================
   # Stage 3: Security Scanning
