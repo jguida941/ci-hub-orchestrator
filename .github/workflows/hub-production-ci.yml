@@ -293,7 +293,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install -e .
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov pyyaml jsonschema
 
       - name: Run tests with coverage
         run: |
@@ -634,7 +634,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -e .
-          pip install pytest
+          pip install pytest pyyaml jsonschema
 
       - name: Validate templates
         run: python -m pytest tests/test_templates.py -v --tb=short
