@@ -8,7 +8,7 @@ import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from cihub.cli import (
     CommandResult,
@@ -39,9 +39,11 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
     dry_run = args.dry_run or not apply
 
     if json_mode and args.wizard:
+        message = "--wizard is not supported with --json"
         return CommandResult(
             exit_code=2,
-            summary="--wizard is not supported with --json",
+            summary=message,
+            problems=[{"severity": "error", "message": message}],
         )
 
     if force and not apply:
@@ -175,7 +177,47 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
                             status,
                             apply_dependency_fixes(repo_path, effective, apply=True),
                         )
-                    return status
+                    problems = [
+                        {
+                            "severity": "warning",
+                            "message": warning,
+                            "code": "CIHUB-INIT-WARN",
+                            "file": str(config_path),
+                        }
+                        for warning in owner_warnings
+                    ]
+                    problems.extend(pom_warning_problems)
+                    root_path = repo_path / subdir if subdir else repo_path
+                    pom_path = root_path / "pom.xml"
+                    files_modified = [str(pom_path)] if pom_path.exists() else []
+                    summary = "POM fixes applied" if status == 0 else "POM fixes failed"
+                    if status != 0:
+                        problems.append(
+                            {
+                                "severity": "error",
+                                "message": "POM fixes failed",
+                                "code": "CIHUB-POM-APPLY-001",
+                                "file": str(pom_path),
+                            }
+                        )
+                    return CommandResult(
+                        exit_code=status,
+                        summary=summary,
+                        problems=problems,
+                        files_generated=[str(config_path), str(workflow_path)],
+                        files_modified=files_modified,
+                        data={
+                            "language": language,
+                            "owner": owner,
+                            "name": name,
+                            "branch": branch,
+                            "subdir": subdir,
+                            "dry_run": dry_run,
+                            "bootstrap": bootstrap,
+                            "pom_fix_applied": True,
+                            "pom_fix_status": status,
+                        },
+                    )
                 status = apply_pom_fixes(repo_path, effective, apply=True)
                 status = max(
                     status, apply_dependency_fixes(repo_path, effective, apply=True)

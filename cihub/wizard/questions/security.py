@@ -13,7 +13,7 @@ def _prompt_security_tools(base: dict) -> dict:
     trivy_default = base.get("trivy", {}).get("enabled", False)
     codeql_default = base.get("codeql", {}).get("enabled", False)
 
-    semgrep = _check_cancelled(
+    semgrep: bool = _check_cancelled(
         questionary.confirm(
             "Enable semgrep?",
             default=bool(semgrep_default),
@@ -21,7 +21,7 @@ def _prompt_security_tools(base: dict) -> dict:
         ).ask(),
         "Semgrep toggle",
     )
-    trivy = _check_cancelled(
+    trivy: bool = _check_cancelled(
         questionary.confirm(
             "Enable trivy?",
             default=bool(trivy_default),
@@ -29,7 +29,7 @@ def _prompt_security_tools(base: dict) -> dict:
         ).ask(),
         "Trivy toggle",
     )
-    codeql = _check_cancelled(
+    codeql: bool = _check_cancelled(
         questionary.confirm(
             "Enable codeql?",
             default=bool(codeql_default),

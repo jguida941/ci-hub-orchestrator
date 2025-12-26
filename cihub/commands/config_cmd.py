@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from cihub.cli import CommandResult, hub_root
 from cihub.config.io import (
@@ -116,9 +116,11 @@ def cmd_config(args: argparse.Namespace) -> int | CommandResult:
     try:
         if args.subcommand in (None, "edit"):
             if json_mode:
+                message = "config edit is not supported with --json"
                 return CommandResult(
                     exit_code=2,
-                    summary="config edit is not supported with --json",
+                    summary=message,
+                    problems=[{"severity": "error", "message": message}],
                 )
             existing = _load_repo(paths, repo)
             try:

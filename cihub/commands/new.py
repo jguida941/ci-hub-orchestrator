@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from cihub.cli import CommandResult, build_repo_config, hub_root
 from cihub.config.io import (
@@ -47,9 +47,11 @@ def cmd_new(args: argparse.Namespace) -> int | CommandResult:
     json_mode = getattr(args, "json", False)
 
     if json_mode and args.interactive:
+        message = "--interactive is not supported with --json"
         return CommandResult(
             exit_code=2,
-            summary="--interactive is not supported with --json",
+            summary=message,
+            problems=[{"severity": "error", "message": message}],
         )
 
     name = args.name

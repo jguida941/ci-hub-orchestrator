@@ -700,25 +700,25 @@ def resolve_language(repo_path: Path, override: str | None) -> tuple[str, list[s
     return detected, reasons
 
 
-def cmd_detect(args: argparse.Namespace) -> int:
+def cmd_detect(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.detect import cmd_detect as handler
 
     return handler(args)
 
 
-def cmd_init(args: argparse.Namespace) -> int:
+def cmd_init(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.init import cmd_init as handler
 
     return handler(args)
 
 
-def cmd_update(args: argparse.Namespace) -> int:
+def cmd_update(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.update import cmd_update as handler
 
     return handler(args)
 
 
-def cmd_validate(args: argparse.Namespace) -> int:
+def cmd_validate(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.validate import cmd_validate as handler
 
     return handler(args)
@@ -831,13 +831,13 @@ def apply_dependency_fixes(repo_path: Path, config: dict[str, Any], apply: bool)
     return 0
 
 
-def cmd_fix_pom(args: argparse.Namespace) -> int:
+def cmd_fix_pom(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.pom import cmd_fix_pom as handler
 
     return handler(args)
 
 
-def cmd_fix_deps(args: argparse.Namespace) -> int:
+def cmd_fix_deps(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.pom import cmd_fix_deps as handler
 
     return handler(args)
@@ -1009,31 +1009,31 @@ def delete_remote_file(
     gh_api_json(f"/repos/{repo}/contents/{path}", method="DELETE", payload=payload)
 
 
-def cmd_setup_secrets(args: argparse.Namespace) -> int:
+def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.secrets import cmd_setup_secrets as handler
 
     return handler(args)
 
 
-def cmd_setup_nvd(args: argparse.Namespace) -> int:
+def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.secrets import cmd_setup_nvd as handler
 
     return handler(args)
 
 
-def cmd_sync_templates(args: argparse.Namespace) -> int:
+def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.templates import cmd_sync_templates as handler
 
     return handler(args)
 
 
-def cmd_new(args: argparse.Namespace) -> int:
+def cmd_new(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.new import cmd_new as handler
 
     return handler(args)
 
 
-def cmd_config(args: argparse.Namespace) -> int:
+def cmd_config(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.config_cmd import cmd_config as handler
 
     return handler(args)

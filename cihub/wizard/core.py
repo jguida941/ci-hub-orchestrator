@@ -40,7 +40,7 @@ class WizardRunner:
 
     def _prompt_repo(self, name: str | None, base: dict) -> dict:
         repo_defaults = base.get("repo", {})
-        owner = _check_cancelled(
+        owner: str = _check_cancelled(
             questionary.text(
                 "Repo owner (org/user):",
                 default=repo_defaults.get("owner", ""),
@@ -48,7 +48,7 @@ class WizardRunner:
             ).ask(),
             "Repo owner",
         )
-        repo_name = _check_cancelled(
+        repo_name: str = _check_cancelled(
             questionary.text(
                 "Repo name:",
                 default=name or repo_defaults.get("name", ""),
@@ -57,7 +57,7 @@ class WizardRunner:
             ).ask(),
             "Repo name",
         )
-        use_central_runner = _check_cancelled(
+        use_central_runner: bool = _check_cancelled(
             questionary.confirm(
                 "Use central runner?",
                 default=bool(repo_defaults.get("use_central_runner", True)),
@@ -65,7 +65,7 @@ class WizardRunner:
             ).ask(),
             "Central runner prompt",
         )
-        repo_side_execution = _check_cancelled(
+        repo_side_execution: bool = _check_cancelled(
             questionary.confirm(
                 "Enable repo-side execution (writes workflows)?",
                 default=bool(repo_defaults.get("repo_side_execution", False)),

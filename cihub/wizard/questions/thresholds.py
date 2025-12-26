@@ -21,7 +21,7 @@ def configure_thresholds(defaults: dict) -> dict:
         Thresholds dict.
     """
     thresholds = deepcopy(defaults.get("thresholds", {}))
-    coverage_min = _check_cancelled(
+    coverage_min: str = _check_cancelled(
         questionary.text(
             "Minimum coverage (%):",
             default=str(thresholds.get("coverage_min", 70)),
@@ -30,7 +30,7 @@ def configure_thresholds(defaults: dict) -> dict:
         ).ask(),
         "Coverage threshold",
     )
-    mutation_min = _check_cancelled(
+    mutation_min: str = _check_cancelled(
         questionary.text(
             "Minimum mutation score (%):",
             default=str(thresholds.get("mutation_score_min", 70)),

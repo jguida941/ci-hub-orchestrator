@@ -40,7 +40,7 @@ def configure_python_tools(defaults: dict) -> dict:
         if tool not in tools:
             continue
         enabled = tools[tool].get("enabled", False)
-        answer = _check_cancelled(
+        answer: bool = _check_cancelled(
             questionary.confirm(
                 f"Enable {tool}?",
                 default=bool(enabled),

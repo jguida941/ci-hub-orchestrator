@@ -8,7 +8,7 @@ import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from cihub.cli import (
     CommandResult,
@@ -33,6 +33,7 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
     apply = getattr(args, "apply", False)
     force = getattr(args, "force", False)
     dry_run = args.dry_run or not apply
+    pom_fix_status: int | None = None
 
     if force and not apply:
         message = "--force requires --apply"
@@ -144,8 +145,12 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
             if args.fix_pom:
                 if json_mode:
                     with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                        apply_pom_fixes(repo_path, effective, apply=True)
-                        apply_dependency_fixes(repo_path, effective, apply=True)
+                        status = apply_pom_fixes(repo_path, effective, apply=True)
+                        status = max(
+                            status,
+                            apply_dependency_fixes(repo_path, effective, apply=True),
+                        )
+                    pom_fix_status = status
                 else:
                     apply_pom_fixes(repo_path, effective, apply=True)
                     apply_dependency_fixes(repo_path, effective, apply=True)
@@ -164,19 +169,45 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
             for warning in owner_warnings
         ]
         problems.extend(pom_warning_problems)
+        exit_code = 0
+        files_modified = [str(config_path), str(workflow_path)]
+        data = {
+            "language": language,
+            "owner": owner,
+            "name": name,
+            "branch": branch,
+            "subdir": subdir or "",
+            "dry_run": dry_run,
+            "bootstrap": bootstrap,
+        }
+        if pom_fix_status is not None:
+            exit_code = max(exit_code, pom_fix_status)
+            data["pom_fix_applied"] = True
+            data["pom_fix_status"] = pom_fix_status
+            if not dry_run:
+                summary = (
+                    "Update complete; POM fixes applied"
+                    if pom_fix_status == 0
+                    else "Update complete; POM fixes failed"
+                )
+            root_path = repo_path / subdir if subdir else repo_path
+            pom_path = root_path / "pom.xml"
+            if pom_path.exists():
+                files_modified.append(str(pom_path))
+            if pom_fix_status != 0:
+                problems.append(
+                    {
+                        "severity": "error",
+                        "message": "POM fixes failed",
+                        "code": "CIHUB-POM-APPLY-001",
+                        "file": str(pom_path),
+                    }
+                )
         return CommandResult(
-            exit_code=0,
+            exit_code=exit_code,
             summary=summary,
             problems=problems,
-            files_modified=[str(config_path), str(workflow_path)],
-            data={
-                "language": language,
-                "owner": owner,
-                "name": name,
-                "branch": branch,
-                "subdir": subdir or "",
-                "dry_run": dry_run,
-                "bootstrap": bootstrap,
-            },
+            files_modified=files_modified,
+            data=data,
         )
     return 0
