@@ -1,9 +1,12 @@
 # CI/CD Hub
 
-[![Hub Production CI](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml/badge.svg)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
+[![GitHub Actions](https://img.shields.io/badge/github%20actions-%232671E5.svg?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
+[![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)](https://github.com/jguida941/ci-cd-hub)
+[![Java](https://img.shields.io/badge/java-%23ED8B00.svg?style=for-the-badge&logo=openjdk&logoColor=white)](https://github.com/jguida941/ci-cd-hub)
 [![codecov](https://codecov.io/gh/jguida941/ci-cd-hub/graph/badge.svg)](https://codecov.io/gh/jguida941/ci-cd-hub)
 [![mutmut](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/mutmut.json)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/ruff.json)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
+[![black](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/black.json&logo=python&logoColor=white)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![bandit](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/bandit.json)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![pip-audit](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/pip-audit.json)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![zizmor](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/zizmor.json)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)

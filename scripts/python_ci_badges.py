@@ -14,6 +14,7 @@ Environment variables:
     MUTATION_SCORE=XX       Mutation score percentage (from CI)
     RUFF_ISSUES=XX          Ruff issue count (from CI)
     MYPY_ERRORS=XX          Mypy error count (from CI)
+    BLACK_STATUS=clean|failed  Black formatter status (from CI)
     ZIZMOR_SARIF=path       Optional path to zizmor SARIF file
 """
 
@@ -229,6 +230,14 @@ def main() -> int:
             badges["zizmor.json"] = status_badge("zizmor", "failed", "red")
         else:
             badges["zizmor.json"] = status_badge("zizmor", "clean", "brightgreen")
+
+    # Black formatter (from env var set by CI: 0=clean, non-zero=failed)
+    black_status = os.environ.get("BLACK_STATUS")
+    if black_status is not None:
+        if black_status.lower() in {"clean", "0", "pass", "passed"}:
+            badges["black.json"] = status_badge("black", "clean", "brightgreen")
+        else:
+            badges["black.json"] = status_badge("black", "failed", "red")
 
     if not badges:
         print("[WARN] No metrics found to generate badges")
