@@ -17,7 +17,7 @@ The hub now uses a thin caller workflow (`hub-ci.yml`) that invokes the reusable
 1. **Generate caller + config in the target repo:**
    ```bash
    cd /path/to/your-repo
-   python -m cihub init --repo .
+   python -m cihub init --repo . --apply
    ```
    This creates:
    - `.ci-hub.yml`

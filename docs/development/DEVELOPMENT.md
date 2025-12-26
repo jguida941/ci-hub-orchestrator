@@ -49,8 +49,8 @@ The CLI manages configs, initializes repos, and syncs templates.
 | Command    | Purpose                           | Example                                            |
 |------------|-----------------------------------|----------------------------------------------------|
 | `detect`   | Auto-detect repo language         | `cihub detect --repo . --explain`                  |
-| `init`     | Generate .ci-hub.yml + hub-ci.yml | `cihub init --repo . --language python`            |
-| `update`   | Refresh existing configs          | `cihub update --repo . --fix-pom`                  |
+| `init`     | Generate .ci-hub.yml + hub-ci.yml | `cihub init --repo . --language python --apply`            |
+| `update`   | Refresh existing configs          | `cihub update --repo . --fix-pom --apply`                  |
 | `validate` | Check config against schema       | `cihub validate --repo . --strict`                 |
 | `new`      | Create hub-side repo config       | `cihub new my-repo --language java --profile fast` |
 | `config`   | Manage repo configs               | `cihub config --repo my-repo show --effective`     |
@@ -265,7 +265,7 @@ cihub sync-templates --check               # Check for drift
 cihub sync-templates --repo owner/name     # Sync specific repo
 
 # === SETUP ===
-cihub init --repo . --language python      # Initialize a repo
+cihub init --repo . --language python --apply      # Initialize a repo
 cihub setup-secrets --all --verify         # Setup dispatch token
 ```
 

@@ -58,7 +58,8 @@ python -m cihub init \
   --owner fixtures \
   --name java-maven-pass \
   --branch main \
-  --subdir java-maven-pass
+  --subdir java-maven-pass \
+  --apply
 
 # Update config/workflow
 python -m cihub update \
@@ -67,7 +68,9 @@ python -m cihub update \
   --owner fixtures \
   --name java-maven-pass \
   --branch main \
-  --subdir java-maven-pass
+  --subdir java-maven-pass \
+  --apply \
+  --force
 
 # Validate config
 python -m cihub validate --repo "$WORKDIR/java-maven-pass"
@@ -87,7 +90,7 @@ python -m cihub validate --repo "$WORKDIR/java-maven-pass"
 
 If you want to validate repo-side execution:
 
-1. Run `cihub init` or `cihub update` against the fixture.
+1. Run `cihub init --apply` or `cihub update --apply --force` against the fixture.
 2. Confirm `.github/workflows/hub-ci.yml` was generated.
 3. Trigger the workflow in the fixture repo (GitHub Actions UI) and verify tool
    outputs and artifacts match `docs/reference/TOOLS.md`.

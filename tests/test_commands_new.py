@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+# isort: skip_file
+
 import argparse
 import sys
 from pathlib import Path
@@ -13,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from cihub.commands.new import (  # noqa: E402
+from cihub.commands.new import (  # isort: skip # noqa: E402
     _apply_repo_defaults,
     _validate_profile_language,
     cmd_new,
@@ -288,9 +290,7 @@ class TestCmdNew:
         """Applies profile settings when profile is provided."""
         # Create a profile file in templates/profiles (where PathConfig expects it)
         profile_file = Path(hub_paths.root) / "templates" / "profiles" / "strict.yaml"
-        profile_file.write_text(
-            "python:\n  tools:\n    ruff:\n      enabled: true\n"
-        )
+        profile_file.write_text("python:\n  tools:\n    ruff:\n      enabled: true\n")
         base_args.profile = "strict"
 
         with mock.patch("cihub.commands.new.hub_root") as mock_hub_root:
@@ -321,7 +321,9 @@ class TestCmdNew:
     ) -> None:
         """Fails when profile language doesn't match specified language."""
         # Create a Java-only profile in templates/profiles
-        profile_file = Path(hub_paths.root) / "templates" / "profiles" / "java-only.yaml"
+        profile_file = (
+            Path(hub_paths.root) / "templates" / "profiles" / "java-only.yaml"
+        )
         profile_file.write_text("java:\n  tools:\n    jacoco:\n      enabled: true\n")
         base_args.profile = "java-only"
         base_args.language = "python"  # Mismatch!

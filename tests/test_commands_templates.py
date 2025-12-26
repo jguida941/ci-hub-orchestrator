@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+# isort: skip_file
+
 import argparse
 import sys
 from pathlib import Path
@@ -13,13 +15,29 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from cihub.cli import CommandResult  # noqa: E402
+from cihub.cli import CommandResult  # isort: skip # noqa: E402
 from cihub.commands.templates import cmd_sync_templates  # noqa: E402
 
 
 # =============================================================================
 # Helper Fixtures
 # =============================================================================
+
+
+def make_repo_entry(
+    *,
+    full: str = "owner/repo",
+    language: str = "python",
+    dispatch_workflow: str = "hub-ci.yml",
+    default_branch: str = "main",
+) -> dict[str, str]:
+    """Build a repo entry dict for template sync tests."""
+    return {
+        "full": full,
+        "language": language,
+        "dispatch_workflow": dispatch_workflow,
+        "default_branch": default_branch,
+    }
 
 
 @pytest.fixture
@@ -78,7 +96,9 @@ class TestSyncTemplatesNoRepos:
 class TestSyncTemplatesRepoNotFound:
     """Tests for cmd_sync_templates when specified repo not found."""
 
-    def test_repo_not_found_returns_error(self, base_args: argparse.Namespace, capsys) -> None:
+    def test_repo_not_found_returns_error(
+        self, base_args: argparse.Namespace, capsys
+    ) -> None:
         """Returns error when specified repo not in config."""
         base_args.repo = ["owner/nonexistent"]
 
@@ -119,13 +139,15 @@ class TestSyncTemplatesRepoNotFound:
 class TestSyncTemplatesRenderError:
     """Tests for cmd_sync_templates when workflow rendering fails."""
 
-    def test_render_error_continues(self, base_args: argparse.Namespace, capsys) -> None:
+    def test_render_error_continues(
+        self, base_args: argparse.Namespace, capsys
+    ) -> None:
         """Continues processing other repos when one fails to render."""
         with mock.patch(
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo1", "language": "invalid", "dispatch_workflow": "hub-ci.yml"},
+                make_repo_entry(full="owner/repo1", language="invalid"),
             ]
 
             with mock.patch(
@@ -155,7 +177,7 @@ class TestSyncTemplatesUpToDate:
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "hub-ci.yml", "default_branch": "main"},
+                make_repo_entry(),
             ]
 
             with mock.patch(
@@ -166,7 +188,10 @@ class TestSyncTemplatesUpToDate:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
-                    mock_fetch.return_value = {"content": "name: CI\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI\n",
+                        "sha": "abc123",
+                    }
 
                     result = cmd_sync_templates(base_args)
                     assert result == 0
@@ -193,7 +218,7 @@ class TestSyncTemplatesCheckMode:
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "hub-ci.yml", "default_branch": "main"},
+                make_repo_entry(),
             ]
 
             with mock.patch(
@@ -204,7 +229,10 @@ class TestSyncTemplatesCheckMode:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
-                    mock_fetch.return_value = {"content": "name: CI v1\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI v1\n",
+                        "sha": "abc123",
+                    }
 
                     result = cmd_sync_templates(base_args)
                     assert result == 1
@@ -222,7 +250,7 @@ class TestSyncTemplatesCheckMode:
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "hub-ci.yml", "default_branch": "main"},
+                make_repo_entry(),
             ]
 
             with mock.patch(
@@ -268,7 +296,7 @@ class TestSyncTemplatesDryRun:
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "hub-ci.yml", "default_branch": "main"},
+                make_repo_entry(),
             ]
 
             with mock.patch(
@@ -279,7 +307,10 @@ class TestSyncTemplatesDryRun:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
-                    mock_fetch.return_value = {"content": "name: CI v1\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI v1\n",
+                        "sha": "abc123",
+                    }
 
                     with mock.patch(
                         "cihub.commands.templates.update_remote_file"
@@ -306,7 +337,7 @@ class TestSyncTemplatesUpdate:
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "hub-ci.yml", "default_branch": "main"},
+                make_repo_entry(),
             ]
 
             with mock.patch(
@@ -317,7 +348,10 @@ class TestSyncTemplatesUpdate:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
-                    mock_fetch.return_value = {"content": "name: CI v1\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI v1\n",
+                        "sha": "abc123",
+                    }
 
                     with mock.patch(
                         "cihub.commands.templates.update_remote_file"
@@ -335,7 +369,7 @@ class TestSyncTemplatesUpdate:
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "hub-ci.yml", "default_branch": "main"},
+                make_repo_entry(),
             ]
 
             with mock.patch(
@@ -346,7 +380,10 @@ class TestSyncTemplatesUpdate:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
-                    mock_fetch.return_value = {"content": "name: CI v1\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI v1\n",
+                        "sha": "abc123",
+                    }
 
                     with mock.patch(
                         "cihub.commands.templates.update_remote_file"
@@ -368,13 +405,15 @@ class TestSyncTemplatesUpdate:
 class TestSyncTemplatesStaleCleanup:
     """Tests for stale workflow cleanup."""
 
-    def test_deletes_stale_workflows(self, base_args: argparse.Namespace, capsys) -> None:
+    def test_deletes_stale_workflows(
+        self, base_args: argparse.Namespace, capsys
+    ) -> None:
         """Deletes stale workflows after successful sync."""
         with mock.patch(
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "hub-ci.yml", "default_branch": "main"},
+                make_repo_entry(),
             ]
 
             with mock.patch(
@@ -385,6 +424,7 @@ class TestSyncTemplatesStaleCleanup:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
+
                     def fetch_side_effect(repo, path, branch):
                         if "hub-ci.yml" in path:
                             return {"content": "name: CI\n", "sha": "abc123"}
@@ -400,7 +440,9 @@ class TestSyncTemplatesStaleCleanup:
                         result = cmd_sync_templates(base_args)
                         assert result == 0
                         captured = capsys.readouterr()
-                        assert "deleted" in captured.out.lower() or "[OK]" in captured.out
+                        assert (
+                            "deleted" in captured.out.lower() or "[OK]" in captured.out
+                        )
                         mock_delete.assert_called()
 
     def test_stale_delete_failure(self, base_args: argparse.Namespace, capsys) -> None:
@@ -409,7 +451,7 @@ class TestSyncTemplatesStaleCleanup:
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "hub-ci.yml", "default_branch": "main"},
+                make_repo_entry(),
             ]
 
             with mock.patch(
@@ -420,6 +462,7 @@ class TestSyncTemplatesStaleCleanup:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
+
                     def fetch_side_effect(repo, path, branch):
                         if "hub-ci.yml" in path:
                             return {"content": "name: CI\n", "sha": "abc123"}
@@ -434,10 +477,13 @@ class TestSyncTemplatesStaleCleanup:
                     ) as mock_delete:
                         mock_delete.side_effect = RuntimeError("Delete failed")
 
-                        result = cmd_sync_templates(base_args)
+                        cmd_sync_templates(base_args)
                         # Should still succeed (deletion failure is a warning)
                         captured = capsys.readouterr()
-                        assert "delete failed" in captured.err.lower() or "[WARN]" in captured.err
+                        assert (
+                            "delete failed" in captured.err.lower()
+                            or "[WARN]" in captured.err
+                        )
 
 
 # =============================================================================
@@ -456,7 +502,7 @@ class TestSyncTemplatesJsonMode:
             "cihub.commands.templates.get_repo_entries"
         ) as mock_get_entries:
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "hub-ci.yml", "default_branch": "main"},
+                make_repo_entry(),
             ]
 
             with mock.patch(
@@ -467,7 +513,10 @@ class TestSyncTemplatesJsonMode:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
-                    mock_fetch.return_value = {"content": "name: CI\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI\n",
+                        "sha": "abc123",
+                    }
 
                     result = cmd_sync_templates(base_args)
                     assert isinstance(result, CommandResult)
@@ -486,7 +535,7 @@ class TestSyncTemplatesJsonMode:
         ) as mock_get_entries:
             # Use custom dispatch_workflow to avoid stale workflow checks
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "custom-ci.yml", "default_branch": "main"},
+                make_repo_entry(dispatch_workflow="custom-ci.yml"),
             ]
 
             with mock.patch(
@@ -497,7 +546,10 @@ class TestSyncTemplatesJsonMode:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
-                    mock_fetch.return_value = {"content": "name: CI v1\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI v1\n",
+                        "sha": "abc123",
+                    }
 
                     result = cmd_sync_templates(base_args)
                     assert isinstance(result, CommandResult)
@@ -524,7 +576,7 @@ class TestSyncTemplatesTagUpdate:
         ) as mock_get_entries:
             # Need at least one repo so function doesn't return early
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "custom-ci.yml", "default_branch": "main"},
+                make_repo_entry(dispatch_workflow="custom-ci.yml"),
             ]
 
             with mock.patch(
@@ -536,7 +588,10 @@ class TestSyncTemplatesTagUpdate:
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
                     # Workflow is up to date
-                    mock_fetch.return_value = {"content": "name: CI\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI\n",
+                        "sha": "abc123",
+                    }
 
                     result = cmd_sync_templates(base_args)
                     assert result == 0
@@ -556,7 +611,7 @@ class TestSyncTemplatesTagUpdate:
         ) as mock_get_entries:
             # Need at least one repo so function doesn't return early
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "custom-ci.yml", "default_branch": "main"},
+                make_repo_entry(dispatch_workflow="custom-ci.yml"),
             ]
 
             with mock.patch(
@@ -567,7 +622,10 @@ class TestSyncTemplatesTagUpdate:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
-                    mock_fetch.return_value = {"content": "name: CI\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI\n",
+                        "sha": "abc123",
+                    }
 
                     with mock.patch(
                         "cihub.commands.templates.resolve_executable"
@@ -578,13 +636,16 @@ class TestSyncTemplatesTagUpdate:
                             # HEAD and v1 return different SHAs (triggers confirmation)
                             mock_run.side_effect = [
                                 mock.Mock(stdout="head123\n", returncode=0),  # HEAD
-                                mock.Mock(stdout="v1old\n", returncode=0),    # v1
+                                mock.Mock(stdout="v1old\n", returncode=0),  # v1
                             ]
 
                             result = cmd_sync_templates(base_args)
                             assert isinstance(result, CommandResult)
                             assert result.exit_code == 2
-                            assert "confirmation" in result.summary.lower() or "--yes" in result.summary
+                            assert (
+                                "confirmation" in result.summary.lower()
+                                or "--yes" in result.summary
+                            )
 
     def test_tag_already_at_head(self, base_args: argparse.Namespace, capsys) -> None:
         """Tag update skipped when already at HEAD."""
@@ -596,7 +657,7 @@ class TestSyncTemplatesTagUpdate:
         ) as mock_get_entries:
             # Need at least one repo so function doesn't return early
             mock_get_entries.return_value = [
-                {"full": "owner/repo", "language": "python", "dispatch_workflow": "custom-ci.yml", "default_branch": "main"},
+                make_repo_entry(dispatch_workflow="custom-ci.yml"),
             ]
 
             with mock.patch(
@@ -607,7 +668,10 @@ class TestSyncTemplatesTagUpdate:
                 with mock.patch(
                     "cihub.commands.templates.fetch_remote_file"
                 ) as mock_fetch:
-                    mock_fetch.return_value = {"content": "name: CI\n", "sha": "abc123"}
+                    mock_fetch.return_value = {
+                        "content": "name: CI\n",
+                        "sha": "abc123",
+                    }
 
                     with mock.patch(
                         "cihub.commands.templates.resolve_executable"

@@ -298,6 +298,8 @@ class TestCmdInit:
             subdir="",
             wizard=False,
             dry_run=False,
+            apply=True,
+            force=False,
             fix_pom=False,
         )
         result = cmd_init(args)
@@ -321,6 +323,8 @@ class TestCmdInit:
             subdir="",
             wizard=False,
             dry_run=False,
+            apply=True,
+            force=False,
             fix_pom=False,
         )
         result = cmd_init(args)
@@ -342,6 +346,8 @@ class TestCmdInit:
             subdir="",
             wizard=False,
             dry_run=True,
+            apply=False,
+            force=False,
             fix_pom=False,
         )
         result = cmd_init(args)
@@ -367,6 +373,8 @@ class TestCmdInit:
             subdir=subdir,
             wizard=False,
             dry_run=False,
+            apply=True,
+            force=False,
             fix_pom=False,
         )
         result = cmd_init(args)
@@ -390,6 +398,8 @@ class TestCmdInit:
             subdir="",
             wizard=False,
             dry_run=False,
+            apply=True,
+            force=False,
             fix_pom=False,
         )
         result = cmd_init(args)
@@ -421,6 +431,8 @@ class TestCmdUpdate:
             branch="main",
             subdir="",
             dry_run=False,
+            apply=True,
+            force=False,
             fix_pom=False,
         )
         result = cmd_update(args)
@@ -462,6 +474,8 @@ java:
             branch=None,
             subdir="",
             dry_run=False,
+            apply=True,
+            force=False,
             fix_pom=False,
         )
         result = cmd_update(args)
@@ -502,6 +516,8 @@ java:
             branch=None,
             subdir="",
             dry_run=True,
+            apply=False,
+            force=False,
             fix_pom=False,
         )
         result = cmd_update(args)

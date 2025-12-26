@@ -77,6 +77,7 @@ def test_cli_init_fix_pom_inserts_plugins(tmp_path: Path) -> None:
             "main",
             "--subdir",
             "java-passing",
+            "--apply",
             "--fix-pom",
         ]
     )
@@ -108,6 +109,8 @@ def test_cli_update_fix_pom_inserts_plugins(tmp_path: Path) -> None:
             "main",
             "--subdir",
             "java-passing",
+            "--apply",
+            "--force",
             "--fix-pom",
         ]
     )

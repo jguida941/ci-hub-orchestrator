@@ -5,14 +5,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from cihub.diagnostics.models import Diagnostic, DiagnosticSeverity  # noqa: E402
 from cihub.diagnostics.renderer import format_console, format_editor  # noqa: E402
+
+TEST_FILE = Path("/tmp/test.py")  # noqa: S108
 
 
 class TestDiagnosticSeverity:
@@ -51,7 +51,7 @@ class TestDiagnostic:
         diag = Diagnostic(
             message="Test error",
             severity=DiagnosticSeverity.WARNING,
-            file=Path("/tmp/test.py"),
+            file=TEST_FILE,
             line=10,
             column=5,
             end_line=12,
@@ -62,7 +62,7 @@ class TestDiagnostic:
         )
         assert diag.message == "Test error"
         assert diag.severity == DiagnosticSeverity.WARNING
-        assert diag.file == Path("/tmp/test.py")
+        assert diag.file == TEST_FILE
         assert diag.line == 10
         assert diag.column == 5
         assert diag.end_line == 12
@@ -85,7 +85,7 @@ class TestDiagnostic:
         diag = Diagnostic(
             message="Test error",
             severity=DiagnosticSeverity.WARNING,
-            file=Path("/tmp/test.py"),
+            file=TEST_FILE,
             line=10,
             column=5,
             end_line=12,
@@ -97,7 +97,7 @@ class TestDiagnostic:
         result = diag.to_dict()
         assert result["message"] == "Test error"
         assert result["severity"] == "warning"
-        assert result["file"] == "/tmp/test.py"
+        assert result["file"] == str(TEST_FILE)
         assert result["line"] == 10
         assert result["column"] == 5
         assert result["end_line"] == 12
@@ -119,7 +119,7 @@ class TestDiagnostic:
         data = {
             "message": "Test error",
             "severity": "warning",
-            "file": "/tmp/test.py",
+            "file": str(TEST_FILE),
             "line": 10,
             "column": 5,
             "end_line": 12,
@@ -131,7 +131,7 @@ class TestDiagnostic:
         diag = Diagnostic.from_dict(data)
         assert diag.message == "Test error"
         assert diag.severity == DiagnosticSeverity.WARNING
-        assert diag.file == Path("/tmp/test.py")
+        assert diag.file == TEST_FILE
         assert diag.line == 10
         assert diag.column == 5
         assert diag.end_line == 12
@@ -145,7 +145,7 @@ class TestDiagnostic:
         original = Diagnostic(
             message="Test error",
             severity=DiagnosticSeverity.INFO,
-            file=Path("/tmp/test.py"),
+            file=TEST_FILE,
             line=10,
             column=5,
             code="E001",
@@ -196,23 +196,23 @@ class TestFormatConsole:
         """Format diagnostic with file and line info."""
         diag = Diagnostic(
             message="Test error",
-            file=Path("/tmp/test.py"),
+            file=TEST_FILE,
             line=10,
         )
         result = format_console([diag])
-        assert "/tmp/test.py:10" in result
+        assert f"{TEST_FILE}:10" in result
         assert "Test error" in result
 
     def test_diagnostic_with_file_line_column(self) -> None:
         """Format diagnostic with file, line, and column."""
         diag = Diagnostic(
             message="Test error",
-            file=Path("/tmp/test.py"),
+            file=TEST_FILE,
             line=10,
             column=5,
         )
         result = format_console([diag])
-        assert "/tmp/test.py:10:5" in result
+        assert f"{TEST_FILE}:10:5" in result
 
     def test_diagnostic_with_code(self) -> None:
         """Format diagnostic with error code."""
@@ -279,9 +279,9 @@ class TestFormatEditor:
 
     def test_file_becomes_uri(self) -> None:
         """File path becomes file:// URI."""
-        diag = Diagnostic(message="Test", file=Path("/tmp/test.py"))
+        diag = Diagnostic(message="Test", file=TEST_FILE)
         result = format_editor([diag])
-        assert result[0]["uri"] == "file:///tmp/test.py"
+        assert result[0]["uri"] == f"file://{TEST_FILE}"
 
     def test_line_number_conversion(self) -> None:
         """Line numbers convert from 1-based to 0-based."""

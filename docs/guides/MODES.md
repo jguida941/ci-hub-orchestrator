@@ -131,7 +131,7 @@ The hub dispatches `workflow_dispatch` events to each target repo, triggering th
 
 3. **Target Repos:**
    - Must have a workflow file with `workflow_dispatch` trigger that accepts hub inputs
-   - **Option A (Recommended):** Use `python -m cihub init --repo .` to generate `.ci-hub.yml` + `.github/workflows/hub-ci.yml`
+   - **Option A (Recommended):** Use `python -m cihub init --repo . --apply` to generate `.ci-hub.yml` + `.github/workflows/hub-ci.yml`
    - **Option B:** Create your own workflow calling hub's reusable workflows
    - Workflow must produce `ci-report` artifact for aggregation
    - Configure workflow filename via `repo.dispatch_workflow` (default when using CLI: `hub-ci.yml`)
@@ -168,7 +168,7 @@ Distributed mode uses the same reusable workflows as central mode and supports t
    **Option A (Recommended):** Generate with the CLI:
    ```bash
    cd /path/to/repo
-   python -m cihub init --repo .
+   python -m cihub init --repo . --apply
    git add .ci-hub.yml .github/workflows/hub-ci.yml
    git commit -m "Add hub CI caller"
    git push

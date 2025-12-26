@@ -24,7 +24,7 @@ gh workflow run hub-run-all.yml -R jguida941/ci-cd-hub -f run_group=fixtures
    ```
 3) In each target repo:
    ```bash
-   python -m cihub init --repo .
+   python -m cihub init --repo . --apply
    ```
 4) Set `dispatch_enabled: true` in `config/repos/<repo>.yaml`.
 

@@ -9,6 +9,7 @@ repo is not modified.
 from __future__ import annotations
 
 import argparse
+import json
 import shutil
 import subprocess
 import sys
@@ -95,16 +96,31 @@ def run_fixture(fixtures_path: Path, fixture: FixtureCase) -> None:
 
         # Run detect and verify it matches expected language
         detect_output = run(
-            [sys.executable, "-m", "cihub", "detect", "--repo", str(subdir_path)],
+            [
+                sys.executable,
+                "-m",
+                "cihub",
+                "detect",
+                "--repo",
+                str(subdir_path),
+                "--json",
+            ],
             cwd=subdir_path,
             capture=True,
         )
-        # cihub detect outputs "Detected language: <lang>" or similar
-        if fixture.language not in detect_output.lower():
+        try:
+            payload = json.loads(detect_output)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"cihub detect did not return JSON: {exc}") from exc
+        detected = (
+            payload.get("data", {}).get("language")
+            if isinstance(payload.get("data"), dict)
+            else None
+        ) or payload.get("language")
+        if detected != fixture.language:
             raise ValueError(
                 f"Language mismatch for {fixture.name}: "
-                f"expected '{fixture.language}' in detect output, "
-                f"got: {detect_output.strip()}"
+                f"expected '{fixture.language}', got: {detected}"
             )
         run(
             [
@@ -124,6 +140,7 @@ def run_fixture(fixtures_path: Path, fixture: FixtureCase) -> None:
                 "main",
                 "--subdir",
                 fixture.subdir,
+                "--apply",
             ],
             cwd=repo_root,
         )
@@ -145,6 +162,8 @@ def run_fixture(fixtures_path: Path, fixture: FixtureCase) -> None:
                 "main",
                 "--subdir",
                 fixture.subdir,
+                "--apply",
+                "--force",
             ],
             cwd=repo_root,
         )

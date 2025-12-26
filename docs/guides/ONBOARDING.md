@@ -62,7 +62,7 @@ Use this if your repo needs its own runners, secrets, or you prefer repo-control
 Generate the caller workflow and repo-local config:
 ```bash
 cd /path/to/your-repo
-python -m cihub init --repo .
+python -m cihub init --repo . --apply
 git add .ci-hub.yml .github/workflows/hub-ci.yml
 git commit -m "Add hub CI caller"
 git push

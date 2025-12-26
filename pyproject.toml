@@ -63,8 +63,30 @@ ignore = ["S101"]  # Allow assert in tests
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 
+[tool.coverage.run]
+source = ["cihub", "scripts"]
+omit = [
+    "scripts/run_aggregation.py",
+    "scripts/debug_orchestrator.py",
+    "scripts/check_quarantine_imports.py",
+    "scripts/run_cli_integration.py",
+    "scripts/validate_summary.py",
+    "scripts/verify_hub_matrix_keys.py",
+    "cihub/wizard/*",
+    "cihub/__main__.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
 [tool.mutmut]
-paths_to_mutate = ["cihub/"]
+paths_to_mutate = [
+    "cihub/wizard/validators.py",
+]
 tests_dir = ["tests/"]
 also_copy = ["cihub/", "scripts/", "config/", "schema/", "templates/", ".github/", "pyproject.toml"]
 mutate_only_covered_lines = true

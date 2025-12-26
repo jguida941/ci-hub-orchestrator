@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from cihub.cli import (
+    CommandResult,
     collect_java_dependency_warnings,
     collect_java_pom_warnings,
     hub_root,
@@ -17,32 +18,85 @@ from cihub.config.paths import PathConfig
 from cihub.config.schema import validate_config as validate_config_schema
 
 
-def cmd_validate(args: argparse.Namespace) -> int:
+def cmd_validate(args: argparse.Namespace) -> int | CommandResult:
     repo_path = Path(args.repo).resolve()
     config_path = repo_path / ".ci-hub.yml"
+    json_mode = getattr(args, "json", False)
     if not config_path.exists():
-        print(f"Config not found: {config_path}", file=sys.stderr)
+        message = f"Config not found: {config_path}"
+        if json_mode:
+            return CommandResult(
+                exit_code=2,
+                summary=message,
+                problems=[
+                    {
+                        "severity": "error",
+                        "message": message,
+                        "code": "CIHUB-VALIDATE-001",
+                        "file": str(config_path),
+                    }
+                ],
+            )
+        print(message, file=sys.stderr)
         return 2
     config = load_yaml_file(config_path)
     paths = PathConfig(str(hub_root()))
     errors = validate_config_schema(config, paths)
     if errors:
+        if json_mode:
+            problems = [
+                {
+                    "severity": "error",
+                    "message": err,
+                    "code": "CIHUB-VALIDATE-002",
+                    "file": str(config_path),
+                }
+                for err in errors
+            ]
+            return CommandResult(
+                exit_code=1,
+                summary="Validation failed",
+                problems=problems,
+            )
         print("Validation failed:")
         for err in errors:
             print(f"  - {err}")
         return 1
-    print("Config OK")
+    if not json_mode:
+        print("Config OK")
     effective = load_effective_config(repo_path)
     if effective.get("language") == "java":
         pom_warnings, _ = collect_java_pom_warnings(repo_path, effective)
         dep_warnings, _ = collect_java_dependency_warnings(repo_path, effective)
         warnings = pom_warnings + dep_warnings
         if warnings:
+            if json_mode:
+                problems = [
+                    {
+                        "severity": "warning",
+                        "message": warning,
+                        "code": "CIHUB-POM-001",
+                        "file": str(repo_path / "pom.xml"),
+                    }
+                    for warning in warnings
+                ]
+                return CommandResult(
+                    exit_code=1 if args.strict else 0,
+                    summary="POM warnings found",
+                    problems=problems,
+                )
             print("POM warnings:")
             for warning in warnings:
                 print(f"  - {warning}")
             if args.strict:
                 return 1
         else:
-            print("POM OK")
+            if not json_mode:
+                print("POM OK")
+    if json_mode:
+        return CommandResult(
+            exit_code=0,
+            summary="Config OK",
+            data={"language": effective.get("language")},
+        )
     return 0

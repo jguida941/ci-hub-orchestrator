@@ -3,39 +3,86 @@
 from __future__ import annotations
 
 import argparse
+import io
 import sys
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-from cihub.cli import apply_dependency_fixes, apply_pom_fixes, load_effective_config
+from cihub.cli import (
+    CommandResult,
+    apply_dependency_fixes,
+    apply_pom_fixes,
+    load_effective_config,
+)
 
 
-def cmd_fix_pom(args: argparse.Namespace) -> int:
+def cmd_fix_pom(args: argparse.Namespace) -> int | CommandResult:
     repo_path = Path(args.repo).resolve()
+    json_mode = getattr(args, "json", False)
     config_path = repo_path / ".ci-hub.yml"
     if not config_path.exists():
-        print(f"Config not found: {config_path}", file=sys.stderr)
+        message = f"Config not found: {config_path}"
+        if json_mode:
+            return CommandResult(exit_code=2, summary=message)
+        print(message, file=sys.stderr)
         return 2
     config = load_effective_config(repo_path)
     if config.get("language") != "java":
-        print("fix-pom is only supported for Java repos.")
+        message = "fix-pom is only supported for Java repos."
+        if json_mode:
+            return CommandResult(exit_code=0, summary=message)
+        print(message)
         return 0
     if config.get("java", {}).get("build_tool", "maven") != "maven":
-        print("fix-pom only supports Maven repos.")
+        message = "fix-pom only supports Maven repos."
+        if json_mode:
+            return CommandResult(exit_code=0, summary=message)
+        print(message)
         return 0
+    if json_mode:
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            status = apply_pom_fixes(repo_path, config, apply=args.apply)
+        summary = "POM fix applied" if args.apply else "POM fix dry-run complete"
+        return CommandResult(
+            exit_code=status,
+            summary=summary,
+            data={"applied": bool(args.apply)},
+        )
     return apply_pom_fixes(repo_path, config, apply=args.apply)
 
 
-def cmd_fix_deps(args: argparse.Namespace) -> int:
+def cmd_fix_deps(args: argparse.Namespace) -> int | CommandResult:
     repo_path = Path(args.repo).resolve()
+    json_mode = getattr(args, "json", False)
     config_path = repo_path / ".ci-hub.yml"
     if not config_path.exists():
-        print(f"Config not found: {config_path}", file=sys.stderr)
+        message = f"Config not found: {config_path}"
+        if json_mode:
+            return CommandResult(exit_code=2, summary=message)
+        print(message, file=sys.stderr)
         return 2
     config = load_effective_config(repo_path)
     if config.get("language") != "java":
-        print("fix-deps is only supported for Java repos.")
+        message = "fix-deps is only supported for Java repos."
+        if json_mode:
+            return CommandResult(exit_code=0, summary=message)
+        print(message)
         return 0
     if config.get("java", {}).get("build_tool", "maven") != "maven":
-        print("fix-deps only supports Maven repos.")
+        message = "fix-deps only supports Maven repos."
+        if json_mode:
+            return CommandResult(exit_code=0, summary=message)
+        print(message)
         return 0
+    if json_mode:
+        with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+            status = apply_dependency_fixes(repo_path, config, apply=args.apply)
+        summary = (
+            "Dependencies applied" if args.apply else "Dependency dry-run complete"
+        )
+        return CommandResult(
+            exit_code=status,
+            summary=summary,
+            data={"applied": bool(args.apply)},
+        )
     return apply_dependency_fixes(repo_path, config, apply=args.apply)

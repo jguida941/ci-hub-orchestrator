@@ -8,7 +8,7 @@ from pathlib import Path
 
 import yaml
 
-from cihub.cli import build_repo_config, hub_root
+from cihub.cli import CommandResult, build_repo_config, hub_root
 from cihub.config.io import (
     ensure_dirs,
     load_defaults,
@@ -41,14 +41,24 @@ def _validate_profile_language(profile_cfg: dict, language: str) -> None:
         raise ValueError("Profile is Python-only; use --language python")
 
 
-def cmd_new(args: argparse.Namespace) -> int:
+def cmd_new(args: argparse.Namespace) -> int | CommandResult:
     paths = PathConfig(str(hub_root()))
     ensure_dirs(paths)
+    json_mode = getattr(args, "json", False)
+
+    if json_mode and args.interactive:
+        return CommandResult(
+            exit_code=2,
+            summary="--interactive is not supported with --json",
+        )
 
     name = args.name
     repo_file = Path(paths.repo_file(name))
     if repo_file.exists():
-        print(f"Config already exists: {repo_file}", file=sys.stderr)
+        message = f"Config already exists: {repo_file}"
+        if json_mode:
+            return CommandResult(exit_code=2, summary=message)
+        print(message, file=sys.stderr)
         return 2
 
     defaults = load_defaults(paths)
@@ -95,16 +105,35 @@ def cmd_new(args: argparse.Namespace) -> int:
 
     payload = yaml.safe_dump(config, sort_keys=False, default_flow_style=False)
     if args.dry_run:
+        if json_mode:
+            return CommandResult(
+                exit_code=0,
+                summary="Dry run complete",
+                data={"config": config},
+                files_generated=[str(repo_file)],
+            )
         print(f"# Would write: {repo_file}")
         print(payload)
         return 0
 
     if not args.yes:
+        if json_mode:
+            return CommandResult(
+                exit_code=2,
+                summary="Confirmation required; re-run with --yes",
+            )
         confirm = input(f"Write {repo_file}? [y/N] ").strip().lower()
         if confirm not in {"y", "yes"}:
             print("Cancelled.")
             return 3
 
     save_yaml_file(repo_file, config, dry_run=False)
+    if json_mode:
+        return CommandResult(
+            exit_code=0,
+            summary="Config created",
+            data={"config": config},
+            files_generated=[str(repo_file)],
+        )
     print(f"[OK] Created {repo_file}")
     return 0

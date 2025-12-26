@@ -8,8 +8,10 @@ import shutil
 import subprocess
 import sys
 import textwrap
+import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -38,14 +40,46 @@ JAVA_TOOL_DEPENDENCIES = {
 }
 
 
+@dataclass
+class CommandResult:
+    """Structured command result for JSON output."""
+
+    exit_code: int = 0
+    summary: str = ""
+    problems: list[dict[str, Any]] = field(default_factory=list)
+    suggestions: list[dict[str, Any]] = field(default_factory=list)
+    files_generated: list[str] = field(default_factory=list)
+    files_modified: list[str] = field(default_factory=list)
+    artifacts: dict[str, Any] = field(default_factory=dict)
+    data: dict[str, Any] = field(default_factory=dict)
+
+    def to_payload(self, command: str, status: str, duration_ms: int) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "command": command,
+            "status": status,
+            "exit_code": self.exit_code,
+            "duration_ms": duration_ms,
+            "summary": self.summary,
+            "artifacts": self.artifacts,
+            "problems": self.problems,
+            "suggestions": self.suggestions,
+            "files_generated": self.files_generated,
+            "files_modified": self.files_modified,
+        }
+        if self.data:
+            payload["data"] = self.data
+        return payload
+
+
 def hub_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
-def write_text(path: Path, content: str, dry_run: bool) -> None:
+def write_text(path: Path, content: str, dry_run: bool, emit: bool = True) -> None:
     if dry_run:
-        print(f"# Would write: {path}")
-        print(content)
+        if emit:
+            print(f"# Would write: {path}")
+            print(content)
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
@@ -1010,7 +1044,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"cihub {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    def add_json_flag(target: argparse.ArgumentParser) -> None:
+        target.add_argument(
+            "--json",
+            action="store_true",
+            help="Output machine-readable JSON",
+        )
+
     detect = subparsers.add_parser("detect", help="Detect repo language and tools")
+    add_json_flag(detect)
     detect.add_argument("--repo", required=True, help="Path to repo")
     detect.add_argument(
         "--language",
@@ -1021,6 +1063,7 @@ def build_parser() -> argparse.ArgumentParser:
     detect.set_defaults(func=cmd_detect)
 
     new = subparsers.add_parser("new", help="Create hub-side repo config")
+    add_json_flag(new)
     new.add_argument("name", help="Repo config name (config/repos/<name>.yaml)")
     new.add_argument("--owner", help="Repo owner (GitHub user/org)")
     new.add_argument(
@@ -1049,6 +1092,7 @@ def build_parser() -> argparse.ArgumentParser:
     new.set_defaults(func=cmd_new)
 
     init = subparsers.add_parser("init", help="Generate .ci-hub.yml and hub-ci.yml")
+    add_json_flag(init)
     init.add_argument("--repo", required=True, help="Path to repo")
     init.add_argument(
         "--language",
@@ -1066,6 +1110,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fix pom.xml for Java repos (adds missing plugins/dependencies)",
     )
     init.add_argument(
+        "--apply",
+        action="store_true",
+        help="Write files (default: dry-run)",
+    )
+    init.add_argument(
+        "--force",
+        action="store_true",
+        help="Override repo_side_execution guardrails",
+    )
+    init.add_argument(
         "--wizard",
         action="store_true",
         help="Run interactive wizard (requires cihub[wizard])",
@@ -1078,6 +1132,7 @@ def build_parser() -> argparse.ArgumentParser:
     init.set_defaults(func=cmd_init)
 
     update = subparsers.add_parser("update", help="Refresh hub-ci.yml and .ci-hub.yml")
+    add_json_flag(update)
     update.add_argument("--repo", required=True, help="Path to repo")
     update.add_argument(
         "--language",
@@ -1095,6 +1150,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Fix pom.xml for Java repos (adds missing plugins/dependencies)",
     )
     update.add_argument(
+        "--apply",
+        action="store_true",
+        help="Write files (default: dry-run)",
+    )
+    update.add_argument(
+        "--force",
+        action="store_true",
+        help="Override repo_side_execution guardrails",
+    )
+    update.add_argument(
         "--dry-run",
         action="store_true",
         help="Print output instead of writing",
@@ -1105,6 +1170,7 @@ def build_parser() -> argparse.ArgumentParser:
         "validate",
         help="Validate .ci-hub.yml against schema",
     )
+    add_json_flag(validate)
     validate.add_argument("--repo", required=True, help="Path to repo")
     validate.add_argument(
         "--strict", action="store_true", help="Fail if pom.xml warnings are found"
@@ -1114,6 +1180,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_secrets = subparsers.add_parser(
         "setup-secrets", help="Set HUB_DISPATCH_TOKEN on hub and connected repos"
     )
+    add_json_flag(setup_secrets)
     setup_secrets.add_argument(
         "--hub-repo",
         default="jguida941/ci-cd-hub",
@@ -1133,6 +1200,7 @@ def build_parser() -> argparse.ArgumentParser:
     setup_nvd = subparsers.add_parser(
         "setup-nvd", help="Set NVD_API_KEY on Java repos for OWASP Dependency Check"
     )
+    add_json_flag(setup_nvd)
     setup_nvd.add_argument("--nvd-key", help="NVD API key (prompts if not provided)")
     setup_nvd.add_argument(
         "--verify",
@@ -1145,6 +1213,7 @@ def build_parser() -> argparse.ArgumentParser:
         "fix-pom",
         help="Add missing Maven plugins/dependencies to pom.xml for Java repos",
     )
+    add_json_flag(fix_pom)
     fix_pom.add_argument("--repo", required=True, help="Path to repo")
     fix_pom.add_argument(
         "--apply",
@@ -1156,6 +1225,7 @@ def build_parser() -> argparse.ArgumentParser:
     fix_deps = subparsers.add_parser(
         "fix-deps", help="Add missing Maven dependencies for Java repos"
     )
+    add_json_flag(fix_deps)
     fix_deps.add_argument("--repo", required=True, help="Path to repo")
     fix_deps.add_argument(
         "--apply",
@@ -1168,6 +1238,7 @@ def build_parser() -> argparse.ArgumentParser:
         "sync-templates",
         help="Sync caller workflow templates to dispatch-enabled repos",
     )
+    add_json_flag(sync_templates)
     sync_templates.add_argument(
         "--repo",
         action="append",
@@ -1217,6 +1288,7 @@ def build_parser() -> argparse.ArgumentParser:
         "config",
         help="Manage hub-side repo configs (config/repos/*.yaml)",
     )
+    add_json_flag(config)
     config.add_argument("--repo", required=True, help="Repo config name")
     config.add_argument(
         "--dry-run",
@@ -1227,9 +1299,11 @@ def build_parser() -> argparse.ArgumentParser:
     config.set_defaults(func=cmd_config)
 
     config_edit = config_sub.add_parser("edit", help="Edit config via wizard")
+    add_json_flag(config_edit)
     config_edit.set_defaults(func=cmd_config)
 
     config_show = config_sub.add_parser("show", help="Show config")
+    add_json_flag(config_show)
     config_show.add_argument(
         "--effective",
         action="store_true",
@@ -1238,15 +1312,18 @@ def build_parser() -> argparse.ArgumentParser:
     config_show.set_defaults(func=cmd_config)
 
     config_set = config_sub.add_parser("set", help="Set a config value")
+    add_json_flag(config_set)
     config_set.add_argument("path", help="Dot path (e.g., repo.use_central_runner)")
     config_set.add_argument("value", help="Value (YAML literal)")
     config_set.set_defaults(func=cmd_config)
 
     config_enable = config_sub.add_parser("enable", help="Enable a tool")
+    add_json_flag(config_enable)
     config_enable.add_argument("tool", help="Tool name (e.g., jacoco)")
     config_enable.set_defaults(func=cmd_config)
 
     config_disable = config_sub.add_parser("disable", help="Disable a tool")
+    add_json_flag(config_disable)
     config_disable.add_argument("tool", help="Tool name (e.g., jacoco)")
     config_disable.set_defaults(func=cmd_config)
 
@@ -1256,7 +1333,55 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    return args.func(args)
+    start = time.perf_counter()
+    command = args.command
+    subcommand = getattr(args, "subcommand", None)
+    if subcommand:
+        command = f"{command} {subcommand}"
+
+    try:
+        result = args.func(args)
+    except Exception as exc:  # noqa: BLE001 - surface in JSON mode
+        if getattr(args, "json", False):
+            problems = [
+                {
+                    "severity": "error",
+                    "message": str(exc),
+                    "code": "CIHUB-UNHANDLED",
+                }
+            ]
+            payload = CommandResult(
+                exit_code=4,
+                summary=str(exc),
+                problems=problems,
+            ).to_payload(
+                command,
+                "error",
+                int((time.perf_counter() - start) * 1000),
+            )
+            print(json.dumps(payload, indent=2))
+            return 4
+        raise
+
+    if isinstance(result, CommandResult):
+        exit_code = result.exit_code
+        command_result = result
+    else:
+        exit_code = int(result)
+        command_result = CommandResult(exit_code=exit_code)
+
+    if not command_result.summary:
+        command_result.summary = "OK" if exit_code == 0 else "Command failed"
+
+    if getattr(args, "json", False):
+        status = "success" if exit_code == 0 else "failure"
+        payload = command_result.to_payload(
+            command,
+            status,
+            int((time.perf_counter() - start) * 1000),
+        )
+        print(json.dumps(payload, indent=2))
+    return exit_code
 
 
 if __name__ == "__main__":

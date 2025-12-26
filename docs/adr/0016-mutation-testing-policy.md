@@ -153,6 +153,43 @@ Directories required because tests:
 - `templates/`: Load template files (.ci-hub.yml, workflows)
 - `.github/`: Validate workflow YAML files
 
+### macOS Fix (mutmut 3.x multiprocessing)
+
+**Problem:** mutmut 3.x fails on macOS with:
+```
+RuntimeError: context has already been set
+```
+
+This happens because mutmut calls `set_start_method('fork')` without `force=True`, conflicting with pytest's multiprocessing context.
+
+**Fix:** Patch mutmut's `__main__.py` (line ~978):
+```bash
+# Find and patch mutmut
+sed -i '' "s/set_start_method('fork')/set_start_method('fork', force=True)/" \
+  .venv/lib/python3.12/site-packages/mutmut/__main__.py
+```
+
+**Additional performance config:**
+```toml
+[tool.mutmut]
+mutate_only_covered_lines = true  # Only mutate lines with test coverage
+```
+
+### Mutation Testing Results (2025-12-26)
+
+| Module | Mutants | Killed | Survived | Score |
+|--------|---------|--------|----------|-------|
+| `config/merge.py` | 27 | 27 | 0 | **100%** ✅ |
+| `commands/detect.py` | 20 | 17 | 3 | **85%** ✅ |
+| `config/io.py` | 94 | 87 | 7 | **93%** ✅ |
+| `cli.py` | ~2480 | ~17 | ~2000+ | **~5%** ❌ |
+| `commands/secrets.py` | N/A | 0 | N/A | **0%** ❌ |
+
+**Priority for improvement:**
+1. `cli.py` - Main entry point, needs systematic breakdown
+2. `commands/secrets.py` - Security critical, needs integration tests
+3. `config/io.py` gaps - `load_profile_strict()`, `save_yaml_file()`
+
 ### Java (PITest)
 
 ```yaml

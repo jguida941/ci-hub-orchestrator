@@ -9,7 +9,7 @@ from typing import Any
 
 import yaml
 
-from cihub.cli import hub_root
+from cihub.cli import CommandResult, hub_root
 from cihub.config.io import (
     ensure_dirs,
     load_defaults,
@@ -98,23 +98,34 @@ def _apply_wizard(paths: PathConfig, existing: dict[str, Any]) -> dict[str, Any]
     return runner.run_config_wizard(existing)
 
 
-def cmd_config(args: argparse.Namespace) -> int:
+def cmd_config(args: argparse.Namespace) -> int | CommandResult:
     paths = PathConfig(str(hub_root()))
     ensure_dirs(paths)
+    json_mode = getattr(args, "json", False)
 
     repo = args.repo
     if not repo:
-        print("--repo is required", file=sys.stderr)
+        message = "--repo is required"
+        if json_mode:
+            return CommandResult(exit_code=2, summary=message)
+        print(message, file=sys.stderr)
         return 2
 
     defaults = load_defaults(paths)
 
     try:
         if args.subcommand in (None, "edit"):
+            if json_mode:
+                return CommandResult(
+                    exit_code=2,
+                    summary="config edit is not supported with --json",
+                )
             existing = _load_repo(paths, repo)
             try:
                 updated = _apply_wizard(paths, existing)
             except WizardCancelled:
+                if json_mode:
+                    return CommandResult(exit_code=130, summary="Cancelled")
                 print("Cancelled.", file=sys.stderr)
                 return 130
             if args.dry_run:
@@ -128,9 +139,16 @@ def cmd_config(args: argparse.Namespace) -> int:
             config = _load_repo(paths, repo)
             if args.effective:
                 effective = build_effective_config(defaults, None, config)
-                _dump_config(effective)
+                data = effective
             else:
-                _dump_config(config)
+                data = config
+            if json_mode:
+                return CommandResult(
+                    exit_code=0,
+                    summary="Config loaded",
+                    data={"config": data},
+                )
+            _dump_config(data)
             return 0
 
         if args.subcommand == "set":
@@ -138,9 +156,22 @@ def cmd_config(args: argparse.Namespace) -> int:
             value = yaml.safe_load(args.value)
             _set_nested(config, args.path, value)
             if args.dry_run:
+                if json_mode:
+                    return CommandResult(
+                        exit_code=0,
+                        summary="Dry run complete",
+                        data={"config": config},
+                    )
                 _dump_config(config)
                 return 0
             save_repo_config(paths, repo, config, dry_run=False)
+            if json_mode:
+                return CommandResult(
+                    exit_code=0,
+                    summary="Config updated",
+                    data={"config": config},
+                    files_modified=[str(paths.repo_file(repo))],
+                )
             print(f"[OK] Updated {paths.repo_file(repo)}", file=sys.stderr)
             return 0
 
@@ -149,13 +180,38 @@ def cmd_config(args: argparse.Namespace) -> int:
             tool_path = _resolve_tool_path(config, defaults, args.tool)
             _set_nested(config, tool_path, args.subcommand == "enable")
             if args.dry_run:
+                if json_mode:
+                    return CommandResult(
+                        exit_code=0,
+                        summary="Dry run complete",
+                        data={"config": config},
+                    )
                 _dump_config(config)
                 return 0
             save_repo_config(paths, repo, config, dry_run=False)
+            if json_mode:
+                return CommandResult(
+                    exit_code=0,
+                    summary="Config updated",
+                    data={"config": config},
+                    files_modified=[str(paths.repo_file(repo))],
+                )
             print(f"[OK] Updated {paths.repo_file(repo)}", file=sys.stderr)
             return 0
 
         raise ConfigError(f"Unsupported config command: {args.subcommand}")
     except ConfigError as exc:
+        if json_mode:
+            return CommandResult(
+                exit_code=1,
+                summary=str(exc),
+                problems=[
+                    {
+                        "severity": "error",
+                        "message": str(exc),
+                        "code": "CIHUB-CONFIG-001",
+                    }
+                ],
+            )
         print(str(exc), file=sys.stderr)
         return 1

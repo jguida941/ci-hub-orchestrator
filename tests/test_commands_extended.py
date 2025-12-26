@@ -7,8 +7,6 @@ import sys
 from pathlib import Path
 from unittest import mock
 
-import pytest
-
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -17,6 +15,13 @@ from cihub.cli import CommandResult  # noqa: E402
 from cihub.commands.init import cmd_init  # noqa: E402
 from cihub.commands.update import cmd_update  # noqa: E402
 from cihub.commands.validate import cmd_validate  # noqa: E402
+
+try:
+    from hypothesis import given, settings, strategies as st  # isort: skip # noqa: E402
+except ImportError:  # pragma: no cover - optional dependency
+    given = None
+    settings = None
+    st = None
 
 
 # =============================================================================
@@ -603,7 +608,10 @@ java:
         assert result.exit_code == 0
         # Should have warning about missing owner
         if result.problems:
-            assert any("owner" in str(p.get("message", "")).lower() for p in result.problems)
+            owner_warning = any(
+                "owner" in str(p.get("message", "")).lower() for p in result.problems
+            )
+            assert owner_warning
         assert result.data["owner"] == "unknown"
 
 
@@ -644,8 +652,8 @@ class TestDeepMergeProperties:
         overlay = {"a": 10, "c": 3}
         result = deep_merge(base, overlay)
         assert result["a"] == 10  # Overlay wins
-        assert result["b"] == 2   # Base preserved
-        assert result["c"] == 3   # Overlay added
+        assert result["b"] == 2  # Base preserved
+        assert result["c"] == 3  # Overlay added
 
     def test_deep_merge_nested_dicts(self) -> None:
         """Nested dicts are merged recursively."""
@@ -655,8 +663,8 @@ class TestDeepMergeProperties:
         overlay = {"a": {"b": 10, "d": 4}}
         result = deep_merge(base, overlay)
         assert result["a"]["b"] == 10  # Overlay wins
-        assert result["a"]["c"] == 2   # Base preserved
-        assert result["a"]["d"] == 4   # Overlay added
+        assert result["a"]["c"] == 2  # Base preserved
+        assert result["a"]["d"] == 4  # Overlay added
 
     def test_deep_merge_non_dict_replaces(self) -> None:
         """Non-dict values in overlay replace base values."""
@@ -677,11 +685,11 @@ class TestDeepMergeProperties:
 
         result = build_effective_config(defaults, profile, repo)
 
-        assert result["a"] == 1   # From defaults
+        assert result["a"] == 1  # From defaults
         assert result["b"] == 20  # Profile overrides defaults
         assert result["c"] == 30  # Repo overrides all
-        assert result["d"] == 4   # From profile
-        assert result["e"] == 5   # From repo
+        assert result["d"] == 4  # From profile
+        assert result["e"] == 5  # From repo
 
     def test_build_effective_config_none_layers(self) -> None:
         """build_effective_config handles None profile and repo."""
@@ -698,8 +706,7 @@ class TestDeepMergeProperties:
 # Hypothesis Property-Based Tests
 # =============================================================================
 
-try:
-    from hypothesis import given, settings, strategies as st
+if given and settings and st:
 
     class TestDeepMergeHypothesis:
         """Hypothesis property-based tests for deep_merge."""
@@ -731,16 +738,15 @@ try:
             st.dictionaries(st.text(min_size=1, max_size=10), st.integers()),
         )
         @settings(max_examples=50)
-        def test_overlay_values_take_precedence(self, base: dict, overlay: dict) -> None:
+        def test_overlay_values_take_precedence(
+            self, base: dict, overlay: dict
+        ) -> None:
             """Overlay values always take precedence."""
             from cihub.config.merge import deep_merge
 
             result = deep_merge(base, overlay)
             for key, value in overlay.items():
                 assert result[key] == value
-
-except ImportError:
-    pass  # Hypothesis not installed
 
 
 # =============================================================================
@@ -758,7 +764,9 @@ class TestInitEdgeCases:
         )
 
         with mock.patch("cihub.commands.init.get_git_remote") as mock_remote:
-            mock_remote.return_value = "https://github.com/detected-owner/detected-repo.git"
+            mock_remote.return_value = (
+                "https://github.com/detected-owner/detected-repo.git"
+            )
             with mock.patch("cihub.commands.init.parse_repo_from_remote") as mock_parse:
                 mock_parse.return_value = ("detected-owner", "detected-repo")
 
@@ -932,9 +940,7 @@ class TestGetEffectiveConfigForRepo:
         owner_dir = repos_dir / "owner"
         owner_dir.mkdir()
         repo_file = owner_dir / "repo.yaml"
-        repo_file.write_text(
-            "python:\n  version: '3.12'\n", encoding="utf-8"
-        )
+        repo_file.write_text("python:\n  version: '3.12'\n", encoding="utf-8")
 
         paths = PathConfig(str(tmp_path))
         result = get_effective_config_for_repo(paths, "owner/repo")
@@ -970,12 +976,12 @@ class TestGetEffectiveConfigForRepo:
         owner_dir = repos_dir / "owner"
         owner_dir.mkdir()
         repo_file = owner_dir / "repo.yaml"
-        repo_file.write_text(
-            "python:\n  version: '3.12'\n", encoding="utf-8"
-        )
+        repo_file.write_text("python:\n  version: '3.12'\n", encoding="utf-8")
 
         paths = PathConfig(str(tmp_path))
-        result = get_effective_config_for_repo(paths, "owner/repo", profile_name="strict")
+        result = get_effective_config_for_repo(
+            paths, "owner/repo", profile_name="strict"
+        )
 
         # Profile merged in
         assert result["python"]["tools"]["ruff"]["enabled"] is True
@@ -994,17 +1000,13 @@ class TestGetEffectiveConfigForRepo:
 
         # Create defaults.yaml
         defaults_file = config_dir / "defaults.yaml"
-        defaults_file.write_text(
-            "language: python\n", encoding="utf-8"
-        )
+        defaults_file.write_text("language: python\n", encoding="utf-8")
 
         # Create repo config with owner subdirectory
         owner_dir = repos_dir / "owner"
         owner_dir.mkdir()
         repo_file = owner_dir / "repo.yaml"
-        repo_file.write_text(
-            "python:\n  version: '3.12'\n", encoding="utf-8"
-        )
+        repo_file.write_text("python:\n  version: '3.12'\n", encoding="utf-8")
 
         paths = PathConfig(str(tmp_path))
         result = get_effective_config_for_repo(paths, "owner/repo", profile_name=None)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+# isort: skip_file
+
 import sys
 from pathlib import Path
 from unittest import mock
@@ -12,7 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from cihub.wizard import WizardCancelled  # noqa: E402
+from cihub.wizard import WizardCancelled  # isort: skip # noqa: E402
 from cihub.wizard.core import _check_cancelled  # noqa: E402
 from cihub.wizard.questions.java_tools import (  # noqa: E402
     JAVA_TOOL_ORDER,

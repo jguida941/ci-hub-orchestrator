@@ -854,7 +854,6 @@ This section provides concrete solutions for all identified gaps.
 ## Per-Repo Summary (existing format, keep)
 | Repo | Status | Coverage | Mutation | Critical | High |
 
-n do 
 **Implementation**:
 - Orchestrator aggregates `tools_configured`, `tools_ran`, `tools_success` from all child `report.json` files
 - For each tool, count how many repos had it configured/ran/passed

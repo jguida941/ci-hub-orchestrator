@@ -205,6 +205,41 @@ When adding tests:
 - Update relevant docs
 - Test with at least one fixture repo
 
+## Pre-Push Checklist (REQUIRED)
+
+**Before every push, run these checks:**
+
+```bash
+# 1. Lint Python code
+make lint                    # or: ruff check .
+
+# 2. Type check
+make typecheck               # or: mypy cihub/ scripts/
+
+# 3. Run tests
+make test                    # or: pytest tests/
+
+# 4. Lint GitHub Actions workflows (CRITICAL)
+make actionlint              # or: actionlint
+
+# 5. Check template drift
+make sync-templates-check    # or: python -m cihub sync-templates --check
+
+# 6. Validate YAML configs
+for f in config/repos/*.yaml; do python3 -c "import yaml; yaml.safe_load(open('$f'))"; done
+```
+
+**Quick one-liner:**
+```bash
+make lint && make typecheck && make test && make actionlint && make sync-templates-check
+```
+
+**Why this matters:**
+- CI will fail if these checks fail
+- Catching errors locally is faster than waiting for CI
+- actionlint catches workflow syntax errors that break all CI jobs
+- Template drift causes caller workflow mismatches
+
 ## Current Status (2025-12-26)
 
 > **See:** `docs/development/status/STATUS.md` for full details
