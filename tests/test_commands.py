@@ -6,7 +6,6 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -14,11 +13,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from cihub.commands.detect import cmd_detect
-from cihub.commands.init import cmd_init
-from cihub.commands.update import cmd_update
-from cihub.commands.validate import cmd_validate
-
+from cihub.commands.detect import cmd_detect  # noqa: E402
+from cihub.commands.init import cmd_init  # noqa: E402
+from cihub.commands.update import cmd_update  # noqa: E402
+from cihub.commands.validate import cmd_validate  # noqa: E402
 
 # ==============================================================================
 # Tests for cmd_detect
@@ -34,8 +32,7 @@ class TestCmdDetect:
             "[project]\nname='example'\n", encoding="utf-8"
         )
         args = argparse.Namespace(repo=str(tmp_path), language=None, explain=False)
-        with patch("sys.stdout.write") as mock_write:
-            result = cmd_detect(args)
+        result = cmd_detect(args)
         assert result == 0
 
     def test_detect_java_project(self, tmp_path: Path) -> None:
@@ -264,14 +261,13 @@ class TestValidateEdgeCases:
             "repo:\n  owner: test\n  - invalid list", encoding="utf-8"
         )
         args = argparse.Namespace(repo=str(tmp_path), strict=False)
-        # Should handle error gracefully
+        # Should handle error gracefully - may raise or return error code
         try:
             result = cmd_validate(args)
             # If it returns, should indicate an error
             assert result != 0
-        except Exception:
-            # Parser error is acceptable for malformed YAML
-            pass
+        except Exception:  # noqa: S110 - parser error is acceptable for malformed YAML
+            assert True  # Exception is expected behavior
 
     def test_validate_empty_config(self, tmp_path: Path, capsys) -> None:
         """Validate handles empty config file."""
