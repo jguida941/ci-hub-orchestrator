@@ -429,6 +429,64 @@ See `config/optional/*.yaml` for full configuration options when enabling.
 
 ---
 
+## Hub CI Configuration
+
+The `hub_ci` section controls the hub's own CI pipeline (`hub-production-ci.yml`). Unlike `java` and `python` sections which configure target repos, `hub_ci` governs hub infrastructure validation.
+
+### hub_ci (Top-level)
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `hub_ci.enabled` | boolean | `true` | Enable hub CI pipeline |
+
+### hub_ci.tools
+
+All tools default to `true` (enabled).
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `actionlint` | boolean | `true` | Workflow syntax validation |
+| `zizmor` | boolean | `true` | Workflow security scanning |
+| `ruff` | boolean | `true` | Python linting and formatting |
+| `syntax` | boolean | `true` | Python syntax validation |
+| `mypy` | boolean | `true` | Static type checking |
+| `yamllint` | boolean | `true` | YAML syntax validation |
+| `pytest` | boolean | `true` | Unit tests with coverage |
+| `mutmut` | boolean | `true` | Mutation testing |
+| `bandit` | boolean | `true` | Python SAST |
+| `pip_audit` | boolean | `true` | Dependency vulnerability scan |
+| `gitleaks` | boolean | `true` | Secret detection |
+| `trivy` | boolean | `true` | Filesystem/config scanning |
+| `validate_templates` | boolean | `true` | Template validation |
+| `validate_configs` | boolean | `true` | Config schema validation |
+| `verify_matrix_keys` | boolean | `true` | Matrix key consistency |
+| `license_check` | boolean | `true` | License compliance |
+| `dependency_review` | boolean | `true` | PR dependency review |
+| `scorecard` | boolean | `true` | OpenSSF scorecard |
+
+### hub_ci.thresholds
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `coverage_min` | integer | `70` | Minimum coverage percentage (0-100) |
+| `mutation_score_min` | integer | `70` | Minimum mutation score percentage (0-100) |
+
+### Example
+
+```yaml
+hub_ci:
+  enabled: true
+  tools:
+    actionlint: true
+    zizmor: true
+    # ... all tools enabled by default
+  thresholds:
+    coverage_min: 70
+    mutation_score_min: 70
+```
+
+---
+
 ## Complete Examples
 
 ### Minimal Java Config

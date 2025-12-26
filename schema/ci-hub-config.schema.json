@@ -119,7 +119,10 @@
     "supply_chain": { "type": "object", "additionalProperties": true },
     "egress_control": { "type": "object", "additionalProperties": true },
     "telemetry": { "type": "object", "additionalProperties": true },
-    "kyverno": { "type": "object", "additionalProperties": true }
+    "kyverno": { "type": "object", "additionalProperties": true },
+    "hub_ci": {
+      "$ref": "#/definitions/hubCi"
+    }
   },
   "allOf": [
     {
@@ -399,6 +402,48 @@
           "properties": {
             "enabled": { "type": "boolean", "default": true },
             "include_metrics": { "type": "boolean", "default": true }
+          }
+        }
+      }
+    },
+    "hubCi": {
+      "type": "object",
+      "description": "Configuration for hub's own CI pipeline (hub-production-ci.yml)",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": true },
+        "tools": {
+          "type": "object",
+          "description": "Tools enabled for hub-production-ci.yml",
+          "additionalProperties": false,
+          "properties": {
+            "actionlint": { "type": "boolean", "default": true },
+            "zizmor": { "type": "boolean", "default": true },
+            "ruff": { "type": "boolean", "default": true },
+            "syntax": { "type": "boolean", "default": true },
+            "mypy": { "type": "boolean", "default": true },
+            "yamllint": { "type": "boolean", "default": true },
+            "pytest": { "type": "boolean", "default": true },
+            "mutmut": { "type": "boolean", "default": true },
+            "bandit": { "type": "boolean", "default": true },
+            "pip_audit": { "type": "boolean", "default": true },
+            "gitleaks": { "type": "boolean", "default": true },
+            "trivy": { "type": "boolean", "default": true },
+            "validate_templates": { "type": "boolean", "default": true },
+            "validate_configs": { "type": "boolean", "default": true },
+            "verify_matrix_keys": { "type": "boolean", "default": true },
+            "license_check": { "type": "boolean", "default": true },
+            "dependency_review": { "type": "boolean", "default": true },
+            "scorecard": { "type": "boolean", "default": true }
+          }
+        },
+        "thresholds": {
+          "type": "object",
+          "description": "Quality gate thresholds for hub CI",
+          "additionalProperties": false,
+          "properties": {
+            "coverage_min": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 },
+            "mutation_score_min": { "type": "integer", "minimum": 0, "maximum": 100, "default": 70 }
           }
         }
       }

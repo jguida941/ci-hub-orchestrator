@@ -232,6 +232,27 @@ For more issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ---
 
+## Hub Infrastructure CI
+
+The hub itself runs through `hub-production-ci.yml`, which validates hub infrastructure (workflows, configs, schemas, Python code). This pipeline is configured via `hub_ci` in `config/defaults.yaml`:
+
+```yaml
+hub_ci:
+  enabled: true
+  tools:
+    actionlint: true
+    zizmor: true
+    ruff: true
+    # ... all hub CI tools
+  thresholds:
+    coverage_min: 70
+    mutation_score_min: 70
+```
+
+See [CONFIG_REFERENCE.md](../reference/CONFIG_REFERENCE.md#hub-ci-configuration) for the full `hub_ci` reference.
+
+---
+
 ## See Also
 
 - [CONFIG_REFERENCE.md](../reference/CONFIG_REFERENCE.md) - All config options

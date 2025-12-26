@@ -279,3 +279,48 @@ telemetry:
 kyverno:
   enabled: false
   enforcement_mode: audit  # audit | enforce
+
+# ------------------------------------------------------------------------------
+# Hub CI - Configuration for hub's own CI pipeline (hub-production-ci.yml)
+# ------------------------------------------------------------------------------
+# This controls the tools and thresholds used when validating the hub itself.
+# Unlike java/python sections (for target repos), this governs hub infrastructure.
+hub_ci:
+  enabled: true
+
+  # Tools enabled for hub-production-ci.yml
+  tools:
+    # Workflow validation
+    actionlint: true
+    zizmor: true
+
+    # Code quality
+    ruff: true
+    syntax: true
+    mypy: true
+    yamllint: true
+
+    # Testing
+    pytest: true
+    mutmut: true
+
+    # Security
+    bandit: true
+    pip_audit: true
+    gitleaks: true
+    trivy: true
+
+    # Validation
+    validate_templates: true
+    validate_configs: true
+    verify_matrix_keys: true
+    license_check: true
+
+    # Supply chain
+    dependency_review: true
+    scorecard: true
+
+  # Quality gate thresholds
+  thresholds:
+    coverage_min: 70
+    mutation_score_min: 70

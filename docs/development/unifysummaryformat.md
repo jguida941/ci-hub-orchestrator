@@ -4,6 +4,7 @@
 
 ### Scope
 This contract applies to all workflow paths:
+- `.github/workflows/hub-production-ci.yml` (hub infrastructure validation)
 - `.github/workflows/hub-run-all.yml` (central)
 - `.github/workflows/hub-orchestrator.yml` (dispatch parent)
 - `.github/workflows/hub-security.yml` (security dispatch parent)
@@ -42,6 +43,13 @@ All summaries must be written via `GITHUB_STEP_SUMMARY`. Do not mix mechanisms.
 **Tool rows must include these exact names:**
 - Java: `JaCoCo Coverage`, `PITest`, `Checkstyle`, `PMD`, `SpotBugs`, `OWASP Dependency-Check`, `Semgrep`, `Trivy`, `jqwik`, `CodeQL`, `Docker`
 - Python: `pytest`, `mutmut`, `Ruff`, `Black`, `isort`, `mypy`, `Bandit`, `pip-audit`, `Semgrep`, `Trivy`, `hypothesis`, `CodeQL`, `Docker`
+- Hub Production (hub-production-ci.yml):
+  - Workflow: `actionlint`, `zizmor`
+  - Quality: `ruff`, `syntax`, `mypy`, `yamllint`
+  - Testing: `pytest`, `mutmut`
+  - Security: `bandit`, `pip-audit`, `gitleaks`, `trivy`
+  - Validate: `templates`, `configs`, `matrix-keys`, `licenses`
+  - Supply Chain: `dependency-review`, `scorecard`
 
 ### Boolean Contract
 - **Canonical output:** summaries must emit lowercase `true` or `false`.
@@ -846,7 +854,7 @@ This section provides concrete solutions for all identified gaps.
 ## Per-Repo Summary (existing format, keep)
 | Repo | Status | Coverage | Mutation | Critical | High |
 
-n 
+n do 
 **Implementation**:
 - Orchestrator aggregates `tools_configured`, `tools_ran`, `tools_success` from all child `report.json` files
 - For each tool, count how many repos had it configured/ran/passed

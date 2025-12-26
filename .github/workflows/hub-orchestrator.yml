@@ -127,13 +127,15 @@ jobs:
               print(f"  - {r['owner']}/{r['name']} ({r['language']}) run_group={r.get('run_group','full')}")
           EOF
         env:
-          INPUT_REPOS: ${{ inputs.repos }}
+          INPUT_REPOS: ${{ inputs.repos || '' }}
 
       - name: Summary
         run: |
-          echo "## Hub Orchestrator" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Repositories to build:** ${{ steps.config.outputs.count }}" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Hub Orchestrator"
+            echo ""
+            echo "**Repositories to build:** ${{ steps.config.outputs.count }}"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # Trigger Builds for Each Repo
@@ -408,7 +410,7 @@ jobs:
             const branch = '${{ matrix.default_branch }}';
             const workdir = '${{ steps.repo-config.outputs.workdir }}';
             const dispatchEnabled = '${{ steps.repo-config.outputs.dispatch_enabled || '' }}'.toLowerCase() !== 'false';
-            const correlationId = `${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.config_basename }}`;
+            const correlationId = `${{ github.run_id }}-${{ github.run_attempt || '1' }}-${{ matrix.config_basename }}`;
 
             if (!dispatchEnabled) {
               core.info(`Dispatch disabled for ${owner}/${repo}; skipping dispatch.`);
@@ -575,14 +577,16 @@ jobs:
 
       - name: Record Build Trigger
         run: |
-          echo "## ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Owner:** ${{ matrix.owner }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Language:** ${{ matrix.language }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** ${{ matrix.default_branch }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Workflow:** ${{ steps.dispatch.outputs.workflow_id }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Run ID:** ${{ steps.dispatch.outputs.run_id != '' && steps.dispatch.outputs.run_id || 'pending' }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** Triggered" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## ${{ matrix.name }}"
+            echo ""
+            echo "- **Owner:** ${{ matrix.owner }}"
+            echo "- **Language:** ${{ matrix.language }}"
+            echo "- **Branch:** ${{ matrix.default_branch }}"
+            echo "- **Workflow:** ${{ steps.dispatch.outputs.workflow_id }}"
+            echo "- **Run ID:** ${{ steps.dispatch.outputs.run_id != '' && steps.dispatch.outputs.run_id || 'pending' }}"
+            echo "- **Status:** Triggered"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save Dispatch Metadata
         if: always()
