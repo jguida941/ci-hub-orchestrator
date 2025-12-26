@@ -135,23 +135,45 @@ jobs:
       # ========================================
       # CODEQL ANALYSIS
       # ========================================
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@45c373516f557556c15d420e3f5e0aa3d64366bc # v3.31.9
+      - name: Check for source code
+        id: source-check
         if: steps.repo-check.outputs.present == 'true'
+        env:
+          MATRIX_LANGUAGE: ${{ matrix.language }}
+        working-directory: repo
+        run: |
+          HAS_SOURCE=false
+          if [ "$MATRIX_LANGUAGE" = "java" ]; then
+            # Check for Java/Kotlin source files
+            if find . -name "*.java" -o -name "*.kt" 2>/dev/null | head -1 | grep -q .; then
+              HAS_SOURCE=true
+            fi
+          elif [ "$MATRIX_LANGUAGE" = "python" ]; then
+            # Check for Python source files
+            if find . -name "*.py" 2>/dev/null | head -1 | grep -q .; then
+              HAS_SOURCE=true
+            fi
+          fi
+          echo "has_source=$HAS_SOURCE" >> "$GITHUB_OUTPUT"
+          echo "Source code present: $HAS_SOURCE"
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4.31.9
+        if: steps.repo-check.outputs.present == 'true' && steps.source-check.outputs.has_source == 'true'
         continue-on-error: true
         with:
-          languages: ${{ matrix.language == 'java' && 'java' || 'python' }}
+          languages: ${{ matrix.language == 'java' && 'java-kotlin' || 'python' }}
           source-root: repo
 
       - name: Set up JDK (for Java CodeQL)
-        if: steps.repo-check.outputs.present == 'true' && matrix.language == 'java'
+        if: steps.repo-check.outputs.present == 'true' && steps.source-check.outputs.has_source == 'true' && matrix.language == 'java'
         uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4.8.0
         with:
           java-version: '21'
           distribution: 'temurin'
 
       - name: Build for CodeQL (Java)
-        if: steps.repo-check.outputs.present == 'true' && matrix.language == 'java'
+        if: steps.repo-check.outputs.present == 'true' && steps.source-check.outputs.has_source == 'true' && matrix.language == 'java'
         working-directory: repo
         run: |
           if [ -f "mvnw" ]; then
@@ -163,8 +185,8 @@ jobs:
         continue-on-error: true
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@45c373516f557556c15d420e3f5e0aa3d64366bc # v3.31.9
-        if: steps.repo-check.outputs.present == 'true'
+        uses: github/codeql-action/analyze@5d4e8d1aca955e8d8589aabd499c5cae939e33c7 # v4.31.9
+        if: steps.repo-check.outputs.present == 'true' && steps.source-check.outputs.has_source == 'true'
         continue-on-error: true
         with:
           category: "/language:${{ matrix.language }}"
@@ -178,7 +200,7 @@ jobs:
         continue-on-error: true
         with:
           path: repo
-          artifact-name: sbom-${{ matrix.name }}.spdx.json
+          artifact-name: sbom-${{ matrix.name }}-${{ github.run_id }}.spdx.json
           output-file: sbom-${{ matrix.name }}.spdx.json
 
       # ========================================
@@ -325,7 +347,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: security-reports-${{ matrix.name }}
+          name: security-reports-${{ matrix.name }}-${{ github.run_id }}
           path: |
             repo/*-report.json
             repo/ruff-security.json
