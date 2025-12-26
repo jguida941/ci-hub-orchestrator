@@ -777,9 +777,9 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
 
-      - name: Upload to Codecov
+      - name: Upload coverage reports to Codecov
         if: inputs.run_pytest
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.xml
