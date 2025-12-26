@@ -1,7 +1,7 @@
 # ============================================================================
-# Repo Config: fixtures-python-failing
+# Repo Config: fixtures-python-setup-passing
 # ============================================================================
-# Fixture repo (python-pyproject-fail)
+# Fixture repo (python-setup-pass)
 # ============================================================================
 
 repo:
@@ -9,7 +9,7 @@ repo:
   name: ci-cd-hub-fixtures
   language: python
   default_branch: main
-  subdir: python-pyproject-fail
+  subdir: python-setup-pass
   run_group: fixtures
   dispatch_workflow: hub-python-ci.yml  # Use reusable workflow caller
 

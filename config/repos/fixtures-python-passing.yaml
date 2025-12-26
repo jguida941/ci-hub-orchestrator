@@ -1,11 +1,17 @@
+# ============================================================================
+# Repo Config: fixtures-python-passing
+# ============================================================================
+# Fixture repo (python-pyproject-pass)
+# ============================================================================
+
 repo:
   owner: jguida941
   name: ci-cd-hub-fixtures
   language: python
   default_branch: main
-  subdir: python-passing
+  subdir: python-pyproject-pass
   run_group: fixtures
-  dispatch_workflow: hub-python-ci.yml  # Use new reusable workflow caller
+  dispatch_workflow: hub-python-ci.yml  # Use reusable workflow caller
 
 python:
   version: "3.12"

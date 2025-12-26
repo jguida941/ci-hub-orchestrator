@@ -1,11 +1,17 @@
+# ============================================================================
+# Repo Config: fixtures-java-failing
+# ============================================================================
+# Fixture repo (java-maven-fail)
+# ============================================================================
+
 repo:
   owner: jguida941
   name: ci-cd-hub-fixtures
   language: java
   default_branch: main
-  subdir: java-failing
+  subdir: java-maven-fail
   run_group: fixtures
-  dispatch_workflow: hub-java-ci.yml  # Use new reusable workflow caller
+  dispatch_workflow: hub-java-ci.yml  # Use reusable workflow caller
 
 java:
   version: "21"

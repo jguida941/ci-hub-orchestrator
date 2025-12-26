@@ -1,42 +1,33 @@
 # ============================================================================
-# Repo Config: fixtures-python-failing
+# Repo Config: fixtures-java-multi-module-passing
 # ============================================================================
-# Fixture repo (python-pyproject-fail)
+# Fixture repo (java-multi-module-pass)
 # ============================================================================
 
 repo:
   owner: jguida941
   name: ci-cd-hub-fixtures
-  language: python
+  language: java
   default_branch: main
-  subdir: python-pyproject-fail
+  subdir: java-multi-module-pass
   run_group: fixtures
-  dispatch_workflow: hub-python-ci.yml  # Use reusable workflow caller
+  dispatch_workflow: hub-java-ci.yml  # Use reusable workflow caller
 
-python:
-  version: "3.12"
+java:
+  version: "21"
   tools:
-    pytest:
+    jacoco:
       enabled: true
       min_coverage: 50
-      fail_fast: false
-    ruff:
+    checkstyle:
       enabled: true
-      fail_on_error: false
-    black:
+    spotbugs:
       enabled: true
-      fail_on_format_issues: false
-    isort:
+    owasp:
       enabled: true
-    bandit:
+    pmd:
       enabled: true
-    pip_audit:
-      enabled: true
-    mypy:
-      enabled: true
-    mutmut:
-      enabled: true
-    hypothesis:
+    pitest:
       enabled: true
     semgrep:
       enabled: true
