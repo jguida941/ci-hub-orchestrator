@@ -20,6 +20,13 @@ All notable changes to this project will be documented in this file.
 - Updated ADR README with ADRs 0023-0028
 - Added ADR-0028: Boolean Config Type Coercion
 
+## 2025-12-26 - Workflow Shellcheck Cleanup
+
+### Workflows
+- Refactored summary output blocks to avoid shellcheck SC2129 warnings across hub workflows.
+- Grouped multi-line `GITHUB_OUTPUT` writes to prevent shellcheck parse errors.
+- Cleaned up summary generation redirections in hub, security, smoke test, and kyverno workflows.
+
 ## 2025-12-26 - Docs Reorg, Fixtures Expansion, CLI Hardening
 
 ### Documentation & Governance
