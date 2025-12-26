@@ -2,6 +2,24 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-12-26 - Security Hardening & Boolean Config Fix
+
+### Security Fixes (OWASP Audit)
+- **H1: GitHub Actions Expression Injection** - Fixed in `hub-orchestrator.yml` by passing matrix values through environment variables instead of direct `${{ }}` interpolation in JavaScript
+- **H2: XXE Vulnerability** - Added `defusedxml` dependency for safe XML parsing in CLI POM detection
+- **H3: Path Traversal** - Added `validate_repo_path()` and `validate_subdir()` functions in `cihub/cli.py`
+- **H6: Force Push Confirmation** - Added interactive confirmation for v1 tag force-push in `cihub sync-templates --update-tag`
+- **M3: Subdir Path Traversal** - Added `..` detection in `hub-run-all.yml` before cd into subdir
+- **Shell Injection** - Fixed `hub-security.yml` to pass `inputs.repos` via environment variable
+
+### Boolean Config Type Coercion Fix
+- **Fixed summary table "Ran" column** - `java-ci.yml` lines 582-590 now use boolean comparison (`== true`) instead of string comparison (`== 'true'`)
+- **Added ADR-0028** - Documents boolean type coercion through YAML → Python → GITHUB_OUTPUT → JavaScript → workflow_dispatch → workflow inputs
+
+### Documentation
+- Updated ADR README with ADRs 0023-0028
+- Added ADR-0028: Boolean Config Type Coercion
+
 ## 2025-12-26 - Docs Reorg, Fixtures Expansion, CLI Hardening
 
 ### Documentation & Governance
@@ -10,6 +28,8 @@ All notable changes to this project will be documented in this file.
 - Folded fixtures plan into smoke test guide; archived legacy plans and snapshots.
 - Refreshed root README and added .github/CONTRIBUTING.md, .github/SECURITY.md, .github/CODE_OF_CONDUCT.md.
 - Updated doc indexes and references after reorg.
+- Added root Makefile + command matrix for consistent developer workflows.
+- Moved CHANGELOG/BACKLOG/DEVELOPMENT into `docs/development/` to reduce root clutter.
 
 ### Fixtures & Integration
 - Expanded fixture configs (gradle, setup.py, monorepo, src-layout) and added heavy-tool fixtures.
@@ -18,10 +38,15 @@ All notable changes to this project will be documented in this file.
 ### CLI & Config
 - Hardened config merging and profile loading; wizard cancellation handling.
 - Normalized CLI output and moved config helpers out of cli.py.
+- Config commands now reject unknown tools per language and keep YAML output clean (status to stderr).
 
 ### Workflows & CI
 - Fixed shell usage in workflows and heredoc usage in python-ci.yml.
 - Pinned zizmor install and aligned CI ignore patterns for coverage artifacts.
+- Java CI summary now compares boolean inputs correctly.
+
+### Testing
+- Added targeted tests for POM parsing, secrets setup, and config command behavior.
 
 ## 2025-12-25 - Hub Production CI & Security Hardening
 
