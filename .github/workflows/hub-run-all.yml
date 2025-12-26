@@ -293,6 +293,7 @@ jobs:
 
       - name: "[Java] Build & Test"
         if: matrix.language == 'java'
+        id: java-build
         working-directory: ${{ env.WORKDIR }}
         run: |
           if [ -f "mvnw" ]; then
@@ -310,7 +311,7 @@ jobs:
         run: |
           TOTAL=0; PASSED=0; FAILED=0; SKIPPED=0; RUNTIME=0
 
-          for report in $(find . -path "*/surefire-reports/*.xml" -o -path "*/failsafe-reports/*.xml" 2>/dev/null); do
+          while IFS= read -r -d '' report; do
             T=$(grep -oP 'tests="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
             F=$(grep -oP 'failures="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
             E=$(grep -oP 'errors="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
@@ -319,15 +320,17 @@ jobs:
             TOTAL=$((TOTAL + T))
             FAILED=$((FAILED + F + E))
             SKIPPED=$((SKIPPED + S))
-            RUNTIME=$(echo "$RUNTIME + $TIME" | bc 2>/dev/null || echo $RUNTIME)
-          done
+            RUNTIME=$(echo "$RUNTIME + $TIME" | bc 2>/dev/null || echo "$RUNTIME")
+          done < <(find . -path "*/surefire-reports/*.xml" -o -path "*/failsafe-reports/*.xml" -print0 2>/dev/null)
           PASSED=$((TOTAL - FAILED - SKIPPED))
 
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          echo "passed=$PASSED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
-          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
-          echo "runtime=${RUNTIME}s" >> $GITHUB_OUTPUT
+          {
+            echo "total=$TOTAL"
+            echo "passed=$PASSED"
+            echo "failed=$FAILED"
+            echo "skipped=$SKIPPED"
+            echo "runtime=${RUNTIME}s"
+          } >> "$GITHUB_OUTPUT"
 
       - name: "[Java] Extract Coverage"
         if: matrix.language == 'java' && matrix.run_jacoco == true
@@ -346,10 +349,12 @@ jobs:
             fi
           fi
 
-          echo "covered=$COVERED" >> $GITHUB_OUTPUT
-          echo "missed=$MISSED" >> $GITHUB_OUTPUT
-          echo "percent=$PERCENT" >> $GITHUB_OUTPUT
-          echo "lines=$COVERED / $((COVERED + MISSED))" >> $GITHUB_OUTPUT
+          {
+            echo "covered=$COVERED"
+            echo "missed=$MISSED"
+            echo "percent=$PERCENT"
+            echo "lines=$COVERED / $((COVERED + MISSED))"
+          } >> "$GITHUB_OUTPUT"
 
       - name: "[Java] Run PITest Mutation"
         if: matrix.language == 'java' && matrix.run_pitest == true && inputs.skip_mutation != true
@@ -376,7 +381,14 @@ jobs:
               fi
 
               # Avoid duplicates
-              if [[ ! " ${MODULES[*]} " =~ " ${MODULE_DIR} " ]]; then
+              found=false
+              for existing in "${MODULES[@]}"; do
+                if [ "$existing" = "$MODULE_DIR" ]; then
+                  found=true
+                  break
+                fi
+              done
+              if [ "$found" = false ]; then
                 MODULES+=("$MODULE_DIR")
               fi
             fi
@@ -432,10 +444,12 @@ jobs:
           fi
 
           echo "Mutation Score: $SCORE% (Killed: $KNUM, Survived: $SNUM, No Coverage: $NNUM, Total: $TOTAL)"
-          echo "killed=$KNUM" >> $GITHUB_OUTPUT
-          echo "survived=$SNUM" >> $GITHUB_OUTPUT
-          echo "no_coverage=$NNUM" >> $GITHUB_OUTPUT
-          echo "score=${SCORE:-0}" >> $GITHUB_OUTPUT
+          {
+            echo "killed=$KNUM"
+            echo "survived=$SNUM"
+            echo "no_coverage=$NNUM"
+            echo "score=${SCORE:-0}"
+          } >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Java] OWASP Dependency Check"
@@ -480,10 +494,12 @@ jobs:
             LOW=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "LOW")] | length' "$REPORT" 2>/dev/null || echo 0)
           fi
 
-          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
-          echo "high=$HIGH" >> $GITHUB_OUTPUT
-          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
-          echo "low=$LOW" >> $GITHUB_OUTPUT
+          {
+            echo "critical=$CRITICAL"
+            echo "high=$HIGH"
+            echo "medium=$MEDIUM"
+            echo "low=$LOW"
+          } >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Java] SpotBugs"
@@ -499,12 +515,12 @@ jobs:
             mvn -B -ntp spotbugs:spotbugs 2>&1 || true
           fi
 
-          for xml in $(find . -name "spotbugsXml.xml" 2>/dev/null); do
+          while IFS= read -r -d '' xml; do
             COUNT=$(grep -c "<BugInstance" "$xml" 2>/dev/null || echo 0)
             BUGS=$((BUGS + COUNT))
-          done
+          done < <(find . -name "spotbugsXml.xml" -print0 2>/dev/null)
 
-          echo "count=$BUGS" >> $GITHUB_OUTPUT
+          echo "count=$BUGS" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Java] Checkstyle"
@@ -522,12 +538,12 @@ jobs:
           fi
 
           # Count all issues from XML reports (includes both warnings and errors)
-          for xml in $(find . -name "checkstyle-result.xml" 2>/dev/null); do
+          while IFS= read -r -d '' xml; do
             COUNT=$(grep -c "<error" "$xml" 2>/dev/null || echo 0)
             VIOLATIONS=$((VIOLATIONS + COUNT))
-          done
+          done < <(find . -name "checkstyle-result.xml" -print0 2>/dev/null)
 
-          echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+          echo "violations=$VIOLATIONS" >> "$GITHUB_OUTPUT"
           echo "Checkstyle: $VIOLATIONS issues found"
         continue-on-error: true
 
@@ -581,11 +597,13 @@ jobs:
             COVERAGE=${COVERAGE:-0}
           fi
 
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          echo "passed=$TOTAL" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
-          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
-          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          {
+            echo "total=$TOTAL"
+            echo "passed=$TOTAL"
+            echo "failed=$FAILED"
+            echo "skipped=$SKIPPED"
+            echo "coverage=$COVERAGE"
+          } >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Python] Ruff Lint + Security"
@@ -597,8 +615,10 @@ jobs:
           ERRORS=$(jq 'length' ruff-report.json 2>/dev/null || echo 0)
           SECURITY=$(jq '[.[] | select(.code | startswith("S"))] | length' ruff-report.json 2>/dev/null || echo 0)
 
-          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
-          echo "security=$SECURITY" >> $GITHUB_OUTPUT
+          {
+            echo "errors=$ERRORS"
+            echo "security=$SECURITY"
+          } >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Python] Bandit Security Scan"
@@ -615,9 +635,11 @@ jobs:
             LOW=$(jq '[.results[] | select(.issue_severity == "LOW")] | length' bandit-report.json 2>/dev/null || echo 0)
           fi
 
-          echo "high=$HIGH" >> $GITHUB_OUTPUT
-          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
-          echo "low=$LOW" >> $GITHUB_OUTPUT
+          {
+            echo "high=$HIGH"
+            echo "medium=$MEDIUM"
+            echo "low=$LOW"
+          } >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Python] pip-audit Dependency Check"
@@ -632,7 +654,7 @@ jobs:
             VULNS=$(jq 'length' pip-audit-report.json 2>/dev/null || echo 0)
           fi
 
-          echo "vulnerabilities=$VULNS" >> $GITHUB_OUTPUT
+          echo "vulnerabilities=$VULNS" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Python] Black Format Check"
@@ -643,7 +665,7 @@ jobs:
           black --check . 2>&1 | tee black-output.txt || true
           WOULD_REFORMAT=$(grep -c "would reformat" black-output.txt 2>/dev/null)
           WOULD_REFORMAT=${WOULD_REFORMAT:-0}
-          echo "issues=$WOULD_REFORMAT" >> $GITHUB_OUTPUT
+          echo "issues=$WOULD_REFORMAT" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Python] mypy Type Check"
@@ -654,7 +676,7 @@ jobs:
           mypy . --ignore-missing-imports 2>&1 | tee mypy-output.txt || true
           ERRORS=$(grep -c "error:" mypy-output.txt 2>/dev/null)
           ERRORS=${ERRORS:-0}
-          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
+          echo "errors=$ERRORS" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Python] Hypothesis Property Tests"
@@ -666,7 +688,7 @@ jobs:
           pytest --hypothesis-show-statistics -v 2>&1 | tee hypothesis-output.txt || true
           EXAMPLES=$(grep -oP '\d+(?= passing examples)' hypothesis-output.txt | tail -1)
           EXAMPLES=${EXAMPLES:-0}
-          echo "examples=$EXAMPLES" >> $GITHUB_OUTPUT
+          echo "examples=$EXAMPLES" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Python] mutmut Mutation Testing"
@@ -742,9 +764,11 @@ jobs:
             echo "::warning::mutmut found 0 mutations. Ensure [tool.mutmut] is configured in pyproject.toml with paths_to_mutate."
           fi
 
-          echo "killed=$KILLED" >> $GITHUB_OUTPUT
-          echo "survived=$SURVIVED" >> $GITHUB_OUTPUT
-          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          {
+            echo "killed=$KILLED"
+            echo "survived=$SURVIVED"
+            echo "score=$SCORE"
+          } >> "$GITHUB_OUTPUT"
         continue-on-error: true
         timeout-minutes: 15
 
@@ -756,7 +780,7 @@ jobs:
           isort --check-only --diff . 2>&1 | tee isort-output.txt || true
           # Count ERROR lines (isort says "ERROR: <file> Imports are incorrectly sorted")
           ISSUES=$(grep -c "^ERROR:" isort-output.txt 2>/dev/null || echo 0)
-          echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+          echo "issues=$ISSUES" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       # ========================================
@@ -775,12 +799,12 @@ jobs:
             mvn -B -ntp pmd:check 2>/dev/null || true
           fi
 
-          for xml in $(find . -name "pmd.xml" 2>/dev/null); do
+          while IFS= read -r -d '' xml; do
             COUNT=$(grep -c "<violation" "$xml" 2>/dev/null || echo 0)
             VIOLATIONS=$((VIOLATIONS + COUNT))
-          done
+          done < <(find . -name "pmd.xml" -print0 2>/dev/null)
 
-          echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+          echo "violations=$VIOLATIONS" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       # ========================================
@@ -803,8 +827,10 @@ jobs:
             HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' trivy-report.json 2>/dev/null || echo 0)
           fi
 
-          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
-          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          {
+            echo "critical=$CRITICAL"
+            echo "high=$HIGH"
+          } >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[All] Semgrep SAST"
@@ -822,7 +848,7 @@ jobs:
             FINDINGS=$(jq '.results | length' semgrep-report.json 2>/dev/null || echo 0)
           fi
 
-          echo "findings=$FINDINGS" >> $GITHUB_OUTPUT
+          echo "findings=$FINDINGS" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       # ========================================
@@ -838,15 +864,15 @@ jobs:
             docker build -t ${{ matrix.owner }}/${{ matrix.name }}:ci-test . 2>&1 | tee docker-build.log || true
 
             if docker images | grep -q "ci-test"; then
-              echo "status=success" >> $GITHUB_OUTPUT
+              echo "status=success" >> "$GITHUB_OUTPUT"
               echo "Docker image built successfully"
             else
-              echo "status=failed" >> $GITHUB_OUTPUT
+              echo "status=failed" >> "$GITHUB_OUTPUT"
               echo "Docker build failed"
             fi
           else
             echo "No Dockerfile found, skipping"
-            echo "status=skipped" >> $GITHUB_OUTPUT
+            echo "status=skipped" >> "$GITHUB_OUTPUT"
           fi
         continue-on-error: true
 
@@ -882,7 +908,7 @@ jobs:
             make test 2>/dev/null || true
           fi
 
-          echo "status=complete" >> $GITHUB_OUTPUT
+          echo "status=complete" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       # ========================================
@@ -896,10 +922,13 @@ jobs:
           REPORT_DIR="reports/${REPORT_SUFFIX}"
           mkdir -p "$REPORT_DIR"
           SUMMARY_FILE="$REPORT_DIR/summary.md"
+          exec 3> "$SUMMARY_FILE"
 
           # Write to summary.md first, then copy to GITHUB_STEP_SUMMARY
-          echo "# Configuration Summary" > "$SUMMARY_FILE"
-          echo "" >> "$SUMMARY_FILE"
+          {
+            echo "# Configuration Summary"
+            echo ""
+          } >&3
 
           if [ "${{ matrix.language }}" = "java" ]; then
             {
@@ -917,7 +946,7 @@ jobs:
               echo "| Security | Trivy | ${{ matrix.run_trivy }} | ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }} | ${{ steps.trivy.outcome == 'success' }} |"
               echo "| Security | CodeQL | ${{ matrix.run_codeql }} | ${{ steps.codeql.outcome == 'success' || steps.codeql.outcome == 'failure' }} | ${{ steps.codeql.outcome == 'success' }} |"
               echo "| Testing | jqwik | ${{ matrix.run_jqwik }} | ${{ steps.java-tests.outcome == 'success' || steps.java-tests.outcome == 'failure' }} | ${{ steps.java-tests.outcome == 'success' }} |"
-              echo "| Container | Docker | ${{ matrix.run_docker }} | ${{ steps.docker.outcome == 'success' || steps.docker.outcome == 'failure' }} | ${{ steps.docker.outcome == 'success' }} |"
+              echo "| Container | Docker | ${{ matrix.run_docker }} | ${{ steps.docker-build.outcome == 'success' || steps.docker-build.outcome == 'failure' }} | ${{ steps.docker-build.outcome == 'success' }} |"
               echo ""
               echo "## Environment"
               echo "| Setting | Value |"
@@ -935,7 +964,7 @@ jobs:
               echo ""
               echo "---"
               echo ""
-            } >> "$SUMMARY_FILE"
+            } >&3
           else
             {
               echo "## Tools Enabled"
@@ -953,7 +982,7 @@ jobs:
               echo "| Security | Trivy | ${{ matrix.run_trivy }} | ${{ steps.trivy.outcome == 'success' || steps.trivy.outcome == 'failure' }} | ${{ steps.trivy.outcome == 'success' }} |"
               echo "| Security | CodeQL | ${{ matrix.run_codeql }} | ${{ steps.codeql.outcome == 'success' || steps.codeql.outcome == 'failure' }} | ${{ steps.codeql.outcome == 'success' }} |"
               echo "| Testing | Hypothesis | ${{ matrix.run_hypothesis }} | ${{ steps.python-tests.outcome == 'success' || steps.python-tests.outcome == 'failure' }} | ${{ steps.python-tests.outcome == 'success' }} |"
-              echo "| Container | Docker | ${{ matrix.run_docker }} | ${{ steps.docker.outcome == 'success' || steps.docker.outcome == 'failure' }} | ${{ steps.docker.outcome == 'success' }} |"
+              echo "| Container | Docker | ${{ matrix.run_docker }} | ${{ steps.docker-build.outcome == 'success' || steps.docker-build.outcome == 'failure' }} | ${{ steps.docker-build.outcome == 'success' }} |"
               echo ""
               echo "## Environment"
               echo "| Setting | Value |"
@@ -970,8 +999,9 @@ jobs:
               echo ""
               echo "---"
               echo ""
-            } >> "$SUMMARY_FILE"
+            } >&3
           fi
+          exec 3>&-
 
           if [ "${{ matrix.language }}" = "java" ]; then
             # Calculate progress bar
@@ -1003,7 +1033,7 @@ jobs:
               echo "| 🟡 Medium | ${{ steps.java-owasp.outputs.medium || 0 }} |"
               echo "| 🟢 Low | ${{ steps.java-owasp.outputs.low || 0 }} |"
               echo ""
-            } >> "$SUMMARY_FILE"
+            } >&3
 
           else
             # Python report
@@ -1035,7 +1065,7 @@ jobs:
               echo "| 🟡 Medium | ${{ steps.python-bandit.outputs.medium || 0 }} |"
               echo "| 🟢 Low | ${{ steps.python-bandit.outputs.low || 0 }} |"
               echo ""
-            } >> "$SUMMARY_FILE"
+            } >&3
           fi
 
           # Quality Gates
@@ -1047,36 +1077,39 @@ jobs:
             echo ""
             echo "| Check | Status |"
             echo "|-------|--------|"
-          } >> "$SUMMARY_FILE"
+          } >&3
 
           if [ "${{ matrix.language }}" = "java" ]; then
-            echo "| Unit Tests | ${{ steps.java-tests.outputs.failed == '0' && 'Passed' || 'Failed' }} |" >> "$SUMMARY_FILE"
-            echo "| JaCoCo Coverage | Generated |" >> "$SUMMARY_FILE"
-            echo "| PITest Mutation | Generated |" >> "$SUMMARY_FILE"
-            echo "| Checkstyle | ${{ steps.java-checkstyle.outputs.violations == '0' && 'Passed' || 'Violations' }} |" >> "$SUMMARY_FILE"
-            echo "| SpotBugs | ${{ steps.java-spotbugs.outputs.count == '0' && 'Passed' || 'Bugs found' }} |" >> "$SUMMARY_FILE"
-            echo "| PMD | ${{ steps.java-pmd.outputs.violations == '0' && 'Passed' || 'Violations' }} |" >> "$SUMMARY_FILE"
-            echo "| OWASP Check | ${{ steps.java-owasp.outputs.critical == '0' && steps.java-owasp.outputs.high == '0' && 'Passed' || 'Vulnerabilities' }} |" >> "$SUMMARY_FILE"
-            echo "| Semgrep | ${{ steps.semgrep.outputs.findings == '0' && 'Passed' || 'Findings' }} |" >> "$SUMMARY_FILE"
+            echo "| Unit Tests | ${{ steps.java-tests.outputs.failed == '0' && 'Passed' || 'Failed' }} |" >&3
+            echo "| JaCoCo Coverage | Generated |" >&3
+            echo "| PITest Mutation | Generated |" >&3
+            echo "| Checkstyle | ${{ steps.java-checkstyle.outputs.violations == '0' && 'Passed' || 'Violations' }} |" >&3
+            echo "| SpotBugs | ${{ steps.java-spotbugs.outputs.count == '0' && 'Passed' || 'Bugs found' }} |" >&3
+            echo "| PMD | ${{ steps.java-pmd.outputs.violations == '0' && 'Passed' || 'Violations' }} |" >&3
+            echo "| OWASP Check | ${{ steps.java-owasp.outputs.critical == '0' && steps.java-owasp.outputs.high == '0' && 'Passed' || 'Vulnerabilities' }} |" >&3
+            echo "| Semgrep | ${{ steps.semgrep.outputs.findings == '0' && 'Passed' || 'Findings' }} |" >&3
           else
-            echo "| pytest | ${{ steps.python-tests.outputs.failed == '0' && 'Passed' || 'Failed' }} |" >> "$SUMMARY_FILE"
-            echo "| Coverage | Generated |" >> "$SUMMARY_FILE"
-            echo "| mutmut Mutation | Generated |" >> "$SUMMARY_FILE"
-            echo "| Hypothesis | Complete |" >> "$SUMMARY_FILE"
-            echo "| Ruff | ${{ steps.python-ruff.outputs.errors == '0' && 'Passed' || 'Issues' }} |" >> "$SUMMARY_FILE"
-            echo "| Bandit | ${{ steps.python-bandit.outputs.high == '0' && 'Passed' || 'Security issues' }} |" >> "$SUMMARY_FILE"
-            echo "| pip-audit | ${{ steps.python-pipaudit.outputs.vulnerabilities == '0' && 'Passed' || 'Vulnerabilities' }} |" >> "$SUMMARY_FILE"
-            echo "| Black | ${{ steps.python-black.outputs.issues == '0' && 'Passed' || 'Format issues' }} |" >> "$SUMMARY_FILE"
-            echo "| isort | ${{ steps.python-isort.outputs.issues == '0' && 'Passed' || 'Import issues' }} |" >> "$SUMMARY_FILE"
-            echo "| mypy | ${{ steps.python-mypy.outputs.errors == '0' && 'Passed' || 'Type errors' }} |" >> "$SUMMARY_FILE"
-            echo "| Semgrep | ${{ steps.semgrep.outputs.findings == '0' && 'Passed' || 'Findings' }} |" >> "$SUMMARY_FILE"
+            echo "| pytest | ${{ steps.python-tests.outputs.failed == '0' && 'Passed' || 'Failed' }} |" >&3
+            echo "| Coverage | Generated |" >&3
+            echo "| mutmut Mutation | Generated |" >&3
+            echo "| Hypothesis | Complete |" >&3
+            echo "| Ruff | ${{ steps.python-ruff.outputs.errors == '0' && 'Passed' || 'Issues' }} |" >&3
+            echo "| Bandit | ${{ steps.python-bandit.outputs.high == '0' && 'Passed' || 'Security issues' }} |" >&3
+            echo "| pip-audit | ${{ steps.python-pipaudit.outputs.vulnerabilities == '0' && 'Passed' || 'Vulnerabilities' }} |" >&3
+            echo "| Black | ${{ steps.python-black.outputs.issues == '0' && 'Passed' || 'Format issues' }} |" >&3
+            echo "| isort | ${{ steps.python-isort.outputs.issues == '0' && 'Passed' || 'Import issues' }} |" >&3
+            echo "| mypy | ${{ steps.python-mypy.outputs.errors == '0' && 'Passed' || 'Type errors' }} |" >&3
+            echo "| Semgrep | ${{ steps.semgrep.outputs.findings == '0' && 'Passed' || 'Findings' }} |" >&3
           fi
 
-          echo "" >> "$SUMMARY_FILE"
-          echo "Job summary generated at run-time" >> "$SUMMARY_FILE"
+          {
+            echo ""
+            echo "Job summary generated at run-time"
+          } >&3
 
+          exec 3>&-
           # Copy summary to GitHub Step Summary for display
-          cat "$SUMMARY_FILE" >> $GITHUB_STEP_SUMMARY
+          cat "$SUMMARY_FILE" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Write Report JSON
         if: always()
@@ -1094,7 +1127,8 @@ jobs:
 
           if [ "${{ matrix.language }}" = "java" ]; then
             BUILD_STATUS="success"
-            if [ "${{ steps.java-tests.outputs.failed || 0 }}" -gt 0 ]; then
+            FAILED_TESTS="${{ steps.java-tests.outputs.failed || 0 }}"
+            if [ "${FAILED_TESTS:-0}" -gt 0 ]; then
               BUILD_STATUS="failure"
             fi
 
@@ -1192,7 +1226,8 @@ jobs:
           else
             TEST_STATUS="skipped"
             if [ "${{ matrix.run_pytest }}" = "true" ]; then
-              if [ "${{ steps.python-tests.outputs.failed || 0 }}" -gt 0 ]; then
+              FAILED_TESTS="${{ steps.python-tests.outputs.failed || 0 }}"
+              if [ "${FAILED_TESTS:-0}" -gt 0 ]; then
                 TEST_STATUS="failure"
               else
                 TEST_STATUS="success"
@@ -1357,7 +1392,9 @@ jobs:
     steps:
       - name: Generate Hub Summary
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          summary_file="$GITHUB_STEP_SUMMARY"
+          exec 3> "$summary_file"
+          cat >&3 << EOF
           # CI/CD Hub Summary
 
           **Total Repositories:** ${{ needs.discover.outputs.count }}
@@ -1369,3 +1406,4 @@ jobs:
           See individual job summaries above for detailed QA metrics per repository.
 
           EOF
+          exec 3>&-

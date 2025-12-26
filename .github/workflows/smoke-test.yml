@@ -77,21 +77,22 @@ jobs:
           done
 
           REPOS+=']}'
-          echo "matrix=$REPOS" >> $GITHUB_OUTPUT
-          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          echo "matrix=$REPOS" >> "$GITHUB_OUTPUT"
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
 
           echo "Found $COUNT smoke test repositories:"
           echo "$REPOS" | jq -r '.include[] | "  - \(.language): \(.owner)/\(.name)"' || echo "$REPOS"
 
       - name: Validate Smoke Test Setup
         run: |
-          if [ "${{ steps.repos.outputs.count }}" -lt 2 ]; then
-            echo "::error::Expected at least 2 smoke test repos (Java + Python), found ${{ steps.repos.outputs.count }}"
+          COUNT="${{ steps.repos.outputs.count }}"
+          if [ "${COUNT:-0}" -lt 2 ]; then
+            echo "::error::Expected at least 2 smoke test repos (Java + Python), found ${COUNT:-0}"
             echo "::error::Ensure config/repos/smoke-test-java.yaml and smoke-test-python.yaml exist"
             exit 1
           fi
 
-          echo "Smoke test setup valid: ${{ steps.repos.outputs.count }} repositories configured"
+          echo "Smoke test setup valid: ${COUNT:-0} repositories configured"
 
   # ============================================================================
   # Run Smoke Tests
@@ -156,7 +157,7 @@ jobs:
         run: |
           TOTAL=0; PASSED=0; FAILED=0; SKIPPED=0; RUNTIME=0
 
-          for report in $(find . -path "*/surefire-reports/*.xml" -o -path "*/failsafe-reports/*.xml" 2>/dev/null); do
+          while IFS= read -r -d '' report; do
             T=$(grep -oP 'tests="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
             F=$(grep -oP 'failures="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
             E=$(grep -oP 'errors="\K[0-9]+' "$report" 2>/dev/null | head -1 || echo 0)
@@ -165,15 +166,17 @@ jobs:
             TOTAL=$((TOTAL + T))
             FAILED=$((FAILED + F + E))
             SKIPPED=$((SKIPPED + S))
-            RUNTIME=$(echo "$RUNTIME + $TIME" | bc 2>/dev/null || echo $RUNTIME)
-          done
+            RUNTIME=$(echo "$RUNTIME + $TIME" | bc 2>/dev/null || echo "$RUNTIME")
+          done < <(find . -path "*/surefire-reports/*.xml" -o -path "*/failsafe-reports/*.xml" -print0 2>/dev/null)
           PASSED=$((TOTAL - FAILED - SKIPPED))
 
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          echo "passed=$PASSED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
-          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
-          echo "runtime=${RUNTIME}s" >> $GITHUB_OUTPUT
+          {
+            echo "total=$TOTAL"
+            echo "passed=$PASSED"
+            echo "failed=$FAILED"
+            echo "skipped=$SKIPPED"
+            echo "runtime=${RUNTIME}s"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Tests: $TOTAL total, $PASSED passed, $FAILED failed, $SKIPPED skipped"
 
@@ -194,10 +197,12 @@ jobs:
             fi
           fi
 
-          echo "covered=$COVERED" >> $GITHUB_OUTPUT
-          echo "missed=$MISSED" >> $GITHUB_OUTPUT
-          echo "percent=$PERCENT" >> $GITHUB_OUTPUT
-          echo "lines=$COVERED / $((COVERED + MISSED))" >> $GITHUB_OUTPUT
+          {
+            echo "covered=$COVERED"
+            echo "missed=$MISSED"
+            echo "percent=$PERCENT"
+            echo "lines=$COVERED / $((COVERED + MISSED))"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Coverage: $PERCENT% ($COVERED / $((COVERED + MISSED)) instructions)"
 
@@ -214,12 +219,12 @@ jobs:
           fi
 
           # Count all issues from XML reports (includes both warnings and errors)
-          for xml in $(find . -name "checkstyle-result.xml" 2>/dev/null); do
+          while IFS= read -r -d '' xml; do
             COUNT=$(grep -c "<error" "$xml" 2>/dev/null || echo 0)
             VIOLATIONS=$((VIOLATIONS + COUNT))
-          done
+          done < <(find . -name "checkstyle-result.xml" -print0 2>/dev/null)
 
-          echo "violations=$VIOLATIONS" >> $GITHUB_OUTPUT
+          echo "violations=$VIOLATIONS" >> "$GITHUB_OUTPUT"
           echo "Checkstyle: $VIOLATIONS issues found"
         continue-on-error: true
 
@@ -234,12 +239,12 @@ jobs:
             ./mvnw -B -ntp com.github.spotbugs:spotbugs-maven-plugin:check 2>/dev/null || true
           fi
 
-          for xml in $(find . -name "spotbugsXml.xml" 2>/dev/null); do
+          while IFS= read -r -d '' xml; do
             COUNT=$(grep -c "<BugInstance" "$xml" 2>/dev/null || echo 0)
             BUGS=$((BUGS + COUNT))
-          done
+          done < <(find . -name "spotbugsXml.xml" -print0 2>/dev/null)
 
-          echo "count=$BUGS" >> $GITHUB_OUTPUT
+          echo "count=$BUGS" >> "$GITHUB_OUTPUT"
           echo "SpotBugs: $BUGS potential bugs"
         continue-on-error: true
 
@@ -286,11 +291,13 @@ jobs:
             COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
           fi
 
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          echo "passed=$TOTAL" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
-          echo "skipped=$SKIPPED" >> $GITHUB_OUTPUT
-          echo "coverage=$COVERAGE" >> $GITHUB_OUTPUT
+          {
+            echo "total=$TOTAL"
+            echo "passed=$TOTAL"
+            echo "failed=$FAILED"
+            echo "skipped=$SKIPPED"
+            echo "coverage=$COVERAGE"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Tests: $TOTAL passed, $FAILED failed, $SKIPPED skipped"
           echo "Coverage: $COVERAGE%"
@@ -308,8 +315,10 @@ jobs:
           ERRORS=$(jq 'length' ruff-report.json 2>/dev/null || echo 0)
           SECURITY=$(jq '[.[] | select(.code | startswith("S"))] | length' ruff-report.json 2>/dev/null || echo 0)
 
-          echo "errors=$ERRORS" >> $GITHUB_OUTPUT
-          echo "security=$SECURITY" >> $GITHUB_OUTPUT
+          {
+            echo "errors=$ERRORS"
+            echo "security=$SECURITY"
+          } >> "$GITHUB_OUTPUT"
           echo "Ruff: $ERRORS issues ($SECURITY security-related)"
         continue-on-error: true
 
@@ -323,7 +332,7 @@ jobs:
           echo "::endgroup::"
 
           WOULD_REFORMAT=$(grep -c "would reformat" black-output.txt 2>/dev/null || echo 0)
-          echo "issues=$WOULD_REFORMAT" >> $GITHUB_OUTPUT
+          echo "issues=$WOULD_REFORMAT" >> "$GITHUB_OUTPUT"
           echo "Black: $WOULD_REFORMAT files need reformatting"
         continue-on-error: true
 
@@ -333,7 +342,9 @@ jobs:
       - name: Generate Smoke Test Report
         id: report
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          summary_file="$GITHUB_STEP_SUMMARY"
+          exec 3> "$summary_file"
+          cat >&3 << 'EOF'
           # Smoke Test Results: ${{ matrix.owner }}/${{ matrix.name }}
 
           **Branch:** `${{ matrix.branch }}` | **Language:** `${{ matrix.language }}` | **Config:** `${{ matrix.config }}`
@@ -346,7 +357,7 @@ jobs:
             COV=${{ steps.java-coverage.outputs.percent || 0 }}
             COV_BAR=$(printf '█%.0s' $(seq 1 $((COV / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - COV / 5))) 2>/dev/null)
 
-            cat >> $GITHUB_STEP_SUMMARY << EOF
+            cat >&3 << EOF
           ## Java Smoke Test Results
 
           | Metric | Result | Status |
@@ -368,7 +379,7 @@ jobs:
             COV=${{ steps.python-tests.outputs.coverage || 0 }}
             COV_BAR=$(printf '█%.0s' $(seq 1 $((COV / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - COV / 5))) 2>/dev/null)
 
-            cat >> $GITHUB_STEP_SUMMARY << EOF
+            cat >&3 << EOF
           ## Python Smoke Test Results
 
           | Metric | Result | Status |
@@ -386,6 +397,7 @@ jobs:
 
           EOF
           fi
+          exec 3>&-
 
       # ========================================
       # UPLOAD ARTIFACTS
@@ -424,7 +436,9 @@ jobs:
 
       - name: Generate Summary
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          summary_file="$GITHUB_STEP_SUMMARY"
+          exec 3> "$summary_file"
+          cat >&3 << EOF
           # Smoke Test Summary
 
           **Total Test Repositories:** ${{ needs.discover.outputs.count }}
@@ -447,15 +461,15 @@ jobs:
           ## Test Repositories
 
           EOF
+          {
+            echo "| Language | Repository | Status |"
+            echo "|----------|------------|--------|"
+            # This would ideally parse from job results, but for now we show static info
+            echo "| Java | Smoke Test Java | See job results above |"
+            echo "| Python | Smoke Test Python | See job results above |"
+          } >&3
 
-          echo "| Language | Repository | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|------------|--------|" >> $GITHUB_STEP_SUMMARY
-
-          # This would ideally parse from job results, but for now we show static info
-          echo "| Java | Smoke Test Java | See job results above |" >> $GITHUB_STEP_SUMMARY
-          echo "| Python | Smoke Test Python | See job results above |" >> $GITHUB_STEP_SUMMARY
-
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          cat >&3 << EOF
 
           ---
 
@@ -477,6 +491,7 @@ jobs:
           **Documentation:** See [\`docs/development/execution/SMOKE_TEST.md\`](docs/development/execution/SMOKE_TEST.md) for detailed smoke test guide.
 
           EOF
+          exec 3>&-
 
       - name: Check Smoke Test Result
         run: |

@@ -86,8 +86,10 @@ jobs:
           # Check if policies directory exists
           if [ ! -d "${{ inputs.policies_dir }}" ]; then
             echo "::warning::Policies directory '${{ inputs.policies_dir }}' not found"
-            echo "validated=0" >> $GITHUB_OUTPUT
-            echo "failed=0" >> $GITHUB_OUTPUT
+            {
+              echo "validated=0"
+              echo "failed=0"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -132,8 +134,8 @@ jobs:
             done
           fi
 
-          echo "validated=$VALIDATED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          echo "validated=$VALIDATED" >> "$GITHUB_OUTPUT"
+          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
 
           if [ "$FAILED" -gt 0 ]; then
             echo "::error::$FAILED policy validation(s) failed"
@@ -187,7 +189,9 @@ jobs:
       - name: Generate Summary
         if: always()
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          summary_file="$GITHUB_STEP_SUMMARY"
+          exec 3> "$summary_file"
+          cat >&3 << EOF
           # Kyverno Policy Validation
 
           | Metric | Value |
@@ -202,19 +206,22 @@ jobs:
           EOF
 
           if [ -d "${{ inputs.policies_dir }}" ]; then
-            echo "| Policy | Status |" >> $GITHUB_STEP_SUMMARY
-            echo "|--------|--------|" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "| Policy | Status |"
+              echo "|--------|--------|"
+            } >&3
             for policy in ${{ inputs.policies_dir }}/*.yaml ${{ inputs.policies_dir }}/*.yml; do
               if [ -f "$policy" ]; then
                 NAME=$(basename "$policy")
-                echo "| \`$NAME\` | Validated |" >> $GITHUB_STEP_SUMMARY
+                echo "| \`$NAME\` | Validated |" >&3
               fi
             done
           fi
 
-          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          cat >&3 << 'EOF'
 
           ---
 
           See [Kyverno Documentation](https://kyverno.io/docs/) for policy reference.
           EOF
+          exec 3>&-

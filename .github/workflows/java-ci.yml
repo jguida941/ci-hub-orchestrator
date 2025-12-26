@@ -249,15 +249,6 @@ jobs:
           PYEOF
             if [ -f "_thresholds_from_config.env" ]; then
               source _thresholds_from_config.env
-              [ -n "$COVERAGE_MIN" ] && COVERAGE_MIN="$COVERAGE_MIN"
-              [ -n "$MUTATION_SCORE_MIN" ] && MUTATION_SCORE_MIN="$MUTATION_SCORE_MIN"
-              [ -n "$OWASP_CVSS_FAIL" ] && OWASP_CVSS_FAIL="$OWASP_CVSS_FAIL"
-              [ -n "$MAX_CRITICAL_VULNS" ] && MAX_CRITICAL_VULNS="$MAX_CRITICAL_VULNS"
-              [ -n "$MAX_HIGH_VULNS" ] && MAX_HIGH_VULNS="$MAX_HIGH_VULNS"
-              [ -n "$MAX_SEMGREP_FINDINGS" ] && MAX_SEMGREP_FINDINGS="$MAX_SEMGREP_FINDINGS"
-              [ -n "$MAX_PMD_VIOLATIONS" ] && MAX_PMD_VIOLATIONS="$MAX_PMD_VIOLATIONS"
-              [ -n "$MAX_CHECKSTYLE_ERRORS" ] && MAX_CHECKSTYLE_ERRORS="$MAX_CHECKSTYLE_ERRORS"
-              [ -n "$MAX_SPOTBUGS_BUGS" ] && MAX_SPOTBUGS_BUGS="$MAX_SPOTBUGS_BUGS"
               rm -f _thresholds_from_config.env
             fi
           fi
@@ -266,12 +257,12 @@ jobs:
           OVERRIDES='${{ inputs.threshold_overrides_yaml }}'
           if [ -n "$OVERRIDES" ]; then
             echo "Applying threshold_overrides_yaml..."
-            echo "$OVERRIDES" | python3 << 'PYEOF'
+            OVERRIDE_YAML="$OVERRIDES" python3 << 'PYEOF'
           import yaml
-          import sys
+          import os
 
           try:
-              data = yaml.safe_load(sys.stdin.read()) or {}
+              data = yaml.safe_load(os.environ.get('OVERRIDE_YAML', '')) or {}
               with open('_thresholds_override.env', 'w') as ef:
                   for k, v in data.items():
                       ef.write(f"{k.upper()}={v}\n")
@@ -281,29 +272,22 @@ jobs:
           PYEOF
             if [ -f "_thresholds_override.env" ]; then
               source _thresholds_override.env
-              [ -n "$COVERAGE_MIN" ] && COVERAGE_MIN="$COVERAGE_MIN"
-              [ -n "$MUTATION_SCORE_MIN" ] && MUTATION_SCORE_MIN="$MUTATION_SCORE_MIN"
-              [ -n "$OWASP_CVSS_FAIL" ] && OWASP_CVSS_FAIL="$OWASP_CVSS_FAIL"
-              [ -n "$MAX_CRITICAL_VULNS" ] && MAX_CRITICAL_VULNS="$MAX_CRITICAL_VULNS"
-              [ -n "$MAX_HIGH_VULNS" ] && MAX_HIGH_VULNS="$MAX_HIGH_VULNS"
-              [ -n "$MAX_SEMGREP_FINDINGS" ] && MAX_SEMGREP_FINDINGS="$MAX_SEMGREP_FINDINGS"
-              [ -n "$MAX_PMD_VIOLATIONS" ] && MAX_PMD_VIOLATIONS="$MAX_PMD_VIOLATIONS"
-              [ -n "$MAX_CHECKSTYLE_ERRORS" ] && MAX_CHECKSTYLE_ERRORS="$MAX_CHECKSTYLE_ERRORS"
-              [ -n "$MAX_SPOTBUGS_BUGS" ] && MAX_SPOTBUGS_BUGS="$MAX_SPOTBUGS_BUGS"
               rm -f _thresholds_override.env
             fi
           fi
 
           # Export effective thresholds as outputs
-          echo "coverage_min=$COVERAGE_MIN" >> $GITHUB_OUTPUT
-          echo "mutation_score_min=$MUTATION_SCORE_MIN" >> $GITHUB_OUTPUT
-          echo "owasp_cvss_fail=$OWASP_CVSS_FAIL" >> $GITHUB_OUTPUT
-          echo "max_critical_vulns=$MAX_CRITICAL_VULNS" >> $GITHUB_OUTPUT
-          echo "max_high_vulns=$MAX_HIGH_VULNS" >> $GITHUB_OUTPUT
-          echo "max_semgrep_findings=$MAX_SEMGREP_FINDINGS" >> $GITHUB_OUTPUT
-          echo "max_pmd_violations=$MAX_PMD_VIOLATIONS" >> $GITHUB_OUTPUT
-          echo "max_checkstyle_errors=$MAX_CHECKSTYLE_ERRORS" >> $GITHUB_OUTPUT
-          echo "max_spotbugs_bugs=$MAX_SPOTBUGS_BUGS" >> $GITHUB_OUTPUT
+          {
+            echo "coverage_min=$COVERAGE_MIN"
+            echo "mutation_score_min=$MUTATION_SCORE_MIN"
+            echo "owasp_cvss_fail=$OWASP_CVSS_FAIL"
+            echo "max_critical_vulns=$MAX_CRITICAL_VULNS"
+            echo "max_high_vulns=$MAX_HIGH_VULNS"
+            echo "max_semgrep_findings=$MAX_SEMGREP_FINDINGS"
+            echo "max_pmd_violations=$MAX_PMD_VIOLATIONS"
+            echo "max_checkstyle_errors=$MAX_CHECKSTYLE_ERRORS"
+            echo "max_spotbugs_bugs=$MAX_SPOTBUGS_BUGS"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Effective thresholds:"
           echo "  coverage_min: $COVERAGE_MIN"
@@ -404,8 +388,10 @@ jobs:
             FAILED=$((FAILED + FAILURES + ERRORS))
             PASSED=$((PASSED + TESTS - FAILURES - ERRORS))
           done < <(find . -path "*/surefire-reports/*.xml" -name "TEST-*.xml" 2>/dev/null)
-          echo "passed=$PASSED" >> "$GITHUB_OUTPUT"
-          echo "failed=$FAILED" >> "$GITHUB_OUTPUT"
+          {
+            echo "passed=$PASSED"
+            echo "failed=$FAILED"
+          } >> "$GITHUB_OUTPUT"
           echo "Tests: $PASSED passed, $FAILED failed"
 
       - name: Extract jqwik Property Test Results
@@ -414,7 +400,6 @@ jobs:
         run: |
           # jqwik runs with JUnit 5, extract property test stats from surefire output
           # Look for jqwik test output patterns
-          JQWIK_TRIES=0
           JQWIK_TESTS=0
           while IFS= read -r report; do
             if [ -f "$report" ]; then
@@ -484,9 +469,11 @@ jobs:
               OWASP_MEDIUM=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "MEDIUM")] | length' "$OWASP_REPORT" 2>/dev/null || echo 0)
             fi
           fi
-          echo "owasp_critical=${OWASP_CRITICAL:-0}" >> "$GITHUB_OUTPUT"
-          echo "owasp_high=${OWASP_HIGH:-0}" >> "$GITHUB_OUTPUT"
-          echo "owasp_medium=${OWASP_MEDIUM:-0}" >> "$GITHUB_OUTPUT"
+          {
+            echo "owasp_critical=${OWASP_CRITICAL:-0}"
+            echo "owasp_high=${OWASP_HIGH:-0}"
+            echo "owasp_medium=${OWASP_MEDIUM:-0}"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Security: OWASP critical=$OWASP_CRITICAL, high=$OWASP_HIGH, medium=$OWASP_MEDIUM"
 

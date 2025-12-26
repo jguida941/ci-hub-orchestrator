@@ -96,8 +96,10 @@ jobs:
             done
           fi
 
-          echo "validated=$VALIDATED" >> $GITHUB_OUTPUT
-          echo "failed=$FAILED" >> $GITHUB_OUTPUT
+          {
+            echo "validated=$VALIDATED"
+            echo "failed=$FAILED"
+          } >> "$GITHUB_OUTPUT"
 
           if [ "$FAILED" -gt 0 ]; then
             echo "::error::$FAILED policy validation(s) failed"
@@ -110,7 +112,9 @@ jobs:
       - name: Generate Summary
         if: always()
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          summary_file="$GITHUB_STEP_SUMMARY"
+          exec 3> "$summary_file"
+          cat >&3 << EOF
           # Kyverno Policy Validation
 
           | Metric | Value |
@@ -120,22 +124,25 @@ jobs:
 
           EOF
 
-          echo "| Policy | Purpose |" >> $GITHUB_STEP_SUMMARY
-          echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "| Policy | Purpose |"
+            echo "|--------|---------|"
+          } >&3
 
           shopt -s nullglob
           for policy in policies/kyverno/*.yaml policies/kyverno/*.yml; do
             if [ -f "$policy" ]; then
               NAME=$(basename "$policy" .yaml)
               PURPOSE=$(grep "policies.kyverno.io/title:" "$policy" 2>/dev/null | sed 's/.*title:\s*//' | head -1 || echo "N/A")
-              echo "| \`$NAME\` | $PURPOSE |" >> $GITHUB_STEP_SUMMARY
+              echo "| \`$NAME\` | $PURPOSE |" >&3
             fi
           done
 
-          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          cat >&3 << 'EOF'
 
           ---
 
           See [docs/guides/KYVERNO.md](../../docs/guides/KYVERNO.md) for usage instructions.
           EOF
+          exec 3>&-
         shell: bash

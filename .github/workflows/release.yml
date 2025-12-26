@@ -74,10 +74,12 @@ jobs:
       - name: Get version from tag
         id: version
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          MAJOR=$(echo $VERSION | cut -d. -f1)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "major=$MAJOR" >> $GITHUB_OUTPUT
+          VERSION="${GITHUB_REF#refs/tags/}"
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
+          {
+            echo "version=$VERSION"
+            echo "major=$MAJOR"
+          } >> "$GITHUB_OUTPUT"
           echo "Release version: $VERSION (major: $MAJOR)"
 
       - name: Create GitHub Release

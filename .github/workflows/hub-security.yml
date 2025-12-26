@@ -82,8 +82,10 @@ jobs:
           done
 
           REPOS+=']}'
-          echo "matrix=$REPOS" >> $GITHUB_OUTPUT
-          echo "count=$COUNT" >> $GITHUB_OUTPUT
+          {
+            echo "matrix=$REPOS"
+            echo "count=$COUNT"
+          } >> "$GITHUB_OUTPUT"
 
   # ============================================================================
   # Security Scan Each Repo
@@ -111,9 +113,9 @@ jobs:
         id: repo-check
         run: |
           if [ -d repo/.git ]; then
-            echo "present=true" >> $GITHUB_OUTPUT
+            echo "present=true" >> "$GITHUB_OUTPUT"
           else
-            echo "present=false" >> $GITHUB_OUTPUT
+            echo "present=false" >> "$GITHUB_OUTPUT"
             echo "::warning::Repo checkout failed for ${{ matrix.owner }}/${{ matrix.name }}"
           fi
 
@@ -207,7 +209,7 @@ jobs:
               [.dependencies[] | .vulnerabilities // [] | length] | add // 0
             else 0 end
           ' pip-audit-report.json 2>/dev/null || echo 0)
-          echo "vulnerabilities=$VULNS" >> $GITHUB_OUTPUT
+          echo "vulnerabilities=$VULNS" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Python] Bandit"
@@ -218,7 +220,7 @@ jobs:
           pip install bandit
           bandit -r . -f json -o bandit-report.json 2>/dev/null || true
           HIGH=$(jq '[.results[] | select(.issue_severity == "HIGH")] | length' bandit-report.json 2>/dev/null || echo 0)
-          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       - name: "[Python] Ruff Security Rules"
@@ -229,7 +231,7 @@ jobs:
           pip install ruff
           ruff check . --select=S --output-format=json > ruff-security.json 2>/dev/null || true
           ISSUES=$(jq 'length' ruff-security.json 2>/dev/null || echo 0)
-          echo "issues=$ISSUES" >> $GITHUB_OUTPUT
+          echo "issues=$ISSUES" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       # ========================================
@@ -251,8 +253,10 @@ jobs:
             CRITICAL=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "CRITICAL")] | length' "$REPORT" 2>/dev/null || echo 0)
             HIGH=$(jq '[.dependencies[]?.vulnerabilities[]? | select(.severity == "HIGH")] | length' "$REPORT" 2>/dev/null || echo 0)
           fi
-          echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
-          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          {
+            echo "critical=$CRITICAL"
+            echo "high=$HIGH"
+          } >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
       # ========================================
@@ -260,7 +264,9 @@ jobs:
       # ========================================
       - name: Generate Security Summary
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          summary_file="$GITHUB_STEP_SUMMARY"
+          exec 3> "$summary_file"
+          cat >&3 << EOF
           # Security & Supply Chain: ${{ matrix.name }}
 
           **Language:** ${{ matrix.language }}
@@ -274,7 +280,7 @@ jobs:
           EOF
 
           if [ "${{ matrix.language }}" = "python" ]; then
-            cat >> $GITHUB_STEP_SUMMARY << EOF
+            cat >&3 << EOF
           | pip-audit | ${{ steps.pip-audit.outputs.vulnerabilities || 0 }} vulns | - |
           | bandit | ${{ steps.bandit.outputs.high || 0 }} high severity | - |
           | ruff-security | ${{ steps.ruff-security.outputs.issues || 0 }} issues | - |
@@ -282,14 +288,14 @@ jobs:
           | sbom | Generated | - |
           EOF
           else
-            cat >> $GITHUB_STEP_SUMMARY << EOF
+            cat >&3 << EOF
           | OWASP | ${{ steps.owasp.outputs.critical || 0 }} critical, ${{ steps.owasp.outputs.high || 0 }} high | - |
           | codeql | Complete | - |
           | sbom | Generated | - |
           EOF
           fi
 
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          cat >&3 << EOF
 
           ---
 
@@ -300,6 +306,7 @@ jobs:
           | sbom-${{ matrix.name }}.spdx.json | - | - |
 
           EOF
+          exec 3>&-
 
       - name: Upload Security Reports
         if: always()
@@ -331,6 +338,17 @@ jobs:
         with:
           repository: ${{ matrix.owner }}/${{ matrix.name }}
           path: repo
+        continue-on-error: true
+
+      - name: Verify checkout
+        id: repo-check
+        run: |
+          if [ -d repo/.git ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Repo checkout failed for ${{ matrix.owner }}/${{ matrix.name }}"
+          fi
 
       - name: Check for Docker Compose
         if: steps.repo-check.outputs.present == 'true' && inputs.run_zap == true
@@ -338,9 +356,9 @@ jobs:
         working-directory: repo
         run: |
           if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ]; then
-            echo "has_docker=true" >> $GITHUB_OUTPUT
+            echo "has_docker=true" >> "$GITHUB_OUTPUT"
           else
-            echo "has_docker=false" >> $GITHUB_OUTPUT
+            echo "has_docker=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Start Application
@@ -366,16 +384,19 @@ jobs:
 
       - name: Generate ZAP Summary
         run: |
-          echo "## ZAP DAST Scan: ${{ matrix.name }}" >> $GITHUB_STEP_SUMMARY
+          summary_file="$GITHUB_STEP_SUMMARY"
+          exec 3> "$summary_file"
+          echo "## ZAP DAST Scan: ${{ matrix.name }}" >&3
           if [ "${{ steps.repo-check.outputs.present }}" != "true" ]; then
-            echo "Skipped - Repo checkout failed" >> $GITHUB_STEP_SUMMARY
+            echo "Skipped - Repo checkout failed" >&3
           elif [ "${{ inputs.run_zap }}" != "true" ]; then
-            echo "Skipped - run_zap input is false" >> $GITHUB_STEP_SUMMARY
+            echo "Skipped - run_zap input is false" >&3
           elif [ "${{ steps.check-docker.outputs.has_docker }}" = "true" ]; then
-            echo "Scan completed. See artifacts for detailed report." >> $GITHUB_STEP_SUMMARY
+            echo "Scan completed. See artifacts for detailed report." >&3
           else
-            echo "Skipped - No docker-compose.yml found" >> $GITHUB_STEP_SUMMARY
+            echo "Skipped - No docker-compose.yml found" >&3
           fi
+          exec 3>&-
 
   # ============================================================================
   # Summary
@@ -389,7 +410,9 @@ jobs:
     steps:
       - name: Generate Summary
         run: |
-          cat >> $GITHUB_STEP_SUMMARY << EOF
+          summary_file="$GITHUB_STEP_SUMMARY"
+          exec 3> "$summary_file"
+          cat >&3 << EOF
           # Security & Supply Chain Summary
 
           **Repositories Scanned:** ${{ needs.discover.outputs.count }}
@@ -406,3 +429,4 @@ jobs:
           | ZAP | Dynamic Application Security Testing (DAST) |
 
           EOF
+          exec 3>&-

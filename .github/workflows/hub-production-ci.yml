@@ -732,21 +732,26 @@ jobs:
 
       - name: Check licenses
         run: |
+          summary_file="$GITHUB_STEP_SUMMARY"
           TOTAL=$(pip-licenses --format=csv | wc -l)
-          COPYLEFT=$(pip-licenses --format=csv | grep -iE "GPL|AGPL" | wc -l || echo "0")
+          COPYLEFT=$(pip-licenses --format=csv | grep -icE "GPL|AGPL" || echo "0")
 
-          echo "## License Check" >> $GITHUB_STEP_SUMMARY
-          echo "Total packages: $TOTAL" >> $GITHUB_STEP_SUMMARY
-          echo "Copyleft (GPL/AGPL): $COPYLEFT" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## License Check"
+            echo "Total packages: $TOTAL"
+            echo "Copyleft (GPL/AGPL): $COPYLEFT"
+          } >> "$summary_file"
 
           if [ "$COPYLEFT" -gt 0 ]; then
-            echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Copyleft packages (dev dependencies are acceptable):" >> $GITHUB_STEP_SUMMARY
-            pip-licenses --format=csv | grep -iE "GPL|AGPL" >> $GITHUB_STEP_SUMMARY
+            {
+              echo ""
+              echo "Copyleft packages (dev dependencies are acceptable):"
+              pip-licenses --format=csv | grep -iE "GPL|AGPL"
+            } >> "$summary_file"
             # Only warn - dev dependencies like mutmut (GPL) are acceptable
             echo "::warning::Found $COPYLEFT packages with copyleft licenses"
           else
-            echo "PASS - no copyleft licenses" >> $GITHUB_STEP_SUMMARY
+            echo "PASS - no copyleft licenses" >> "$summary_file"
           fi
 
   # ============================================================================
@@ -844,52 +849,55 @@ jobs:
           # Helpers for unified format
           ran() { [[ "$1" != "skipped" && "$1" != "cancelled" ]] && echo "true" || echo "false"; }
           ok() { [[ "$1" == "success" ]] && echo "true" || echo "false"; }
+          summary_file="$GITHUB_STEP_SUMMARY"
 
-          echo "## Hub Production CI Summary" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Hub Production CI Summary"
+            echo ""
 
-          # Environment
-          echo "### Environment" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Setting | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|---------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Repository | ${{ github.repository }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Branch | ${{ github.ref_name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Run Number | #${{ github.run_number }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Trigger | ${{ github.event_name }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Language | Python |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+            # Environment
+            echo "### Environment"
+            echo ""
+            echo "| Setting | Value |"
+            echo "|---------|-------|"
+            echo "| Repository | ${{ github.repository }} |"
+            echo "| Branch | ${{ github.ref_name }} |"
+            echo "| Run Number | #${{ github.run_number }} |"
+            echo "| Trigger | ${{ github.event_name }} |"
+            echo "| Language | Python |"
+            echo ""
 
-          # Results (unified format per SUMMARY_CONTRACT.md contract)
-          echo "## Tools Enabled" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Category | Tool | Configured | Ran | Success |" >> $GITHUB_STEP_SUMMARY
-          echo "|----------|------|------------|-----|---------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Workflow | actionlint | true | $(ran "${{ needs.actionlint.result }}") | $(ok "${{ needs.actionlint.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Workflow | zizmor | true | $(ran "${{ needs.zizmor.result }}") | $(ok "${{ needs.zizmor.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Quality | ruff | true | $(ran "${{ needs.lint.result }}") | $(ok "${{ needs.lint.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Quality | syntax | true | $(ran "${{ needs.syntax-check.result }}") | $(ok "${{ needs.syntax-check.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Quality | mypy | true | $(ran "${{ needs.type-check.result }}") | $(ok "${{ needs.type-check.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Quality | yamllint | true | $(ran "${{ needs.yaml-lint.result }}") | $(ok "${{ needs.yaml-lint.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Testing | pytest | true | $(ran "${{ needs.unit-tests.result }}") | $(ok "${{ needs.unit-tests.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Testing | mutmut | true | $(ran "${{ needs.mutation-tests.result }}") | $(ok "${{ needs.mutation-tests.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security | bandit | true | $(ran "${{ needs.bandit.result }}") | $(ok "${{ needs.bandit.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security | pip-audit | true | $(ran "${{ needs.pip-audit.result }}") | $(ok "${{ needs.pip-audit.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security | gitleaks | true | $(ran "${{ needs.secret-scan.result }}") | $(ok "${{ needs.secret-scan.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Security | trivy | true | $(ran "${{ needs.trivy.result }}") | $(ok "${{ needs.trivy.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Validate | templates | true | $(ran "${{ needs.validate-templates.result }}") | $(ok "${{ needs.validate-templates.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Validate | configs | true | $(ran "${{ needs.validate-configs.result }}") | $(ok "${{ needs.validate-configs.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Validate | matrix-keys | true | $(ran "${{ needs.verify-matrix-keys.result }}") | $(ok "${{ needs.verify-matrix-keys.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Validate | licenses | true | $(ran "${{ needs.license-check.result }}") | $(ok "${{ needs.license-check.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Supply Chain | dependency-review | true | $(ran "${{ needs.dependency-review.result }}") | $(ok "${{ needs.dependency-review.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "| Supply Chain | scorecard | true | $(ran "${{ needs.scorecard.result }}") | $(ok "${{ needs.scorecard.result }}") |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+            # Results (unified format per SUMMARY_CONTRACT.md contract)
+            echo "## Tools Enabled"
+            echo ""
+            echo "| Category | Tool | Configured | Ran | Success |"
+            echo "|----------|------|------------|-----|---------|"
+            echo "| Workflow | actionlint | true | $(ran "${{ needs.actionlint.result }}") | $(ok "${{ needs.actionlint.result }}") |"
+            echo "| Workflow | zizmor | true | $(ran "${{ needs.zizmor.result }}") | $(ok "${{ needs.zizmor.result }}") |"
+            echo "| Quality | ruff | true | $(ran "${{ needs.lint.result }}") | $(ok "${{ needs.lint.result }}") |"
+            echo "| Quality | syntax | true | $(ran "${{ needs.syntax-check.result }}") | $(ok "${{ needs.syntax-check.result }}") |"
+            echo "| Quality | mypy | true | $(ran "${{ needs.type-check.result }}") | $(ok "${{ needs.type-check.result }}") |"
+            echo "| Quality | yamllint | true | $(ran "${{ needs.yaml-lint.result }}") | $(ok "${{ needs.yaml-lint.result }}") |"
+            echo "| Testing | pytest | true | $(ran "${{ needs.unit-tests.result }}") | $(ok "${{ needs.unit-tests.result }}") |"
+            echo "| Testing | mutmut | true | $(ran "${{ needs.mutation-tests.result }}") | $(ok "${{ needs.mutation-tests.result }}") |"
+            echo "| Security | bandit | true | $(ran "${{ needs.bandit.result }}") | $(ok "${{ needs.bandit.result }}") |"
+            echo "| Security | pip-audit | true | $(ran "${{ needs.pip-audit.result }}") | $(ok "${{ needs.pip-audit.result }}") |"
+            echo "| Security | gitleaks | true | $(ran "${{ needs.secret-scan.result }}") | $(ok "${{ needs.secret-scan.result }}") |"
+            echo "| Security | trivy | true | $(ran "${{ needs.trivy.result }}") | $(ok "${{ needs.trivy.result }}") |"
+            echo "| Validate | templates | true | $(ran "${{ needs.validate-templates.result }}") | $(ok "${{ needs.validate-templates.result }}") |"
+            echo "| Validate | configs | true | $(ran "${{ needs.validate-configs.result }}") | $(ok "${{ needs.validate-configs.result }}") |"
+            echo "| Validate | matrix-keys | true | $(ran "${{ needs.verify-matrix-keys.result }}") | $(ok "${{ needs.verify-matrix-keys.result }}") |"
+            echo "| Validate | licenses | true | $(ran "${{ needs.license-check.result }}") | $(ok "${{ needs.license-check.result }}") |"
+            echo "| Supply Chain | dependency-review | true | $(ran "${{ needs.dependency-review.result }}") | $(ok "${{ needs.dependency-review.result }}") |"
+            echo "| Supply Chain | scorecard | true | $(ran "${{ needs.scorecard.result }}") | $(ok "${{ needs.scorecard.result }}") |"
+            echo ""
 
-          # Failures/Skips
-          echo "### Failed or Skipped Checks" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+            # Failures/Skips
+            echo "### Failed or Skipped Checks"
+            echo ""
+            echo "| Check | Status |"
+            echo "|-------|--------|"
+          } >> "$summary_file"
 
           checks=(
             "actionlint:${{ needs.actionlint.result }}"
@@ -918,27 +926,29 @@ jobs:
             status="${item##*:}"
             if [ "$status" != "success" ]; then
               has_issues=1
-              echo "| $name | $status |" >> $GITHUB_STEP_SUMMARY
+              echo "| $name | $status |" >> "$summary_file"
             fi
           done
           if [ "$has_issues" -eq 0 ]; then
-            echo "| None | success |" >> $GITHUB_STEP_SUMMARY
+            echo "| None | success |" >> "$summary_file"
           fi
-          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "" >> "$summary_file"
 
-          # Quality Gates
-          echo "### Quality Gates" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Threshold | Status |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|-----------|--------|" >> $GITHUB_STEP_SUMMARY
-          echo "| Unit Tests | pass | ${{ needs.unit-tests.result == 'success' && 'Passed' || needs.unit-tests.result == 'skipped' && 'Skipped' || 'Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Coverage | 70% min | ${{ needs.unit-tests.result == 'success' && 'Passed' || 'N/A' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Mutation Score | 70% min | ${{ needs.mutation-tests.result == 'success' && 'Passed' || needs.mutation-tests.result == 'skipped' && 'Skipped' || 'Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Type Check (mypy) | 0 errors | ${{ needs.type-check.result == 'success' && 'Passed' || 'Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| SAST (bandit) | 0 high | ${{ needs.bandit.result == 'success' && 'Passed' || 'Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "| Secrets (gitleaks) | 0 leaks | ${{ needs.secret-scan.result == 'success' && 'Passed' || 'Failed' }} |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "Job summary generated at run-time" >> $GITHUB_STEP_SUMMARY
+          {
+            # Quality Gates
+            echo "### Quality Gates"
+            echo ""
+            echo "| Check | Threshold | Status |"
+            echo "|-------|-----------|--------|"
+            echo "| Unit Tests | pass | ${{ needs.unit-tests.result == 'success' && 'Passed' || needs.unit-tests.result == 'skipped' && 'Skipped' || 'Failed' }} |"
+            echo "| Coverage | 70% min | ${{ needs.unit-tests.result == 'success' && 'Passed' || 'N/A' }} |"
+            echo "| Mutation Score | 70% min | ${{ needs.mutation-tests.result == 'success' && 'Passed' || needs.mutation-tests.result == 'skipped' && 'Skipped' || 'Failed' }} |"
+            echo "| Type Check (mypy) | 0 errors | ${{ needs.type-check.result == 'success' && 'Passed' || 'Failed' }} |"
+            echo "| SAST (bandit) | 0 high | ${{ needs.bandit.result == 'success' && 'Passed' || 'Failed' }} |"
+            echo "| Secrets (gitleaks) | 0 leaks | ${{ needs.secret-scan.result == 'success' && 'Passed' || 'Failed' }} |"
+            echo ""
+            echo "Job summary generated at run-time"
+          } >> "$summary_file"
 
       - name: Check critical failures
         run: |
