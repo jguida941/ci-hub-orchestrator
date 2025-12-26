@@ -6,6 +6,7 @@
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/ruff.json)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![bandit](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/bandit.json)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![pip-audit](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/pip-audit.json)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
+[![zizmor](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/zizmor.json)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![License: Elastic 2.0](https://img.shields.io/badge/license-Elastic%202.0-blue)](LICENSE)
 
 Centralized CI/CD for Java and Python repos with config-driven toggles, reusable workflows, and a single hub that runs pipelines across many repositories.

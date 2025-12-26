@@ -2,7 +2,7 @@
 """
 Generate badge JSON files for Python CI metrics (shields.io endpoint format).
 
-Parses outputs from: ruff, bandit, pip-audit, mypy, mutmut
+Parses outputs from: ruff, bandit, pip-audit, mypy, mutmut, zizmor
 Writes badge JSON to badges/ directory for shields.io endpoint badges.
 
 Usage:
@@ -14,6 +14,7 @@ Environment variables:
     MUTATION_SCORE=XX       Mutation score percentage (from CI)
     RUFF_ISSUES=XX          Ruff issue count (from CI)
     MYPY_ERRORS=XX          Mypy error count (from CI)
+    ZIZMOR_SARIF=path       Optional path to zizmor SARIF file
 """
 
 from __future__ import annotations
@@ -99,6 +100,33 @@ def count_badge(label: str, count: Optional[int], unit: str = "issues") -> dict:
         "message": f"{count} {unit}",
         "color": _count_color(count),
     }
+
+
+def status_badge(label: str, status: str, color: str) -> dict:
+    """Generate badge JSON for pass/fail-style status."""
+    return {
+        "schemaVersion": 1,
+        "label": label,
+        "message": status,
+        "color": color,
+    }
+
+
+def load_zizmor() -> Optional[int]:
+    """Parse zizmor SARIF for high/warning findings."""
+    report = ROOT / "zizmor.sarif"
+    if not report.exists():
+        return None
+    try:
+        sarif = json.loads(report.read_text())
+        runs = sarif.get("runs", [])
+        if not runs:
+            return 0
+        results = runs[0].get("results", [])
+        findings = [r for r in results if r.get("level") in {"error", "warning"}]
+        return len(findings)
+    except (json.JSONDecodeError, TypeError, KeyError):
+        return None
 
 
 def load_bandit() -> Optional[int]:
@@ -193,6 +221,14 @@ def main() -> int:
     pip_vulns = load_pip_audit()
     if pip_vulns is not None:
         badges["pip-audit.json"] = count_badge("pip-audit", pip_vulns, "vulns")
+
+    # zizmor workflow security (from SARIF)
+    zizmor_findings = load_zizmor()
+    if zizmor_findings is not None:
+        if zizmor_findings > 0:
+            badges["zizmor.json"] = status_badge("zizmor", "failed", "red")
+        else:
+            badges["zizmor.json"] = status_badge("zizmor", "clean", "brightgreen")
 
     if not badges:
         print("[WARN] No metrics found to generate badges")
