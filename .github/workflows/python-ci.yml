@@ -247,7 +247,7 @@ jobs:
           OVERRIDES='${{ inputs.threshold_overrides_yaml }}'
           if [ -n "$OVERRIDES" ]; then
             echo "Applying threshold_overrides_yaml..."
-            echo "$OVERRIDES" | python3 << 'PYEOF'
+            python3 << 'PYEOF' <<< "$OVERRIDES"
           import yaml
           import sys
 

@@ -351,9 +351,9 @@ jobs:
         run: |
           set -e  # Fail on any error
 
-          # Run mutmut - fail if it errors (import issues, misconfig, etc.)
+          # Run mutmut 3.x - reads paths from pyproject.toml [tool.mutmut]
           echo "Running mutation tests on cihub/..."
-          if ! mutmut run --paths-to-mutate cihub/ --no-progress; then
+          if ! mutmut run; then
             echo "::error::mutmut run failed - check for import errors or test failures"
             exit 1
           fi

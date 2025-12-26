@@ -401,16 +401,55 @@ jobs:
       - name: Trigger Repository Workflow
         id: dispatch
         uses: actions/github-script@v7
+        env:
+          # Pass matrix/step values via env vars to prevent expression injection
+          MATRIX_OWNER: ${{ matrix.owner }}
+          MATRIX_NAME: ${{ matrix.name }}
+          MATRIX_LANGUAGE: ${{ matrix.language }}
+          MATRIX_BRANCH: ${{ matrix.default_branch }}
+          MATRIX_CONFIG_BASENAME: ${{ matrix.config_basename }}
+          STEP_WORKDIR: ${{ steps.repo-config.outputs.workdir }}
+          STEP_DISPATCH_ENABLED: ${{ steps.repo-config.outputs.dispatch_enabled }}
+          STEP_FORCE_ALL_TOOLS: ${{ steps.repo-config.outputs.force_all_tools }}
+          STEP_DISPATCH_WORKFLOW: ${{ steps.repo-config.outputs.dispatch_workflow }}
+          STEP_THRESHOLD_OVERRIDES: ${{ steps.repo-config.outputs.threshold_overrides_yaml }}
+          STEP_JAVA_VERSION: ${{ steps.repo-config.outputs.java_version }}
+          STEP_BUILD_TOOL: ${{ steps.repo-config.outputs.build_tool }}
+          STEP_PYTHON_VERSION: ${{ steps.repo-config.outputs.python_version }}
+          STEP_RUN_JACOCO: ${{ steps.repo-config.outputs.run_jacoco }}
+          STEP_RUN_CHECKSTYLE: ${{ steps.repo-config.outputs.run_checkstyle }}
+          STEP_RUN_SPOTBUGS: ${{ steps.repo-config.outputs.run_spotbugs }}
+          STEP_RUN_OWASP: ${{ steps.repo-config.outputs.run_owasp }}
+          STEP_USE_NVD_API_KEY: ${{ steps.repo-config.outputs.use_nvd_api_key }}
+          STEP_RUN_PITEST: ${{ steps.repo-config.outputs.run_pitest }}
+          STEP_RUN_JQWIK: ${{ steps.repo-config.outputs.run_jqwik }}
+          STEP_RUN_CODEQL: ${{ steps.repo-config.outputs.run_codeql }}
+          STEP_RUN_PMD: ${{ steps.repo-config.outputs.run_pmd }}
+          STEP_RUN_SEMGREP: ${{ steps.repo-config.outputs.run_semgrep }}
+          STEP_RUN_TRIVY: ${{ steps.repo-config.outputs.run_trivy }}
+          STEP_RUN_DOCKER: ${{ steps.repo-config.outputs.run_docker }}
+          STEP_RUN_PYTEST: ${{ steps.repo-config.outputs.run_pytest }}
+          STEP_RUN_RUFF: ${{ steps.repo-config.outputs.run_ruff }}
+          STEP_RUN_BANDIT: ${{ steps.repo-config.outputs.run_bandit }}
+          STEP_RUN_PIP_AUDIT: ${{ steps.repo-config.outputs.run_pip_audit }}
+          STEP_RUN_MYPY: ${{ steps.repo-config.outputs.run_mypy }}
+          STEP_RUN_BLACK: ${{ steps.repo-config.outputs.run_black }}
+          STEP_RUN_ISORT: ${{ steps.repo-config.outputs.run_isort }}
+          STEP_RUN_MUTMUT: ${{ steps.repo-config.outputs.run_mutmut }}
+          STEP_RUN_HYPOTHESIS: ${{ steps.repo-config.outputs.run_hypothesis }}
+          GH_RUN_ID: ${{ github.run_id }}
+          GH_RUN_ATTEMPT: ${{ github.run_attempt }}
         with:
           github-token: ${{ secrets.HUB_DISPATCH_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
-            const owner = '${{ matrix.owner }}';
-            const repo = '${{ matrix.name }}';
-            const language = '${{ matrix.language }}';
-            const branch = '${{ matrix.default_branch }}';
-            const workdir = '${{ steps.repo-config.outputs.workdir }}';
-            const dispatchEnabled = '${{ steps.repo-config.outputs.dispatch_enabled || '' }}'.toLowerCase() !== 'false';
-            const correlationId = `${{ github.run_id }}-${{ github.run_attempt || '1' }}-${{ matrix.config_basename }}`;
+            // Read values from environment variables (prevents expression injection)
+            const owner = process.env.MATRIX_OWNER;
+            const repo = process.env.MATRIX_NAME;
+            const language = process.env.MATRIX_LANGUAGE;
+            const branch = process.env.MATRIX_BRANCH;
+            const workdir = process.env.STEP_WORKDIR || '';
+            const dispatchEnabled = (process.env.STEP_DISPATCH_ENABLED || '').toLowerCase() !== 'false';
+            const correlationId = `${process.env.GH_RUN_ID}-${process.env.GH_RUN_ATTEMPT || '1'}-${process.env.MATRIX_CONFIG_BASENAME}`;
 
             if (!dispatchEnabled) {
               core.info(`Dispatch disabled for ${owner}/${repo}; skipping dispatch.`);
@@ -423,7 +462,7 @@ jobs:
               const n = Number(val);
               return String(Number.isFinite(n) ? n : fallback);
             };
-            const forceAllTools = ('${{ steps.repo-config.outputs.force_all_tools }}' || 'false').toLowerCase() === 'true';
+            const forceAllTools = (process.env.STEP_FORCE_ALL_TOOLS || 'false').toLowerCase() === 'true';
 
             const inputs = { hub_correlation_id: correlationId };
             const MAX_POLL_MS = 30 * 60 * 1000; // 30 minutes
@@ -434,27 +473,26 @@ jobs:
             }
 
             // Threshold overrides bundled as YAML (ADR-0024)
-            // Use template literal for multi-line YAML (heredoc output preserves newlines)
-            const thresholdOverrides = `${{ steps.repo-config.outputs.threshold_overrides_yaml }}`.trim();
+            const thresholdOverrides = (process.env.STEP_THRESHOLD_OVERRIDES || '').trim();
             if (thresholdOverrides) {
               inputs.threshold_overrides_yaml = thresholdOverrides;
             }
 
             if (language === 'java') {
-              inputs.java_version = '${{ steps.repo-config.outputs.java_version }}' || '21';
-              inputs.build_tool = '${{ steps.repo-config.outputs.build_tool }}' || 'maven';
-              inputs.run_jacoco = asBool('${{ steps.repo-config.outputs.run_jacoco }}');
-              inputs.run_checkstyle = asBool('${{ steps.repo-config.outputs.run_checkstyle }}');
-              inputs.run_spotbugs = asBool('${{ steps.repo-config.outputs.run_spotbugs }}');
-              inputs.run_owasp = asBool('${{ steps.repo-config.outputs.run_owasp }}');
-              inputs.use_nvd_api_key = asBool('${{ steps.repo-config.outputs.use_nvd_api_key }}');
-              inputs.run_pitest = asBool('${{ steps.repo-config.outputs.run_pitest }}');
-              inputs.run_jqwik = asBool('${{ steps.repo-config.outputs.run_jqwik }}');
-              inputs.run_codeql = asBool('${{ steps.repo-config.outputs.run_codeql }}');
-              inputs.run_pmd = asBool('${{ steps.repo-config.outputs.run_pmd }}');
-              inputs.run_semgrep = asBool('${{ steps.repo-config.outputs.run_semgrep }}');
-              inputs.run_trivy = asBool('${{ steps.repo-config.outputs.run_trivy }}');
-              inputs.run_docker = asBool('${{ steps.repo-config.outputs.run_docker }}');
+              inputs.java_version = process.env.STEP_JAVA_VERSION || '21';
+              inputs.build_tool = process.env.STEP_BUILD_TOOL || 'maven';
+              inputs.run_jacoco = asBool(process.env.STEP_RUN_JACOCO);
+              inputs.run_checkstyle = asBool(process.env.STEP_RUN_CHECKSTYLE);
+              inputs.run_spotbugs = asBool(process.env.STEP_RUN_SPOTBUGS);
+              inputs.run_owasp = asBool(process.env.STEP_RUN_OWASP);
+              inputs.use_nvd_api_key = asBool(process.env.STEP_USE_NVD_API_KEY);
+              inputs.run_pitest = asBool(process.env.STEP_RUN_PITEST);
+              inputs.run_jqwik = asBool(process.env.STEP_RUN_JQWIK);
+              inputs.run_codeql = asBool(process.env.STEP_RUN_CODEQL);
+              inputs.run_pmd = asBool(process.env.STEP_RUN_PMD);
+              inputs.run_semgrep = asBool(process.env.STEP_RUN_SEMGREP);
+              inputs.run_trivy = asBool(process.env.STEP_RUN_TRIVY);
+              inputs.run_docker = asBool(process.env.STEP_RUN_DOCKER);
               if (workdir) {
                 inputs.workdir = workdir;
               }
@@ -476,20 +514,20 @@ jobs:
                 });
               }
             } else {
-              inputs.python_version = '${{ steps.repo-config.outputs.python_version }}' || '3.12';
-              inputs.run_pytest = asBool('${{ steps.repo-config.outputs.run_pytest }}');
-              inputs.run_ruff = asBool('${{ steps.repo-config.outputs.run_ruff }}');
-              inputs.run_bandit = asBool('${{ steps.repo-config.outputs.run_bandit }}');
-              inputs.run_pip_audit = asBool('${{ steps.repo-config.outputs.run_pip_audit }}');
-              inputs.run_mypy = asBool('${{ steps.repo-config.outputs.run_mypy }}');
-              inputs.run_codeql = asBool('${{ steps.repo-config.outputs.run_codeql }}');
-              inputs.run_black = asBool('${{ steps.repo-config.outputs.run_black }}');
-              inputs.run_isort = asBool('${{ steps.repo-config.outputs.run_isort }}');
-              inputs.run_mutmut = asBool('${{ steps.repo-config.outputs.run_mutmut }}');
-              inputs.run_hypothesis = asBool('${{ steps.repo-config.outputs.run_hypothesis }}');
-              inputs.run_semgrep = asBool('${{ steps.repo-config.outputs.run_semgrep }}');
-              inputs.run_trivy = asBool('${{ steps.repo-config.outputs.run_trivy }}');
-              inputs.run_docker = asBool('${{ steps.repo-config.outputs.run_docker }}');
+              inputs.python_version = process.env.STEP_PYTHON_VERSION || '3.12';
+              inputs.run_pytest = asBool(process.env.STEP_RUN_PYTEST);
+              inputs.run_ruff = asBool(process.env.STEP_RUN_RUFF);
+              inputs.run_bandit = asBool(process.env.STEP_RUN_BANDIT);
+              inputs.run_pip_audit = asBool(process.env.STEP_RUN_PIP_AUDIT);
+              inputs.run_mypy = asBool(process.env.STEP_RUN_MYPY);
+              inputs.run_codeql = asBool(process.env.STEP_RUN_CODEQL);
+              inputs.run_black = asBool(process.env.STEP_RUN_BLACK);
+              inputs.run_isort = asBool(process.env.STEP_RUN_ISORT);
+              inputs.run_mutmut = asBool(process.env.STEP_RUN_MUTMUT);
+              inputs.run_hypothesis = asBool(process.env.STEP_RUN_HYPOTHESIS);
+              inputs.run_semgrep = asBool(process.env.STEP_RUN_SEMGREP);
+              inputs.run_trivy = asBool(process.env.STEP_RUN_TRIVY);
+              inputs.run_docker = asBool(process.env.STEP_RUN_DOCKER);
               if (workdir) {
                 inputs.workdir = workdir;
               }
@@ -515,7 +553,7 @@ jobs:
             }
 
             // Use configurable workflow name from matrix, with fallback to hub-ci.yml
-            const workflowId = '${{ steps.repo-config.outputs.dispatch_workflow }}' || 'hub-ci.yml';
+            const workflowId = process.env.STEP_DISPATCH_WORKFLOW || 'hub-ci.yml';
             const startedAt = Date.now();
 
             core.info(`Dispatching ${workflowId} on ${owner}/${repo}@${branch}`);

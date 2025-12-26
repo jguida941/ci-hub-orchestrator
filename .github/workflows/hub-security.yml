@@ -49,6 +49,9 @@ jobs:
 
       - name: Build Repo Matrix
         id: repos
+        env:
+          # Pass input via env var to prevent shell injection
+          INPUT_REPOS: ${{ inputs.repos }}
         run: |
           REPOS='{"include":['
           FIRST=true
@@ -61,8 +64,8 @@ jobs:
               LANG=$(grep -E "^\s+language:" "$config" | head -1 | sed 's/.*language:\s*//' | tr -d '"' | tr -d "'")
 
               if [ -n "$NAME" ] && [ -n "$OWNER" ]; then
-                if [ -n "${{ inputs.repos }}" ]; then
-                  if ! echo "${{ inputs.repos }}" | grep -q "$NAME"; then
+                if [ -n "$INPUT_REPOS" ]; then
+                  if ! echo "$INPUT_REPOS" | grep -q "$NAME"; then
                     continue
                   fi
                 fi

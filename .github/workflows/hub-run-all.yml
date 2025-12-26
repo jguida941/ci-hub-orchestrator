@@ -256,12 +256,24 @@ jobs:
 
       - name: Use subdirectory if provided
         if: matrix.subdir != ''
+        env:
+          # Pass subdir via env var to prevent shell injection
+          SUBDIR: ${{ matrix.subdir }}
         run: |
-          if [ ! -d "repo/${{ matrix.subdir }}" ]; then
-            echo "Subdir repo/${{ matrix.subdir }} not found" >&2
+          # Validate subdir to prevent path traversal attacks
+          if [[ "$SUBDIR" == *".."* ]]; then
+            echo "Error: subdir contains path traversal sequence '..'" >&2
             exit 1
           fi
-          mv "repo/${{ matrix.subdir }}" repo_subdir
+          if [[ "$SUBDIR" == /* ]]; then
+            echo "Error: subdir must be a relative path" >&2
+            exit 1
+          fi
+          if [ ! -d "repo/$SUBDIR" ]; then
+            echo "Subdir repo/$SUBDIR not found" >&2
+            exit 1
+          fi
+          mv "repo/$SUBDIR" repo_subdir
           rm -rf repo
           mv repo_subdir repo
 

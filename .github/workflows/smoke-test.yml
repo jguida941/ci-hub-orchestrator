@@ -10,7 +10,7 @@
 #   - Ensure artifacts and summaries are generated
 #   - Quick feedback before full hub runs
 #
-# See: docs/development/SMOKE_TEST.md for detailed documentation
+# See: docs/development/execution/SMOKE_TEST.md for detailed documentation
 # ============================================================================
 
 name: "Smoke Test"
@@ -462,7 +462,7 @@ jobs:
           ## Next Steps
 
           If this smoke test **PASSED**:
-          1. Mark the smoke test checkbox in \`requirements/P0.md\`
+          1. Mark the smoke test checkbox in \`docs/development/specs/P0.md\`
           2. Proceed with full hub testing on all configured repos
           3. Review individual job summaries for detailed metrics
 
@@ -470,11 +470,11 @@ jobs:
           1. Check individual job logs for errors
           2. Verify test repositories are accessible
           3. Ensure config files are valid YAML
-          4. See [\`docs/development/SMOKE_TEST.md\`](docs/development/SMOKE_TEST.md) for troubleshooting
+          4. See [\`docs/development/execution/SMOKE_TEST.md\`](docs/development/execution/SMOKE_TEST.md) for troubleshooting
 
           ---
 
-          **Documentation:** See [\`docs/development/SMOKE_TEST.md\`](docs/development/SMOKE_TEST.md) for detailed smoke test guide.
+          **Documentation:** See [\`docs/development/execution/SMOKE_TEST.md\`](docs/development/execution/SMOKE_TEST.md) for detailed smoke test guide.
 
           EOF
 
