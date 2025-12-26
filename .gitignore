@@ -26,6 +26,7 @@ Thumbs.db
 
 # Test artifacts
 .coverage
+.hypothesis/
 mutants/
 
 # Reports (generated)
@@ -39,8 +40,8 @@ reports/*.html
 *.local.yaml
 
 # AI context files (local only)
+AGENTS.md
 CLAUDE.md
-docs/development/coderabbit.md
 
 # Internal audit docs
 docs/development/audit.md

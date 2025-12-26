@@ -373,8 +373,9 @@ jobs:
             exit 1
           fi
 
-          # Get results - must have run successfully
-          RESULTS=$(mutmut results 2>&1)
+          # Get results - mutmut 3.x: --all true shows all mutants including killed
+          # Without --all, it only shows non-killed mutants (empty if all killed)
+          RESULTS=$(mutmut results --all true 2>&1)
           if [ -z "$RESULTS" ]; then
             echo "::error::mutmut produced no results - check configuration"
             exit 1
@@ -427,7 +428,7 @@ jobs:
               echo "**FAILED**: Score ${SCORE}% below 70% threshold"
             } >> "$GITHUB_STEP_SUMMARY"
             echo "::error::Mutation score ${SCORE}% below 70% threshold"
-            mutmut results  # Show details
+            mutmut results --all true  # Show all mutant details
             exit 1
           fi
 
@@ -441,7 +442,7 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: mutation-results
-          path: .mutmut-cache
+          path: mutants/
           retention-days: 7
 
   # ============================================================================

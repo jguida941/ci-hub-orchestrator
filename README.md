@@ -39,7 +39,7 @@ gh workflow run hub-run-all.yml -R jguida941/ci-cd-hub -f run_group=fixtures
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements-dev.txt
+pip install -r requirements/requirements-dev.txt
 ```
 
 ## Documentation

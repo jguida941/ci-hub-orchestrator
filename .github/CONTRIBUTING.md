@@ -11,7 +11,7 @@ Thanks for helping improve CI/CD Hub. This project is production-grade; changes 
    ```
 2. Install dependencies:
    ```bash
-   pip install -r requirements-dev.txt
+   pip install -r requirements/requirements-dev.txt
    ```
 
 ## Development Workflow

@@ -44,7 +44,6 @@ docs/
 │   ├── CHANGELOG.md
 │   ├── BACKLOG.md
 │   ├── DEVELOPMENT.md
-│   ├── coderabbit.md
 │   ├── specs/
 │   │   ├── P0.md
 │   │   ├── P1.md
@@ -115,7 +114,6 @@ Internal documentation for hub maintainers:
 | [CHANGELOG.md](development/CHANGELOG.md) | Release notes and change history |
 | [BACKLOG.md](development/BACKLOG.md) | Feature backlog and priorities |
 | [DEVELOPMENT.md](development/DEVELOPMENT.md) | Developer guide and commands |
-| [coderabbit.md](development/coderabbit.md) | CodeRabbit review feedback |
 | [specs/](development/specs/) | P0/P1/nonfunctional requirements |
 | [STATUS.md](development/status/STATUS.md) | Current execution plan |
 | [INTEGRATION_STATUS.md](development/status/INTEGRATION_STATUS.md) | Quarantine graduation tracking |

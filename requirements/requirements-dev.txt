@@ -1,0 +1,26 @@
+# Development dependencies (includes core)
+-r requirements.txt
+
+# Testing
+pytest>=7.0
+pytest-cov>=4.0
+mutmut>=2.4.0
+
+# Linting & Formatting
+ruff>=0.8.0
+yamllint>=1.33.0
+
+# Type Checking
+mypy>=1.8.0
+types-PyYAML>=6.0
+types-jsonschema>=4.0
+
+# Security
+bandit[toml]>=1.7.9
+pip-audit>=2.7.0
+
+# Pre-commit
+pre-commit>=3.6.0
+
+# License compliance
+pip-licenses>=4.3.0

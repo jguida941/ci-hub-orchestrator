@@ -3291,8 +3291,9 @@ ci-cd-hub/
 ├── CLAUDE.md                        # AI context
 ├── AGENTS.md                        # AI context
 ├── Makefile                         # Build commands
-├── requirements.txt                 # Dev dependencies
-├── requirements-dev.txt             # Test dependencies
+├── requirements/                    # Dependencies
+│   ├── requirements.txt             # Core dependencies
+│   └── requirements-dev.txt         # Test dependencies
 ├── pyproject.toml                   # Package config
 ├── hub-release/                     # ← THE PRODUCT
 └── hub-fixtures/                    # Test fixture repos (if needed)
