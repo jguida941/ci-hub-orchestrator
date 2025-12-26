@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+from typing import Any
 
 from cihub.cli import (
     CommandResult,
@@ -20,7 +21,7 @@ from cihub.cli import (
 def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
     """Sync caller workflow templates to target repos."""
     json_mode = getattr(args, "json", False)
-    results: list[dict[str, object]] = []
+    results: list[dict[str, Any]] = []
     entries = get_repo_entries(only_dispatch_enabled=not args.include_disabled)
     if args.repo:
         repo_map = {entry["full"]: entry for entry in entries}
@@ -48,7 +49,7 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
         dispatch_workflow = entry.get("dispatch_workflow", "hub-ci.yml")
         branch = entry.get("default_branch", "main") or "main"
         path = f".github/workflows/{dispatch_workflow}"
-        repo_result: dict[str, object] = {
+        repo_result: dict[str, Any] = {
             "repo": repo,
             "path": path,
             "status": "unknown",
