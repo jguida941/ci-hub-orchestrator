@@ -1,3 +1,4 @@
+import json
 import sys
 import urllib.request
 from pathlib import Path
@@ -340,3 +341,170 @@ class TestGetGitBranch:
                 )
                 result = get_git_branch(tmp_path)
                 assert result == "feature/add-new-feature"
+
+
+# =============================================================================
+# Main Function Tests (cli.py lines 1335-1389)
+# =============================================================================
+
+from cihub.cli import CommandResult, main  # noqa: E402
+
+
+class TestCommandResult:
+    """Tests for CommandResult dataclass."""
+
+    def test_default_values(self):
+        """Default values are set correctly."""
+        result = CommandResult()
+        assert result.exit_code == 0
+        assert result.summary == ""
+        assert result.problems == []
+        assert result.suggestions == []
+        assert result.files_generated == []
+        assert result.files_modified == []
+        assert result.artifacts == {}
+        assert result.data == {}
+
+    def test_custom_values(self):
+        """Custom values are preserved."""
+        result = CommandResult(
+            exit_code=1,
+            summary="Test failed",
+            problems=[{"message": "error"}],
+        )
+        assert result.exit_code == 1
+        assert result.summary == "Test failed"
+        assert result.problems == [{"message": "error"}]
+
+    def test_to_payload_structure(self):
+        """to_payload returns correct structure."""
+        result = CommandResult(
+            exit_code=0,
+            summary="Success",
+            problems=[],
+            artifacts={"file": "test.txt"},
+        )
+        payload = result.to_payload("test-cmd", "success", 100)
+
+        assert payload["command"] == "test-cmd"
+        assert payload["status"] == "success"
+        assert payload["exit_code"] == 0
+        assert payload["duration_ms"] == 100
+        assert payload["summary"] == "Success"
+        assert payload["artifacts"] == {"file": "test.txt"}
+
+
+class TestMainFunction:
+    """Tests for main() function (lines 1335-1389)."""
+
+    def test_main_with_help_flag(self):
+        """Main exits with help flag."""
+        with pytest.raises(SystemExit) as exc_info:
+            main(["--help"])
+        assert exc_info.value.code == 0
+
+    def test_main_with_version_flag(self):
+        """Main exits with version flag."""
+        with pytest.raises(SystemExit) as exc_info:
+            main(["--version"])
+        assert exc_info.value.code == 0
+
+    def test_main_no_command_shows_help(self, capsys):
+        """Main with no command shows help."""
+        with pytest.raises(SystemExit):
+            main([])
+
+    def test_main_json_output_on_success(self, capsys):
+        """Main outputs JSON when --json flag is used with successful command."""
+        # Mock cmd_config which handles all config subcommands
+        with mock.patch("cihub.cli.cmd_config") as mock_cmd:
+            mock_cmd.return_value = CommandResult(
+                exit_code=0,
+                summary="Listed 0 configs",
+            )
+            result = main(["config", "list", "--json"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["status"] == "success"
+        assert output["exit_code"] == 0
+
+    def test_main_json_output_on_failure(self, capsys):
+        """Main outputs JSON when --json flag is used with failed command."""
+        with mock.patch("cihub.cli.cmd_config") as mock_cmd:
+            mock_cmd.return_value = CommandResult(
+                exit_code=1,
+                summary="Config not found",
+                problems=[{"message": "File not found", "severity": "error"}],
+            )
+            result = main(["config", "show", "nonexistent", "--json"])
+
+        assert result == 1
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["status"] == "failure"
+        assert output["exit_code"] == 1
+        assert len(output["problems"]) == 1
+
+    def test_main_json_output_on_exception(self, capsys):
+        """Main outputs JSON error on unhandled exception."""
+        with mock.patch("cihub.cli.cmd_config") as mock_cmd:
+            mock_cmd.side_effect = RuntimeError("Unexpected error")
+            result = main(["config", "show", "test", "--json"])
+
+        assert result != 0
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["status"] == "error"
+        assert "Unexpected error" in output["summary"]
+
+    def test_main_exception_without_json_raises(self):
+        """Main re-raises exception when not in JSON mode."""
+        with mock.patch("cihub.cli.cmd_config") as mock_cmd:
+            mock_cmd.side_effect = RuntimeError("Test error")
+            with pytest.raises(RuntimeError, match="Test error"):
+                main(["config", "show", "test"])
+
+    def test_main_sets_default_summary_on_success(self, capsys):
+        """Main sets 'OK' summary when command returns success without summary."""
+        with mock.patch("cihub.cli.cmd_config") as mock_cmd:
+            mock_cmd.return_value = CommandResult(exit_code=0)
+            main(["config", "list", "--json"])
+
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["summary"] == "OK"
+
+    def test_main_sets_default_summary_on_failure(self, capsys):
+        """Main sets failure summary when command returns failure without summary."""
+        with mock.patch("cihub.cli.cmd_config") as mock_cmd:
+            mock_cmd.return_value = CommandResult(exit_code=1)
+            main(["config", "list", "--json"])
+
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["summary"] == "Command failed"
+
+    def test_main_handles_int_return(self, capsys):
+        """Main handles commands that return int instead of CommandResult."""
+        with mock.patch("cihub.cli.cmd_config") as mock_cmd:
+            mock_cmd.return_value = 0  # Return int instead of CommandResult
+            result = main(["config", "list", "--json"])
+
+        assert result == 0
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["exit_code"] == 0
+
+    def test_main_includes_duration(self, capsys):
+        """Main includes duration_ms in JSON output."""
+        with mock.patch("cihub.cli.cmd_config") as mock_cmd:
+            mock_cmd.return_value = CommandResult(exit_code=0)
+            main(["config", "list", "--json"])
+
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert "duration_ms" in output
+        assert isinstance(output["duration_ms"], int)
+        assert output["duration_ms"] >= 0
