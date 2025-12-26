@@ -11,6 +11,9 @@
 
 name: "Kyverno: Validate Policies"
 
+permissions:
+  contents: read
+
 on:
   push:
     paths:

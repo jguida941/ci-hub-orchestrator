@@ -16,6 +16,9 @@
 
 name: Java CI Pipeline
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:

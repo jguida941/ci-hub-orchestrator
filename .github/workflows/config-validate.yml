@@ -7,6 +7,9 @@
 
 name: Validate Hub Configs
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main, master]
