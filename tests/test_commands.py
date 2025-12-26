@@ -205,9 +205,7 @@ class TestDetectEdgeCases:
         with pytest.raises(ValueError, match="Unable to detect language"):
             cmd_detect(args)
 
-    def test_detect_empty_directory_with_override(
-        self, tmp_path: Path, capsys
-    ) -> None:
+    def test_detect_empty_directory_with_override(self, tmp_path: Path, capsys) -> None:
         """Detect succeeds with language override even for empty directory."""
         args = argparse.Namespace(repo=str(tmp_path), language="python", explain=False)
         result = cmd_detect(args)
