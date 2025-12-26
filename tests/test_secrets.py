@@ -465,3 +465,200 @@ class TestNvdKeySetup:
             captured = capsys.readouterr()
             assert "[OK] owner/java-repo1" in captured.out
             assert "[OK] owner/java-repo2" in captured.out
+
+
+# ==============================================================================
+# JSON Mode Tests
+# ==============================================================================
+
+
+class TestSecretsJsonMode:
+    """JSON mode tests for secrets commands."""
+
+    def test_setup_secrets_no_token_json_mode(self) -> None:
+        """JSON mode returns CommandResult when no token provided."""
+        from cihub.cli import CommandResult
+
+        args = argparse.Namespace(
+            hub_repo="owner/hub",
+            token=None,
+            all=False,
+            verify=False,
+            json=True,
+        )
+        result = cmd_setup_secrets(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 2
+        assert "--token" in result.summary
+
+    def test_setup_secrets_empty_token_json_mode(self) -> None:
+        """JSON mode returns CommandResult for empty token."""
+        from cihub.cli import CommandResult
+
+        # Empty string is falsy, so it triggers the "no token" path
+        args = argparse.Namespace(
+            hub_repo="owner/hub",
+            token="",
+            all=False,
+            verify=False,
+            json=True,
+        )
+        result = cmd_setup_secrets(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 2
+        assert "--token" in result.summary
+
+    def test_setup_secrets_whitespace_token_json_mode(self) -> None:
+        """JSON mode returns CommandResult for whitespace token."""
+        from cihub.cli import CommandResult
+
+        args = argparse.Namespace(
+            hub_repo="owner/hub",
+            token="ghp token with space",  # noqa: S106
+            all=False,
+            verify=False,
+            json=True,
+        )
+        result = cmd_setup_secrets(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 1
+        assert "whitespace" in result.summary
+
+    def test_setup_secrets_verify_failure_json_mode(
+        self, mock_resolve_executable, mock_get_connected_repos
+    ) -> None:
+        """JSON mode returns CommandResult on verify failure."""
+        from cihub.cli import CommandResult
+
+        with mock.patch("cihub.commands.secrets.safe_urlopen") as mock_urlopen:
+            mock_urlopen.side_effect = urllib.error.HTTPError(
+                url="https://api.github.com/user",
+                code=401,
+                msg="Unauthorized",
+                hdrs={},
+                fp=io.BytesIO(b""),
+            )
+            args = argparse.Namespace(
+                hub_repo="owner/hub",
+                token="ghp_bad_token",  # noqa: S106
+                all=False,
+                verify=True,
+                json=True,
+            )
+            result = cmd_setup_secrets(args)
+            assert isinstance(result, CommandResult)
+            assert result.exit_code == 1
+
+    def test_setup_secrets_cross_repo_failure_json_mode(
+        self, mock_resolve_executable, mock_get_connected_repos
+    ) -> None:
+        """JSON mode returns CommandResult on cross-repo access failure."""
+        from cihub.cli import CommandResult
+
+        with mock.patch("cihub.commands.secrets.safe_urlopen") as mock_urlopen:
+            mock_urlopen.side_effect = [
+                make_urlopen_response({"login": "testuser"}),
+                urllib.error.HTTPError(
+                    url="https://api.github.com/repos/owner/repo1/actions/artifacts",
+                    code=404,
+                    msg="Not Found",
+                    hdrs={},
+                    fp=io.BytesIO(b""),
+                ),
+            ]
+            args = argparse.Namespace(
+                hub_repo="owner/hub",
+                token="ghp_valid_token",  # noqa: S106
+                all=False,
+                verify=True,
+                json=True,
+            )
+            result = cmd_setup_secrets(args)
+            assert isinstance(result, CommandResult)
+            assert result.exit_code == 1
+
+    def test_setup_secrets_set_failure_json_mode(
+        self, mock_resolve_executable, mock_get_connected_repos
+    ) -> None:
+        """JSON mode returns CommandResult on secret set failure."""
+        from cihub.cli import CommandResult
+
+        with mock.patch("subprocess.run") as mock_run:
+            mock_run.return_value = mock.Mock(returncode=1, stderr="permission denied")
+            args = argparse.Namespace(
+                hub_repo="owner/hub",
+                token="ghp_token",  # noqa: S106
+                all=False,
+                verify=False,
+                json=True,
+            )
+            result = cmd_setup_secrets(args)
+            assert isinstance(result, CommandResult)
+            assert result.exit_code == 1
+
+    def test_setup_secrets_success_json_mode(
+        self, mock_subprocess, mock_resolve_executable, mock_get_connected_repos
+    ) -> None:
+        """JSON mode returns CommandResult on success."""
+        from cihub.cli import CommandResult
+
+        args = argparse.Namespace(
+            hub_repo="owner/hub",
+            token="ghp_valid_token",  # noqa: S106
+            all=False,
+            verify=False,
+            json=True,
+        )
+        result = cmd_setup_secrets(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 0
+        assert "hub_repo" in result.data
+
+    def test_setup_secrets_all_repos_json_mode(
+        self, mock_subprocess, mock_resolve_executable, mock_get_connected_repos
+    ) -> None:
+        """JSON mode includes repo results when --all is used."""
+        from cihub.cli import CommandResult
+
+        args = argparse.Namespace(
+            hub_repo="owner/hub",
+            token="ghp_valid_token",  # noqa: S106
+            all=True,
+            verify=False,
+            json=True,
+        )
+        result = cmd_setup_secrets(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 0
+        assert "repos" in result.data
+
+    def test_setup_nvd_no_key_json_mode(self) -> None:
+        """JSON mode returns CommandResult when no NVD key provided."""
+        from cihub.cli import CommandResult
+
+        args = argparse.Namespace(nvd_key=None, verify=False, json=True)
+        result = cmd_setup_nvd(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 2
+        assert "--nvd-key" in result.summary
+
+    def test_setup_nvd_empty_key_json_mode(self) -> None:
+        """JSON mode returns CommandResult for empty NVD key."""
+        from cihub.cli import CommandResult
+
+        # Empty string is falsy, so it triggers the "no key" path
+        args = argparse.Namespace(nvd_key="", verify=False, json=True)
+        result = cmd_setup_nvd(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 2
+        assert "--nvd-key" in result.summary
+
+    def test_setup_nvd_whitespace_key_json_mode(self) -> None:
+        """JSON mode returns CommandResult for whitespace NVD key."""
+        from cihub.cli import CommandResult
+
+        args = argparse.Namespace(nvd_key="key with space", verify=False, json=True)
+        result = cmd_setup_nvd(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 1
+        assert "whitespace" in result.summary

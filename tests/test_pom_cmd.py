@@ -532,3 +532,182 @@ java:
         assert result == 0
         captured = capsys.readouterr()
         assert "No dependency changes needed" in captured.out
+
+
+# ==============================================================================
+# JSON Mode Tests
+# ==============================================================================
+
+
+class TestPomCommandsJsonMode:
+    """JSON mode tests for pom commands."""
+
+    def test_fix_pom_missing_config_json_mode(self, tmp_path: Path) -> None:
+        """fix-pom returns CommandResult for missing config in JSON mode."""
+        from cihub.cli import CommandResult
+
+        args = argparse.Namespace(repo=str(tmp_path), apply=False, json=True)
+        result = cmd_fix_pom(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 2
+        assert "Config not found" in result.summary
+
+    def test_fix_pom_non_java_json_mode(self, tmp_path: Path) -> None:
+        """fix-pom returns CommandResult for non-Java repo in JSON mode."""
+        from cihub.cli import CommandResult
+
+        config = """
+repo:
+  owner: test
+  name: example
+  default_branch: main
+  language: python
+python:
+  version: '3.12'
+  tools:
+    pytest:
+      enabled: true
+"""
+        (tmp_path / ".ci-hub.yml").write_text(config, encoding="utf-8")
+        args = argparse.Namespace(repo=str(tmp_path), apply=False, json=True)
+        result = cmd_fix_pom(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 0
+        assert "Java" in result.summary
+
+    def test_fix_pom_gradle_json_mode(self, tmp_path: Path) -> None:
+        """fix-pom returns CommandResult for Gradle repo in JSON mode."""
+        from cihub.cli import CommandResult
+
+        config = """
+repo:
+  owner: test
+  name: example
+  default_branch: main
+  language: java
+java:
+  version: '21'
+  build_tool: gradle
+  tools:
+    jacoco:
+      enabled: true
+"""
+        (tmp_path / ".ci-hub.yml").write_text(config, encoding="utf-8")
+        args = argparse.Namespace(repo=str(tmp_path), apply=False, json=True)
+        result = cmd_fix_pom(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 0
+        assert "Maven" in result.summary
+
+    def test_fix_pom_apply_json_mode(self, tmp_path: Path) -> None:
+        """fix-pom with apply in JSON mode returns CommandResult."""
+        from cihub.cli import CommandResult
+
+        write_ci_hub_config(tmp_path)
+        pom_path = tmp_path / "pom.xml"
+        write_pom(
+            pom_path,
+            """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>example</artifactId>
+  <version>1.0.0</version>
+</project>
+""",
+        )
+
+        args = argparse.Namespace(repo=str(tmp_path), apply=True, json=True)
+        result = cmd_fix_pom(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 0
+        assert result.data["applied"] is True
+
+    def test_fix_deps_missing_config_json_mode(self, tmp_path: Path) -> None:
+        """fix-deps returns CommandResult for missing config in JSON mode."""
+        from cihub.cli import CommandResult
+
+        args = argparse.Namespace(repo=str(tmp_path), apply=False, json=True)
+        result = cmd_fix_deps(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 2
+        assert "Config not found" in result.summary
+
+    def test_fix_deps_non_java_json_mode(self, tmp_path: Path) -> None:
+        """fix-deps returns CommandResult for non-Java repo in JSON mode."""
+        from cihub.cli import CommandResult
+
+        config = """
+repo:
+  owner: test
+  name: example
+  default_branch: main
+  language: python
+python:
+  version: '3.12'
+  tools:
+    pytest:
+      enabled: true
+"""
+        (tmp_path / ".ci-hub.yml").write_text(config, encoding="utf-8")
+        args = argparse.Namespace(repo=str(tmp_path), apply=False, json=True)
+        result = cmd_fix_deps(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 0
+        assert "Java" in result.summary
+
+    def test_fix_deps_gradle_json_mode(self, tmp_path: Path) -> None:
+        """fix-deps returns CommandResult for Gradle repo in JSON mode."""
+        from cihub.cli import CommandResult
+
+        config = """
+repo:
+  owner: test
+  name: example
+  default_branch: main
+  language: java
+java:
+  version: '21'
+  build_tool: gradle
+  tools:
+    jqwik:
+      enabled: true
+"""
+        (tmp_path / ".ci-hub.yml").write_text(config, encoding="utf-8")
+        args = argparse.Namespace(repo=str(tmp_path), apply=False, json=True)
+        result = cmd_fix_deps(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 0
+        assert "Maven" in result.summary
+
+    def test_fix_deps_apply_json_mode(self, tmp_path: Path) -> None:
+        """fix-deps with apply in JSON mode returns CommandResult."""
+        from cihub.cli import CommandResult
+
+        write_ci_hub_config(tmp_path)
+        pom_path = tmp_path / "pom.xml"
+        write_pom(
+            pom_path,
+            """<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.example</groupId>
+  <artifactId>example</artifactId>
+  <version>1.0.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <version>5.10.0</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+</project>
+""",
+        )
+
+        args = argparse.Namespace(repo=str(tmp_path), apply=True, json=True)
+        result = cmd_fix_deps(args)
+        assert isinstance(result, CommandResult)
+        assert result.exit_code == 0
+        assert result.data["applied"] is True
