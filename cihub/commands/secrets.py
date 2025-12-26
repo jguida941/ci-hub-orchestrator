@@ -15,6 +15,7 @@ from cihub.cli import (
     resolve_executable,
     safe_urlopen,
 )
+from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE
 
 
 def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
@@ -28,7 +29,7 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
     if not token:
         if json_mode:
             return CommandResult(
-                exit_code=2,
+                exit_code=EXIT_USAGE,
                 summary="Token required; re-run with --token",
             )
         token = getpass.getpass("Enter GitHub PAT: ")
@@ -38,16 +39,16 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
     if not token:
         message = "Error: No token provided"
         if json_mode:
-            return CommandResult(exit_code=1, summary=message)
+            return CommandResult(exit_code=EXIT_FAILURE, summary=message)
         print(message, file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
 
     if any(ch.isspace() for ch in token):
         message = "Error: Token contains whitespace; paste the raw token value."
         if json_mode:
-            return CommandResult(exit_code=1, summary=message)
+            return CommandResult(exit_code=EXIT_FAILURE, summary=message)
         print(message, file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
 
     def verify_token(pat: str) -> tuple[bool, str]:
         req = urllib.request.Request(  # noqa: S310
@@ -101,9 +102,9 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
         ok, message = verify_token(token)
         if not ok:
             if json_mode:
-                return CommandResult(exit_code=1, summary=message)
+                return CommandResult(exit_code=EXIT_FAILURE, summary=message)
             print(f"Token verification failed: {message}", file=sys.stderr)
-            return 1
+            return EXIT_FAILURE
         if not json_mode:
             print(f"Token verified: {message}")
 
@@ -113,7 +114,7 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
             ok, message = verify_cross_repo_access(token, test_repo)
             if not ok:
                 if json_mode:
-                    return CommandResult(exit_code=1, summary=message)
+                    return CommandResult(exit_code=EXIT_FAILURE, summary=message)
                 print(
                     f"Cross-repo access failed for {test_repo}: {message}",
                     file=sys.stderr,
@@ -122,7 +123,7 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
                     "The token needs 'repo' scope to access other repos' artifacts.",
                     file=sys.stderr,
                 )
-                return 1
+                return EXIT_FAILURE
             if not json_mode:
                 print(f"Cross-repo access verified: {test_repo} ({message})")
 
@@ -144,9 +145,11 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
     ok, error = set_secret(hub_repo)
     if not ok:
         if json_mode:
-            return CommandResult(exit_code=1, summary=error or "Failed to set secret")
+            return CommandResult(
+                exit_code=EXIT_FAILURE, summary=error or "Failed to set secret"
+            )
         print(f"Failed: {error}", file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
     if not json_mode:
         print(f"  [OK] {hub_repo}")
 
@@ -182,7 +185,11 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
         data: dict[str, object] = {"hub_repo": hub_repo}
         if repo_results:
             data["repos"] = repo_results
-        return CommandResult(exit_code=1 if failures else 0, summary=summary, data=data)
+        return CommandResult(
+            exit_code=EXIT_FAILURE if failures else EXIT_SUCCESS,
+            summary=summary,
+            data=data,
+        )
 
     print("\nConnected dispatch-enabled repos:")
     for repo in get_connected_repos():
@@ -191,7 +198,7 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
         "\nEnsure PAT has 'repo' scope (classic) or Actions R/W (fine-grained) "
         "on all repos."
     )
-    return 0
+    return EXIT_SUCCESS
 
 
 def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
@@ -204,7 +211,7 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
     if not nvd_key:
         if json_mode:
             return CommandResult(
-                exit_code=2,
+                exit_code=EXIT_USAGE,
                 summary="NVD API key required; re-run with --nvd-key",
             )
         print("NVD API Key is required for fast OWASP Dependency Check scans.")
@@ -217,16 +224,16 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
     if not nvd_key:
         message = "Error: No NVD API key provided"
         if json_mode:
-            return CommandResult(exit_code=1, summary=message)
+            return CommandResult(exit_code=EXIT_FAILURE, summary=message)
         print(message, file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
 
     if any(ch.isspace() for ch in nvd_key):
         message = "Error: Key contains whitespace; paste the raw key value."
         if json_mode:
-            return CommandResult(exit_code=1, summary=message)
+            return CommandResult(exit_code=EXIT_FAILURE, summary=message)
         print(message, file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
 
     def verify_nvd_key(key: str) -> tuple[bool, str]:
         """Verify NVD API key by making a test request."""
@@ -260,9 +267,9 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
         ok, message = verify_nvd_key(nvd_key)
         if not ok:
             if json_mode:
-                return CommandResult(exit_code=1, summary=message)
+                return CommandResult(exit_code=EXIT_FAILURE, summary=message)
             print(f"NVD API key verification failed: {message}", file=sys.stderr)
-            return 1
+            return EXIT_FAILURE
         if not json_mode:
             print(f"NVD API key verified: {message}")
 
@@ -287,13 +294,13 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
     if not java_repos:
         if json_mode:
             return CommandResult(
-                exit_code=0,
+                exit_code=EXIT_SUCCESS,
                 summary="No Java repos found",
                 data={"repos": []},
             )
         print("No Java repos found in config/repos/*.yaml")
         print("NVD_API_KEY is only needed for Java repos (OWASP Dependency Check).")
-        return 0
+        return EXIT_SUCCESS
 
     if not json_mode:
         print(f"\nSetting NVD_API_KEY on {len(java_repos)} Java repo(s)...")
@@ -320,7 +327,7 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
             "NVD key set on all repos" if failures == 0 else "NVD key set with failures"
         )
         return CommandResult(
-            exit_code=1 if failures else 0,
+            exit_code=EXIT_FAILURE if failures else EXIT_SUCCESS,
             summary=summary,
             data={"repos": repo_results},
         )
@@ -328,4 +335,4 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
     if success_count < len(java_repos):
         print("For repos you don't have admin access to, set the secret manually:")
         print("  gh secret set NVD_API_KEY -R owner/repo")
-    return 0
+    return EXIT_SUCCESS

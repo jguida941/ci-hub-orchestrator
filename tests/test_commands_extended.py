@@ -713,7 +713,12 @@ if given and settings and st:
         """Hypothesis property-based tests for deep_merge."""
 
         @given(st.dictionaries(st.text(min_size=1, max_size=10), st.integers()))
-        @settings(max_examples=50, suppress_health_check=[HealthCheck.differing_executors])
+        @settings(
+            max_examples=50,
+            suppress_health_check=[
+                HealthCheck.differing_executors,
+            ],
+        )
         def test_merge_with_empty_preserves_keys(self, base: dict) -> None:
             """Merging with empty dict preserves all keys."""
             from cihub.config.merge import deep_merge
@@ -725,7 +730,12 @@ if given and settings and st:
             st.dictionaries(st.text(min_size=1, max_size=10), st.integers()),
             st.dictionaries(st.text(min_size=1, max_size=10), st.integers()),
         )
-        @settings(max_examples=50, suppress_health_check=[HealthCheck.differing_executors])
+        @settings(
+            max_examples=50,
+            suppress_health_check=[
+                HealthCheck.differing_executors,
+            ],
+        )
         def test_merge_contains_all_keys(self, base: dict, overlay: dict) -> None:
             """Result contains all keys from both base and overlay."""
             from cihub.config.merge import deep_merge
@@ -738,7 +748,12 @@ if given and settings and st:
             st.dictionaries(st.text(min_size=1, max_size=10), st.integers()),
             st.dictionaries(st.text(min_size=1, max_size=10), st.integers()),
         )
-        @settings(max_examples=50, suppress_health_check=[HealthCheck.differing_executors])
+        @settings(
+            max_examples=50,
+            suppress_health_check=[
+                HealthCheck.differing_executors,
+            ],
+        )
         def test_overlay_values_take_precedence(
             self, base: dict, overlay: dict
         ) -> None:

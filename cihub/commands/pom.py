@@ -14,6 +14,7 @@ from cihub.cli import (
     apply_pom_fixes,
     load_effective_config,
 )
+from cihub.exit_codes import EXIT_SUCCESS, EXIT_USAGE
 
 
 def cmd_fix_pom(args: argparse.Namespace) -> int | CommandResult:
@@ -23,22 +24,22 @@ def cmd_fix_pom(args: argparse.Namespace) -> int | CommandResult:
     if not config_path.exists():
         message = f"Config not found: {config_path}"
         if json_mode:
-            return CommandResult(exit_code=2, summary=message)
+            return CommandResult(exit_code=EXIT_USAGE, summary=message)
         print(message, file=sys.stderr)
-        return 2
+        return EXIT_USAGE
     config = load_effective_config(repo_path)
     if config.get("language") != "java":
         message = "fix-pom is only supported for Java repos."
         if json_mode:
-            return CommandResult(exit_code=0, summary=message)
+            return CommandResult(exit_code=EXIT_SUCCESS, summary=message)
         print(message)
-        return 0
+        return EXIT_SUCCESS
     if config.get("java", {}).get("build_tool", "maven") != "maven":
         message = "fix-pom only supports Maven repos."
         if json_mode:
-            return CommandResult(exit_code=0, summary=message)
+            return CommandResult(exit_code=EXIT_SUCCESS, summary=message)
         print(message)
-        return 0
+        return EXIT_SUCCESS
     if json_mode:
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             status = apply_pom_fixes(repo_path, config, apply=args.apply)
@@ -58,22 +59,22 @@ def cmd_fix_deps(args: argparse.Namespace) -> int | CommandResult:
     if not config_path.exists():
         message = f"Config not found: {config_path}"
         if json_mode:
-            return CommandResult(exit_code=2, summary=message)
+            return CommandResult(exit_code=EXIT_USAGE, summary=message)
         print(message, file=sys.stderr)
-        return 2
+        return EXIT_USAGE
     config = load_effective_config(repo_path)
     if config.get("language") != "java":
         message = "fix-deps is only supported for Java repos."
         if json_mode:
-            return CommandResult(exit_code=0, summary=message)
+            return CommandResult(exit_code=EXIT_SUCCESS, summary=message)
         print(message)
-        return 0
+        return EXIT_SUCCESS
     if config.get("java", {}).get("build_tool", "maven") != "maven":
         message = "fix-deps only supports Maven repos."
         if json_mode:
-            return CommandResult(exit_code=0, summary=message)
+            return CommandResult(exit_code=EXIT_SUCCESS, summary=message)
         print(message)
-        return 0
+        return EXIT_SUCCESS
     if json_mode:
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             status = apply_dependency_fixes(repo_path, config, apply=args.apply)

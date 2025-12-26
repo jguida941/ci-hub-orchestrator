@@ -16,6 +16,7 @@ from cihub.cli import (
     resolve_executable,
     update_remote_file,
 )
+from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE
 
 
 def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
@@ -31,16 +32,18 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
                 missing
             )
             if json_mode:
-                return CommandResult(exit_code=2, summary=message)
+                return CommandResult(exit_code=EXIT_USAGE, summary=message)
             print(message, file=sys.stderr)
-            return 2
+            return EXIT_USAGE
         entries = [repo_map[repo] for repo in args.repo]
 
     if not entries:
         if json_mode:
-            return CommandResult(exit_code=0, summary="No repos found to sync.")
+            return CommandResult(
+                exit_code=EXIT_SUCCESS, summary="No repos found to sync."
+            )
         print("No repos found to sync.")
-        return 0
+        return EXIT_SUCCESS
 
     failures = 0
     for entry in entries:
@@ -158,13 +161,13 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
                             )
         results.append(repo_result)
 
-    exit_code = 0
+    exit_code = EXIT_SUCCESS
     if args.check and failures:
         if not json_mode:
             print(f"Template drift detected in {failures} repo(s).", file=sys.stderr)
-        exit_code = 1
+        exit_code = EXIT_FAILURE
     elif failures:
-        exit_code = 1
+        exit_code = EXIT_FAILURE
 
     tag_status = None
     if args.update_tag and not args.check and not args.dry_run:
@@ -194,7 +197,7 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
                 if not getattr(args, "yes", False):
                     if json_mode:
                         return CommandResult(
-                            exit_code=2,
+                            exit_code=EXIT_USAGE,
                             summary="Confirmation required; re-run with --yes",
                         )
                     print(
@@ -208,9 +211,11 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
                     confirm = input("Continue? [y/N] ").strip().lower()
                     if confirm not in ("y", "yes"):
                         if json_mode:
-                            return CommandResult(exit_code=0, summary="Aborted")
+                            return CommandResult(
+                                exit_code=EXIT_SUCCESS, summary="Aborted"
+                            )
                         print("Aborted.")
-                        return 0
+                        return EXIT_SUCCESS
 
                 subprocess.run(  # noqa: S603
                     [git_bin, "tag", "-f", "v1", "HEAD"],
@@ -238,7 +243,11 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
         tag_status = "would_update"
 
     if json_mode:
-        summary = "Template sync complete" if exit_code == 0 else "Template sync failed"
+        summary = (
+            "Template sync complete"
+            if exit_code == EXIT_SUCCESS
+            else "Template sync failed"
+        )
         data: dict[str, object] = {"repos": results, "failures": failures}
         if tag_status:
             data["tag"] = tag_status

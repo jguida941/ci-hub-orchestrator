@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from cihub.cli import CommandResult, resolve_language
+from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS
 
 
 def cmd_detect(args: argparse.Namespace) -> int | CommandResult:
@@ -18,7 +19,7 @@ def cmd_detect(args: argparse.Namespace) -> int | CommandResult:
     except ValueError as exc:
         if json_mode:
             return CommandResult(
-                exit_code=1,
+                exit_code=EXIT_FAILURE,
                 summary=str(exc),
                 problems=[
                     {
@@ -34,9 +35,9 @@ def cmd_detect(args: argparse.Namespace) -> int | CommandResult:
         payload["reasons"] = reasons
     if json_mode:
         return CommandResult(
-            exit_code=0,
+            exit_code=EXIT_SUCCESS,
             summary=f"Detected language: {language}",
             data=payload,
         )
     print(json.dumps(payload, indent=2))
-    return 0
+    return EXIT_SUCCESS

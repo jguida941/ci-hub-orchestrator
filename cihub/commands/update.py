@@ -24,6 +24,7 @@ from cihub.cli import (
 )
 from cihub.config.io import load_yaml_file, save_yaml_file
 from cihub.config.merge import deep_merge
+from cihub.exit_codes import EXIT_SUCCESS, EXIT_USAGE
 
 
 def cmd_update(args: argparse.Namespace) -> int | CommandResult:
@@ -39,12 +40,12 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
         message = "--force requires --apply"
         if json_mode:
             return CommandResult(
-                exit_code=2,
+                exit_code=EXIT_USAGE,
                 summary=message,
                 problems=[{"severity": "error", "message": message}],
             )
         print(message, file=sys.stderr)
-        return 2
+        return EXIT_USAGE
 
     workflow_path = repo_path / ".github" / "workflows" / "hub-ci.yml"
     existing_config = config_path.exists()
@@ -67,7 +68,7 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
         )
         if json_mode:
             return CommandResult(
-                exit_code=2,
+                exit_code=EXIT_USAGE,
                 summary=message,
                 problems=[
                     {
@@ -79,7 +80,7 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
                 ],
             )
         print(message, file=sys.stderr)
-        return 2
+        return EXIT_USAGE
 
     existing = load_yaml_file(config_path) if config_path.exists() else {}
 
@@ -210,4 +211,4 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
             files_modified=files_modified,
             data=data,
         )
-    return 0
+    return EXIT_SUCCESS

@@ -17,6 +17,13 @@ from cihub.config.io import (
 )
 from cihub.config.merge import deep_merge
 from cihub.config.paths import PathConfig
+from cihub.exit_codes import (
+    EXIT_DECLINED,
+    EXIT_FAILURE,
+    EXIT_INTERRUPTED,
+    EXIT_SUCCESS,
+    EXIT_USAGE,
+)
 from cihub.wizard import HAS_WIZARD, WizardCancelled
 
 
@@ -49,7 +56,7 @@ def cmd_new(args: argparse.Namespace) -> int | CommandResult:
     if json_mode and args.interactive:
         message = "--interactive is not supported with --json"
         return CommandResult(
-            exit_code=2,
+            exit_code=EXIT_USAGE,
             summary=message,
             problems=[{"severity": "error", "message": message}],
         )
@@ -59,16 +66,16 @@ def cmd_new(args: argparse.Namespace) -> int | CommandResult:
     if repo_file.exists():
         message = f"Config already exists: {repo_file}"
         if json_mode:
-            return CommandResult(exit_code=2, summary=message)
+            return CommandResult(exit_code=EXIT_USAGE, summary=message)
         print(message, file=sys.stderr)
-        return 2
+        return EXIT_USAGE
 
     defaults = load_defaults(paths)
 
     if args.interactive:
         if not HAS_WIZARD:
             print("Install wizard deps: pip install cihub[wizard]", file=sys.stderr)
-            return 1
+            return EXIT_FAILURE
         from rich.console import Console  # noqa: I001
         from cihub.wizard.core import WizardRunner  # noqa: I001
 
@@ -77,17 +84,17 @@ def cmd_new(args: argparse.Namespace) -> int | CommandResult:
             config = runner.run_new_wizard(name, profile=args.profile)
         except WizardCancelled:
             print("Cancelled.", file=sys.stderr)
-            return 130
+            return EXIT_INTERRUPTED
         except FileNotFoundError as exc:
             print(str(exc), file=sys.stderr)
-            return 2
+            return EXIT_USAGE
     else:
         if not args.owner or not args.language:
             print(
                 "--owner and --language are required unless --interactive is set",
                 file=sys.stderr,
             )
-            return 2
+            return EXIT_USAGE
         config = build_repo_config(
             args.language,
             args.owner,
@@ -101,7 +108,7 @@ def cmd_new(args: argparse.Namespace) -> int | CommandResult:
                 profile_cfg = load_profile_strict(paths, args.profile)
             except FileNotFoundError as exc:
                 print(str(exc), file=sys.stderr)
-                return 2
+                return EXIT_USAGE
             _validate_profile_language(profile_cfg, args.language)
             config = deep_merge(config, profile_cfg)
 
@@ -109,33 +116,33 @@ def cmd_new(args: argparse.Namespace) -> int | CommandResult:
     if args.dry_run:
         if json_mode:
             return CommandResult(
-                exit_code=0,
+                exit_code=EXIT_SUCCESS,
                 summary="Dry run complete",
                 data={"config": config},
                 files_generated=[str(repo_file)],
             )
         print(f"# Would write: {repo_file}")
         print(payload)
-        return 0
+        return EXIT_SUCCESS
 
     if not args.yes:
         if json_mode:
             return CommandResult(
-                exit_code=2,
+                exit_code=EXIT_USAGE,
                 summary="Confirmation required; re-run with --yes",
             )
         confirm = input(f"Write {repo_file}? [y/N] ").strip().lower()
         if confirm not in {"y", "yes"}:
             print("Cancelled.")
-            return 3
+            return EXIT_DECLINED
 
     save_yaml_file(repo_file, config, dry_run=False)
     if json_mode:
         return CommandResult(
-            exit_code=0,
+            exit_code=EXIT_SUCCESS,
             summary="Config created",
             data={"config": config},
             files_generated=[str(repo_file)],
         )
     print(f"[OK] Created {repo_file}")
-    return 0
+    return EXIT_SUCCESS

@@ -28,6 +28,12 @@ from cihub.cli import (
 )
 from cihub.config.io import load_yaml_file, save_yaml_file
 from cihub.config.paths import PathConfig
+from cihub.exit_codes import (
+    EXIT_FAILURE,
+    EXIT_INTERRUPTED,
+    EXIT_SUCCESS,
+    EXIT_USAGE,
+)
 from cihub.wizard import HAS_WIZARD, WizardCancelled
 
 
@@ -41,7 +47,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
     if json_mode and args.wizard:
         message = "--wizard is not supported with --json"
         return CommandResult(
-            exit_code=2,
+            exit_code=EXIT_USAGE,
             summary=message,
             problems=[{"severity": "error", "message": message}],
         )
@@ -50,12 +56,12 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
         message = "--force requires --apply"
         if json_mode:
             return CommandResult(
-                exit_code=2,
+                exit_code=EXIT_USAGE,
                 summary=message,
                 problems=[{"severity": "error", "message": message}],
             )
         print(message, file=sys.stderr)
-        return 2
+        return EXIT_USAGE
 
     config_path = repo_path / ".ci-hub.yml"
     workflow_path = repo_path / ".github" / "workflows" / "hub-ci.yml"
@@ -76,7 +82,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
         )
         if json_mode:
             return CommandResult(
-                exit_code=2,
+                exit_code=EXIT_USAGE,
                 summary=message,
                 problems=[
                     {
@@ -88,7 +94,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
                 ],
             )
         print(message, file=sys.stderr)
-        return 2
+        return EXIT_USAGE
 
     language, _ = resolve_language(repo_path, args.language)
 
@@ -120,7 +126,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
     if args.wizard:
         if not HAS_WIZARD:
             print("Install wizard deps: pip install cihub[wizard]", file=sys.stderr)
-            return 1
+            return EXIT_FAILURE
         from rich.console import Console
 
         from cihub.wizard.core import WizardRunner
@@ -130,7 +136,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
             config = runner.run_init_wizard(detected_config)
         except WizardCancelled:
             print("Cancelled.", file=sys.stderr)
-            return 130
+            return EXIT_INTERRUPTED
         language = config.get("language", language)
     else:
         config = detected_config
@@ -239,7 +245,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
         ]
         problems.extend(pom_warning_problems)
         return CommandResult(
-            exit_code=0,
+            exit_code=EXIT_SUCCESS,
             summary=summary,
             problems=problems,
             files_generated=[str(config_path), str(workflow_path)],
@@ -253,4 +259,4 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
                 "bootstrap": bootstrap,
             },
         )
-    return 0
+    return EXIT_SUCCESS

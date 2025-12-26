@@ -21,6 +21,7 @@ import defusedxml.ElementTree as ET  # Secure XML parsing (prevents XXE)
 from cihub import __version__
 from cihub.config.io import load_yaml_file
 from cihub.config.merge import deep_merge
+from cihub.exit_codes import EXIT_FAILURE, EXIT_INTERNAL_ERROR, EXIT_SUCCESS
 
 GIT_REMOTE_RE = re.compile(
     r"(?:github\.com[:/])(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$"
@@ -730,7 +731,7 @@ def apply_pom_fixes(repo_path: Path, config: dict[str, Any], apply: bool) -> int
     pom_path = root_path / "pom.xml"
     if not pom_path.exists():
         print("pom.xml not found", file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
 
     warnings, missing_plugins = collect_java_pom_warnings(repo_path, config)
     if warnings:
@@ -739,7 +740,7 @@ def apply_pom_fixes(repo_path: Path, config: dict[str, Any], apply: bool) -> int
             print(f"  - {warning}")
     if not missing_plugins:
         print("No pom.xml changes needed.")
-        return 0
+        return EXIT_SUCCESS
 
     snippets = load_plugin_snippets()
     blocks = []
@@ -753,7 +754,7 @@ def apply_pom_fixes(repo_path: Path, config: dict[str, Any], apply: bool) -> int
     if not blocks:
         for warning in warnings:
             print(f"  - {warning}")
-        return 1
+        return EXIT_FAILURE
 
     pom_text = pom_path.read_text(encoding="utf-8")
     plugin_block = "\n\n".join(blocks)
@@ -763,7 +764,7 @@ def apply_pom_fixes(repo_path: Path, config: dict[str, Any], apply: bool) -> int
             "Failed to update pom.xml - unable to find insertion point.",
             file=sys.stderr,
         )
-        return 1
+        return EXIT_FAILURE
 
     if not apply:
         import difflib
@@ -776,11 +777,11 @@ def apply_pom_fixes(repo_path: Path, config: dict[str, Any], apply: bool) -> int
             lineterm="",
         )
         print("\n".join(diff))
-        return 0
+        return EXIT_SUCCESS
 
     pom_path.write_text(updated_text, encoding="utf-8")
     print("pom.xml updated.")
-    return 0
+    return EXIT_SUCCESS
 
 
 def apply_dependency_fixes(repo_path: Path, config: dict[str, Any], apply: bool) -> int:
@@ -792,7 +793,7 @@ def apply_dependency_fixes(repo_path: Path, config: dict[str, Any], apply: bool)
 
     if not missing:
         print("No dependency changes needed.")
-        return 0
+        return EXIT_SUCCESS
 
     snippets = load_dependency_snippets()
     per_pom: dict[Path, list[str]] = {}
@@ -805,7 +806,7 @@ def apply_dependency_fixes(repo_path: Path, config: dict[str, Any], apply: bool)
         per_pom.setdefault(pom_path, []).append(snippet)
 
     if not per_pom:
-        return 1
+        return EXIT_FAILURE
 
     for pom_path, blocks in per_pom.items():
         pom_text = pom_path.read_text(encoding="utf-8")
@@ -813,7 +814,7 @@ def apply_dependency_fixes(repo_path: Path, config: dict[str, Any], apply: bool)
         updated_text, inserted = insert_dependencies_into_pom(pom_text, dep_block)
         if not inserted:
             print(f"Failed to update {pom_path} - unable to find insertion point.")
-            return 1
+            return EXIT_FAILURE
         if not apply:
             import difflib
 
@@ -828,7 +829,7 @@ def apply_dependency_fixes(repo_path: Path, config: dict[str, Any], apply: bool)
         else:
             pom_path.write_text(updated_text, encoding="utf-8")
             print(f"{pom_path} updated.")
-    return 0
+    return EXIT_SUCCESS
 
 
 def cmd_fix_pom(args: argparse.Namespace) -> int | CommandResult:
@@ -1351,7 +1352,7 @@ def main(argv: list[str] | None = None) -> int:
                 }
             ]
             payload = CommandResult(
-                exit_code=4,
+                exit_code=EXIT_INTERNAL_ERROR,
                 summary=str(exc),
                 problems=problems,
             ).to_payload(
@@ -1360,7 +1361,7 @@ def main(argv: list[str] | None = None) -> int:
                 int((time.perf_counter() - start) * 1000),
             )
             print(json.dumps(payload, indent=2))
-            return 4
+            return EXIT_INTERNAL_ERROR
         raise
 
     if isinstance(result, CommandResult):
@@ -1371,10 +1372,10 @@ def main(argv: list[str] | None = None) -> int:
         command_result = CommandResult(exit_code=exit_code)
 
     if not command_result.summary:
-        command_result.summary = "OK" if exit_code == 0 else "Command failed"
+        command_result.summary = "OK" if exit_code == EXIT_SUCCESS else "Command failed"
 
     if getattr(args, "json", False):
-        status = "success" if exit_code == 0 else "failure"
+        status = "success" if exit_code == EXIT_SUCCESS else "failure"
         payload = command_result.to_payload(
             command,
             status,

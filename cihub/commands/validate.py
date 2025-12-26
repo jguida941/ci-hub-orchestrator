@@ -16,6 +16,7 @@ from cihub.cli import (
 from cihub.config.io import load_yaml_file
 from cihub.config.paths import PathConfig
 from cihub.config.schema import validate_config as validate_config_schema
+from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE
 
 
 def cmd_validate(args: argparse.Namespace) -> int | CommandResult:
@@ -26,7 +27,7 @@ def cmd_validate(args: argparse.Namespace) -> int | CommandResult:
         message = f"Config not found: {config_path}"
         if json_mode:
             return CommandResult(
-                exit_code=2,
+                exit_code=EXIT_USAGE,
                 summary=message,
                 problems=[
                     {
@@ -38,7 +39,7 @@ def cmd_validate(args: argparse.Namespace) -> int | CommandResult:
                 ],
             )
         print(message, file=sys.stderr)
-        return 2
+        return EXIT_USAGE
     config = load_yaml_file(config_path)
     paths = PathConfig(str(hub_root()))
     errors = validate_config_schema(config, paths)
@@ -54,14 +55,14 @@ def cmd_validate(args: argparse.Namespace) -> int | CommandResult:
                 for err in errors
             ]
             return CommandResult(
-                exit_code=1,
+                exit_code=EXIT_FAILURE,
                 summary="Validation failed",
                 problems=problems,
             )
         print("Validation failed:")
         for err in errors:
             print(f"  - {err}")
-        return 1
+        return EXIT_FAILURE
     if not json_mode:
         print("Config OK")
     effective = load_effective_config(repo_path)
@@ -81,7 +82,7 @@ def cmd_validate(args: argparse.Namespace) -> int | CommandResult:
                     for warning in warnings
                 ]
                 return CommandResult(
-                    exit_code=1 if args.strict else 0,
+                    exit_code=EXIT_FAILURE if args.strict else EXIT_SUCCESS,
                     summary="POM warnings found",
                     problems=problems,
                 )
@@ -89,14 +90,14 @@ def cmd_validate(args: argparse.Namespace) -> int | CommandResult:
             for warning in warnings:
                 print(f"  - {warning}")
             if args.strict:
-                return 1
+                return EXIT_FAILURE
         else:
             if not json_mode:
                 print("POM OK")
     if json_mode:
         return CommandResult(
-            exit_code=0,
+            exit_code=EXIT_SUCCESS,
             summary="Config OK",
             data={"language": effective.get("language")},
         )
-    return 0
+    return EXIT_SUCCESS

@@ -18,6 +18,12 @@ from cihub.config.io import (
 )
 from cihub.config.merge import build_effective_config
 from cihub.config.paths import PathConfig
+from cihub.exit_codes import (
+    EXIT_FAILURE,
+    EXIT_INTERRUPTED,
+    EXIT_SUCCESS,
+    EXIT_USAGE,
+)
 from cihub.wizard import HAS_WIZARD, WizardCancelled
 
 
@@ -107,9 +113,9 @@ def cmd_config(args: argparse.Namespace) -> int | CommandResult:
     if not repo:
         message = "--repo is required"
         if json_mode:
-            return CommandResult(exit_code=2, summary=message)
+            return CommandResult(exit_code=EXIT_USAGE, summary=message)
         print(message, file=sys.stderr)
-        return 2
+        return EXIT_USAGE
 
     defaults = load_defaults(paths)
 
@@ -118,7 +124,7 @@ def cmd_config(args: argparse.Namespace) -> int | CommandResult:
             if json_mode:
                 message = "config edit is not supported with --json"
                 return CommandResult(
-                    exit_code=2,
+                    exit_code=EXIT_USAGE,
                     summary=message,
                     problems=[{"severity": "error", "message": message}],
                 )
@@ -127,15 +133,17 @@ def cmd_config(args: argparse.Namespace) -> int | CommandResult:
                 updated = _apply_wizard(paths, existing)
             except WizardCancelled:
                 if json_mode:
-                    return CommandResult(exit_code=130, summary="Cancelled")
+                    return CommandResult(
+                        exit_code=EXIT_INTERRUPTED, summary="Cancelled"
+                    )
                 print("Cancelled.", file=sys.stderr)
-                return 130
+                return EXIT_INTERRUPTED
             if args.dry_run:
                 _dump_config(updated)
-                return 0
+                return EXIT_SUCCESS
             save_repo_config(paths, repo, updated, dry_run=False)
             print(f"[OK] Updated {paths.repo_file(repo)}", file=sys.stderr)
-            return 0
+            return EXIT_SUCCESS
 
         if args.subcommand == "show":
             config = _load_repo(paths, repo)
@@ -146,12 +154,12 @@ def cmd_config(args: argparse.Namespace) -> int | CommandResult:
                 data = config
             if json_mode:
                 return CommandResult(
-                    exit_code=0,
+                    exit_code=EXIT_SUCCESS,
                     summary="Config loaded",
                     data={"config": data},
                 )
             _dump_config(data)
-            return 0
+            return EXIT_SUCCESS
 
         if args.subcommand == "set":
             config = _load_repo(paths, repo)
@@ -160,22 +168,22 @@ def cmd_config(args: argparse.Namespace) -> int | CommandResult:
             if args.dry_run:
                 if json_mode:
                     return CommandResult(
-                        exit_code=0,
+                        exit_code=EXIT_SUCCESS,
                         summary="Dry run complete",
                         data={"config": config},
                     )
                 _dump_config(config)
-                return 0
+                return EXIT_SUCCESS
             save_repo_config(paths, repo, config, dry_run=False)
             if json_mode:
                 return CommandResult(
-                    exit_code=0,
+                    exit_code=EXIT_SUCCESS,
                     summary="Config updated",
                     data={"config": config},
                     files_modified=[str(paths.repo_file(repo))],
                 )
             print(f"[OK] Updated {paths.repo_file(repo)}", file=sys.stderr)
-            return 0
+            return EXIT_SUCCESS
 
         if args.subcommand in {"enable", "disable"}:
             config = _load_repo(paths, repo)
@@ -184,28 +192,28 @@ def cmd_config(args: argparse.Namespace) -> int | CommandResult:
             if args.dry_run:
                 if json_mode:
                     return CommandResult(
-                        exit_code=0,
+                        exit_code=EXIT_SUCCESS,
                         summary="Dry run complete",
                         data={"config": config},
                     )
                 _dump_config(config)
-                return 0
+                return EXIT_SUCCESS
             save_repo_config(paths, repo, config, dry_run=False)
             if json_mode:
                 return CommandResult(
-                    exit_code=0,
+                    exit_code=EXIT_SUCCESS,
                     summary="Config updated",
                     data={"config": config},
                     files_modified=[str(paths.repo_file(repo))],
                 )
             print(f"[OK] Updated {paths.repo_file(repo)}", file=sys.stderr)
-            return 0
+            return EXIT_SUCCESS
 
         raise ConfigError(f"Unsupported config command: {args.subcommand}")
     except ConfigError as exc:
         if json_mode:
             return CommandResult(
-                exit_code=1,
+                exit_code=EXIT_FAILURE,
                 summary=str(exc),
                 problems=[
                     {
@@ -216,4 +224,4 @@ def cmd_config(args: argparse.Namespace) -> int | CommandResult:
                 ],
             )
         print(str(exc), file=sys.stderr)
-        return 1
+        return EXIT_FAILURE
