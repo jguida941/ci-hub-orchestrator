@@ -64,7 +64,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 
 [tool.mutmut]
-paths_to_mutate = ["cihub/config/merge.py"]
+paths_to_mutate = ["cihub/"]
 tests_dir = ["tests/"]
 also_copy = ["cihub/", "scripts/", "config/", "schema/", "templates/", ".github/", "pyproject.toml"]
 mutate_only_covered_lines = true
