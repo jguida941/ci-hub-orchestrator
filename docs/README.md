@@ -13,6 +13,12 @@ Start here if you're new to the hub:
 3. **[guides/MODES.md](guides/MODES.md)** - Understanding central vs distributed execution
 4. **[reference/CONFIG_REFERENCE.md](reference/CONFIG_REFERENCE.md)** - Complete configuration reference
 
+## Project Policies
+
+- [CONTRIBUTING.md](../CONTRIBUTING.md) - How to contribute
+- [SECURITY.md](../SECURITY.md) - Vulnerability reporting policy
+- [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md) - Community standards
+
 ---
 
 ## Documentation Structure
@@ -27,20 +33,39 @@ docs/
 │   ├── TROUBLESHOOTING.md
 │   ├── MONOREPOS.md
 │   ├── DISPATCH_SETUP.md
+│   ├── INTEGRATION_SMOKE_TEST.md
 │   └── KYVERNO.md
 ├── reference/       # Reference documentation
 │   ├── CONFIG_REFERENCE.md
 │   ├── TOOLS.md
 │   └── example.ci-hub.yml
 ├── development/     # Internal/development docs
-│   ├── ROADMAP.md
-│   ├── OUTSTANDING.md
-│   ├── RESEARCH.md
-│   ├── SMOKE_TEST.md
-│   ├── SMOKE_TEST_REPOS.md
-│   ├── SMOKE_TEST_SETUP_SUMMARY.md
-│   └── plan.md
-├── adr/             # Architecture Decision Records
+│   ├── coderabbit.md
+│   ├── specs/
+│   │   ├── P0.md
+│   │   ├── P1.md
+│   │   ├── nonfunctional.md
+│   │   └── README.md
+│   ├── status/
+│   │   ├── STATUS.md
+│   │   ├── INTEGRATION_STATUS.md
+│   │   └── SMOKE_TEST_SNAPSHOT_2025-12-14.md
+│   ├── architecture/
+│   │   ├── ARCHITECTURE_PLAN.md
+│   │   ├── ARCH_OVERVIEW.md
+│   │   └── SUMMARY_CONTRACT.md
+│   ├── execution/
+│   │   ├── SMOKE_TEST.md
+│   │   └── SMOKE_TEST_REPOS.md
+│   ├── research/
+│   │   └── RESEARCH_LOG.md
+│   └── archive/
+│       ├── ROADMAP.md
+│       ├── OUTSTANDING.md
+│       ├── FIXTURES_PLAN.md
+│       ├── WORKFLOW_MIGRATION.md
+│       └── audit.md
+├── adr/             # Architecture Decision Records (0001-0027)
 └── README.md        # This file
 ```
 
@@ -50,16 +75,17 @@ docs/
 
 User-facing tutorials and how-to guides:
 
-| Document | Description |
-|----------|-------------|
-| [ONBOARDING.md](guides/ONBOARDING.md) | How to connect a repository to the hub |
-| [WORKFLOWS.md](guides/WORKFLOWS.md) | All workflow descriptions |
-| [MODES.md](guides/MODES.md) | Central vs distributed execution modes |
-| [TEMPLATES.md](guides/TEMPLATES.md) | Ready-to-use config templates |
-| [TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) | Common issues and solutions |
-| [MONOREPOS.md](guides/MONOREPOS.md) | Monorepo support guide |
-| [DISPATCH_SETUP.md](guides/DISPATCH_SETUP.md) | How to set up tokens and dispatchable repos |
-| [KYVERNO.md](guides/KYVERNO.md) | Optional Kubernetes admission control with Kyverno |
+| Document                                        | Description                                        |
+|-------------------------------------------------|----------------------------------------------------|
+| [ONBOARDING.md](guides/ONBOARDING.md)           | How to connect a repository to the hub             |
+| [WORKFLOWS.md](guides/WORKFLOWS.md)             | All workflow descriptions                          |
+| [MODES.md](guides/MODES.md)                     | Central vs distributed execution modes             |
+| [TEMPLATES.md](guides/TEMPLATES.md)             | Ready-to-use config templates                      |
+| [TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) | Common issues and solutions                        |
+| [MONOREPOS.md](guides/MONOREPOS.md)             | Monorepo support guide                             |
+| [DISPATCH_SETUP.md](guides/DISPATCH_SETUP.md)               | How to set up tokens and dispatchable repos        |
+| [INTEGRATION_SMOKE_TEST.md](guides/INTEGRATION_SMOKE_TEST.md) | Integration smoke test guide                       |
+| [KYVERNO.md](guides/KYVERNO.md)                               | Optional Kubernetes admission control with Kyverno |
 
 ---
 
@@ -67,11 +93,11 @@ User-facing tutorials and how-to guides:
 
 Technical reference documentation:
 
-| Document | Description |
-|----------|-------------|
+| Document                                             | Description                         |
+|------------------------------------------------------|-------------------------------------|
 | [CONFIG_REFERENCE.md](reference/CONFIG_REFERENCE.md) | Field-by-field config documentation |
-| [TOOLS.md](reference/TOOLS.md) | Documentation for each quality tool |
-| [example.ci-hub.yml](reference/example.ci-hub.yml) | Example configuration file |
+| [TOOLS.md](reference/TOOLS.md)                       | Documentation for each quality tool |
+| [example.ci-hub.yml](reference/example.ci-hub.yml)   | Example configuration file          |
 
 ---
 
@@ -81,14 +107,20 @@ Internal documentation for hub maintainers:
 
 | Document | Description |
 |----------|-------------|
-| [ROADMAP.md](development/ROADMAP.md) | Project roadmap and phases |
-| [OUTSTANDING.md](development/OUTSTANDING.md) | Outstanding issues and pending work |
-| [RESEARCH.md](development/RESEARCH.md) | Design decisions and research |
-| [SMOKE_TEST.md](development/SMOKE_TEST.md) | How to run smoke tests |
-| [SMOKE_TEST_REPOS.md](development/SMOKE_TEST_REPOS.md) | Smoke test repository requirements |
-| [SMOKE_TEST_SETUP_SUMMARY.md](development/SMOKE_TEST_SETUP_SUMMARY.md) | Smoke test setup summary |
-| [plan.md](development/plan.md) | Current execution plan |
-| [adr/](adr/) | Architecture Decision Records |
+| [BACKLOG.md](../BACKLOG.md) | Feature backlog and priorities |
+| [coderabbit.md](development/coderabbit.md) | CodeRabbit review feedback |
+| [specs/](development/specs/) | P0/P1/nonfunctional requirements |
+| [STATUS.md](development/status/STATUS.md) | Current execution plan |
+| [INTEGRATION_STATUS.md](development/status/INTEGRATION_STATUS.md) | Quarantine graduation tracking |
+| [SMOKE_TEST_SNAPSHOT_2025-12-14.md](development/status/SMOKE_TEST_SNAPSHOT_2025-12-14.md) | Smoke test setup snapshot |
+| [ARCHITECTURE_PLAN.md](development/architecture/ARCHITECTURE_PLAN.md) | Master architecture plan |
+| [ARCH_OVERVIEW.md](development/architecture/ARCH_OVERVIEW.md) | Architecture overview |
+| [SUMMARY_CONTRACT.md](development/architecture/SUMMARY_CONTRACT.md) | Summary format contract |
+| [SMOKE_TEST.md](development/execution/SMOKE_TEST.md) | How to run smoke tests |
+| [SMOKE_TEST_REPOS.md](development/execution/SMOKE_TEST_REPOS.md) | Smoke test repository requirements |
+| [RESEARCH_LOG.md](development/research/RESEARCH_LOG.md) | Design decisions and research |
+| [archive/](development/archive/) | Archived docs (ROADMAP, OUTSTANDING, etc.) |
+| [adr/](adr/) | Architecture Decision Records (0001-0027) |
 
 ---
 
@@ -101,7 +133,7 @@ Internal documentation for hub maintainers:
 | Add a new repository to the hub | [guides/ONBOARDING.md](guides/ONBOARDING.md) |
 | Understand what tools are available | [reference/TOOLS.md](reference/TOOLS.md) |
 | Configure tool thresholds | [reference/CONFIG_REFERENCE.md](reference/CONFIG_REFERENCE.md#thresholds) |
-| Run a smoke test | [development/SMOKE_TEST.md](development/SMOKE_TEST.md) |
+| Run a smoke test | [development/execution/SMOKE_TEST.md](development/execution/SMOKE_TEST.md) |
 | Understand central vs distributed mode | [guides/MODES.md](guides/MODES.md) |
 | Troubleshoot a failing workflow | [guides/TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) |
 | Create a custom config | [guides/TEMPLATES.md](guides/TEMPLATES.md) |
@@ -122,14 +154,15 @@ Internal documentation for hub maintainers:
 ### For Hub Maintainers
 1. [guides/WORKFLOWS.md](guides/WORKFLOWS.md) - Workflow internals
 2. [guides/MODES.md](guides/MODES.md) - Execution modes
-3. [development/SMOKE_TEST.md](development/SMOKE_TEST.md) - Pre-release validation
-4. [development/RESEARCH.md](development/RESEARCH.md) - Design decisions
-5. [development/ROADMAP.md](development/ROADMAP.md) - Future plans
+3. [development/execution/SMOKE_TEST.md](development/execution/SMOKE_TEST.md) - Pre-release validation
+4. [development/research/RESEARCH_LOG.md](development/research/RESEARCH_LOG.md) - Design decisions
+5. [../BACKLOG.md](../BACKLOG.md) - Feature backlog
+6. [development/specs/](development/specs/) - P0/P1 requirements
 
 ### For AI Assistants
 1. **[../AGENTS.md](../AGENTS.md)** - AI context and rules
-2. [development/RESEARCH.md](development/RESEARCH.md) - Full context
-3. [development/ROADMAP.md](development/ROADMAP.md) - Current focus
+2. [development/research/RESEARCH_LOG.md](development/research/RESEARCH_LOG.md) - Full context
+3. [../BACKLOG.md](../BACKLOG.md) - Current priorities
 
 ---
 

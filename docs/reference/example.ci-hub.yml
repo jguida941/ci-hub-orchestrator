@@ -11,7 +11,18 @@
 # ============================================================================
 
 version: "1.0"
-language: java  # java | python | node | go
+language: java  # java | python
+
+# ------------------------------------------------------------------------------
+# Repository Info (required)
+# ------------------------------------------------------------------------------
+repo:
+  owner: your-org
+  name: your-repo
+  default_branch: main
+  # subdir: ""              # Optional: for monorepos
+  # dispatch_enabled: true  # Optional: allow orchestrator dispatch
+  # run_group: full         # Optional: full | fixtures | smoke
 
 # ------------------------------------------------------------------------------
 # Java Configuration (only for Java repos)

@@ -59,7 +59,7 @@ _Last updated: 2025-11-02 (v1.0.10 snapshot)_
 
 ## Week 4-10: Production Hardening
 
-See `plan.md:1778-1856` for complete 10-week roadmap including:
+See `STATUS.md:1778-1856` for complete 10-week roadmap including:
 - Multi-tenant isolation (Firecracker optional)
 - Service mesh patterns (future enhancement)
 - Deployment orchestration
@@ -68,7 +68,7 @@ See `plan.md:1778-1856` for complete 10-week roadmap including:
 ## Documentation Structure
 
 ```
-plan.md                            - Strategic architecture & roadmap
+STATUS.md                            - Strategic architecture & roadmap
 ├── GitHub Issues (security label) - Security audit tracker
 ├── docs/analysis/multi-repo-analysis.md - Multi-tenancy gaps (6 categories)
 ├── docs/analysis/index.md         - Quick reference tables
@@ -90,7 +90,7 @@ plan.md                            - Strategic architecture & roadmap
 - Complete BigQuery/dashboard wiring
 
 ### Nice to Have (Future Enhancements)
-These are NOT in current plan.md:
+These are NOT in current STATUS.md:
 - API gateway / service mesh
 - GitOps (ArgoCD/Flux)
 - Hierarchical config service
@@ -109,7 +109,7 @@ These are NOT in current plan.md:
 - Dashboards deployed
 
 **v1.0 Success** (10 weeks):
-- All items in plan.md v1.0 checklist complete
+- All items in STATUS.md v1.0 checklist complete
 - Support 10+ repos without resource starvation
 - Full observability and cost tracking
 - Production-grade security posture
@@ -125,6 +125,6 @@ These are NOT in current plan.md:
 ## Contact Points
 
 - Security Issues: See GitHub Issues (`https://github.com/jguida941/ci-cd-hub/issues`) with `security` label
-- Architecture Questions: See `plan.md` for design rationale
+- Architecture Questions: See `STATUS.md` for design rationale
 - Multi-Repo Gaps: See `docs/analysis/multi-repo-analysis.md` for analysis
 - Quick Reference: See `docs/analysis/index.md` for navigation

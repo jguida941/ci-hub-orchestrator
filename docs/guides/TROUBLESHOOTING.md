@@ -466,7 +466,7 @@ reports:
 
 1. **Check workflow logs:** Actions → Select run → Click job → Expand step
 2. **Run locally:** Clone hub and run scripts locally to debug
-3. **Check RESEARCH.md:** Deep dive on tool configuration (see `docs/development/RESEARCH.md`)
+3. **Check RESEARCH_LOG.md:** Deep dive on tool configuration (see `docs/development/research/RESEARCH_LOG.md`)
 4. **File an issue:** Document steps to reproduce
 
 ---

@@ -1,7 +1,9 @@
 # ADR-0007: Templates and Profiles Strategy
 
-- Status: Accepted
-- Date: 2026-01-02
+**Status**: Accepted  
+**Date:** 2026-01-02  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 

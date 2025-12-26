@@ -20,6 +20,19 @@ This is a production-grade system intended for commercial use. Prioritize safety
 - Hub production CI summary lists every check with pass/fail/skip status and a failed/skipped table.
 - Aggregation summaries include failure reasons when jobs fail (no silent `-` without context).
 
+## Reusable Workflow Migration Summary
+
+The hub migrates from per-repo dispatch templates to reusable workflows to prevent drift
+and keep reporting consistent. The CLI (`cihub`) generates minimal caller workflows and
+hub-side configs only.
+
+Key constraints:
+- GitHub `workflow_dispatch` inputs are limited to 25 (see ADR-0024).
+- Caller templates are intentionally minimal; reusable workflows remain the source of truth.
+
+Historical execution details are archived in:
+`docs/development/architecture/ARCHITECTURE_PLAN.md`.
+
 
   # MVP/Phase‑0 (hub‑side only) 12/24/2025
 
@@ -81,7 +94,7 @@ This is a production-grade system intended for commercial use. Prioritize safety
   - [ ] No repo writes unless repo_side_execution: true (future ADR‑0026)
 
   If you want, I can turn this into a markdown checklist in docs/development/
-  NEW_PLAN.md or docs/development/plan.md.
+  ARCHITECTURE_PLAN.md or docs/development/status/STATUS.md.
 
 
 
@@ -90,9 +103,9 @@ This is a production-grade system intended for commercial use. Prioritize safety
  Context
 
  The current cihub/cli.py is a 1,688-line monolithic file with 8 commands.
- NEW_PLAN.md defines a comprehensive modular architecture. The user wants to:
+ ARCHITECTURE_PLAN.md defines a comprehensive modular architecture. The user wants to:
 
- 1. Restructure CLI to match NEW_PLAN.md architecture (MVP subset)
+ 1. Restructure CLI to match ARCHITECTURE_PLAN.md architecture (MVP subset)
  2. Add interactive wizard for cihub new, cihub init, cihub config
  3. Create ADR-0025 documenting this decision
  4. Use questionary + Rich for interactive prompts (soft/optional deps)
@@ -179,7 +192,7 @@ This is a production-grade system intended for commercial use. Prioritize safety
  - Centralized theme in wizard/styles.py
  - Separation: Rich for output, questionary for input
 
- Module Structure (from NEW_PLAN.md)
+ Module Structure (from ARCHITECTURE_PLAN.md)
 
  cihub/
  ├── cli.py                    # Entry point + argparse
@@ -218,8 +231,8 @@ This is a production-grade system intended for commercial use. Prioritize safety
  | 4     | Commands extracted           | Update docs/guides/CLI_COMMANDS.md |
  | 5     | New commands added           | Final CLI guide update             |
 
- Cross-reference to NEW_PLAN.md:
- - This work implements Phase 5: CLI Commands from NEW_PLAN.md
+ Cross-reference to ARCHITECTURE_PLAN.md:
+ - This work implements Phase 5: CLI Commands from ARCHITECTURE_PLAN.md
  - Also partially implements Phase 4: Profiles (wizard uses profiles)
 
  Implementation Phases (MVP: Phases 1-5)
@@ -482,7 +495,7 @@ This is a production-grade system intended for commercial use. Prioritize safety
 
 
 
-# This is the NEW_PLAN.md file that outlines the complete architecture for 
+# This is the ARCHITECTURE_PLAN.md file that outlines the complete architecture for 
 # the Self-Validating CLI + Central Hub system.
 ## Executive Summary
 
@@ -500,7 +513,7 @@ This document outlines a comprehensive **Self-Validating CLI + Central Hub** arc
 | `hub-security.yml` | ❌ FAILING | Needs investigation |
 | `hub-run-all.yml` | ✅ PASSING | Central mode works |
 
-See `_quarantine/` and `INTEGRATION_STATUS.md` for file graduation tracking.
+See `_quarantine/` and `docs/development/status/INTEGRATION_STATUS.md` for file graduation tracking.
 
 ---
 

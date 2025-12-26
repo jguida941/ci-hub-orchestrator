@@ -1,7 +1,9 @@
 # ADR-0019: Report Validation Policy
 
-- Status: Accepted
-- Date: 2025-12-18
+**Status**: Accepted  
+**Date:** 2025-12-18  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 

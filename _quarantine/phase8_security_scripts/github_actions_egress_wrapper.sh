@@ -14,7 +14,7 @@ log() {
   echo "[egress-wrapper] $*" >&2
 }
 
-# Default allowed destinations (from plan.md egress allowlist)
+# Default allowed destinations (from STATUS.md egress allowlist)
 # Can be overridden via EGRESS_ALLOWLIST environment variable
 if [[ -n "${EGRESS_ALLOWLIST:-}" ]]; then
   # Parse comma-separated list from environment
@@ -42,7 +42,7 @@ create_proxy_pac() {
 
   cat > "$pac_file" <<'EOF'
 function FindProxyForURL(url, host) {
-  // Allowed domains - must match plan.md egress allowlist
+  // Allowed domains - must match STATUS.md egress allowlist
   var allowed = [
     "github.com",
     "api.github.com",

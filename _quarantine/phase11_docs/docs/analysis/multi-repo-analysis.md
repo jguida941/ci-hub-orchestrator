@@ -131,13 +131,13 @@ The CI/CD hub is now a **single-hub, multi-repo pilot**: repositories are discov
 - **No per-repo concurrency budget** - All repos share `max_parallel: 2`
 - **No queue length monitoring** - No backpressure metrics
 - **No fair queuing** - First-come-first-served (no priority queue)
-- **No queue denial telemetry** - Denials not recorded for SLO tracking (mentioned in plan.md as "near-term")
+- **No queue denial telemetry** - Denials not recorded for SLO tracking (mentioned in STATUS.md as "near-term")
 - **No rate limiting on GitHub API calls** - Could hit rate limits during high load
 - **No sharding by repo** - Can't split heavy repos to separate runners
 - **No adaptive concurrency** - Fixed limits regardless of runner utilization
 - **No pub/sub or job queue** - Tight coupling to GitHub Actions
 
-**Gap**: Looks like `token-bucket` throttling mentioned in plan.md line 51 is not implemented
+**Gap**: Looks like `token-bucket` throttling mentioned in STATUS.md line 51 is not implemented
 
 ### 2.2 Concurrency Controls Across Repos
 
@@ -186,11 +186,11 @@ The CI/CD hub is now a **single-hub, multi-repo pilot**: repositories are discov
 **Status**: ❌ ABSENT
 
 #### Missing:
-- **No token bucket** - Plan mentions "runner fairness: token-bucket throttling" (plan.md:51) but not implemented
+- **No token bucket** - Plan mentions "runner fairness: token-bucket throttling" (STATUS.md:51) but not implemented
 - **No weighted queue** - Can't assign weights to repos
 - **No SLO enforcement** - No "repo X must finish in 10min" with enforcement
 - **No starvation detection** - Can't alert if repo Y hasn't run in 7 days
-- **No throttle metrics** - No `queue_denials` metric mentioned in plan.md:51
+- **No throttle metrics** - No `queue_denials` metric mentioned in STATUS.md:51
 - **No age-based reordering** - Older queued jobs don't get priority
 - **No fair scheduling algorithm** - No round-robin, LCM, or deficit round-robin
 
@@ -315,7 +315,7 @@ But currently: vector-space can't specify this dependency
 
 #### Missing:
 - **No time-series DB** - Telemetry stored as NDJSON artifacts, not queryable DB
-- **No dashboards** - plan.md mentions dashboards/ but empty
+- **No dashboards** - STATUS.md mentions dashboards/ but empty
 - **No visualization** - No Grafana, DataDog, Prometheus
 - **No alerts per repo** - No "alert if repo X fails 3 times in a row"
 - **No SLO dashboards** - No "repo X meets 99.9% uptime SLO"
@@ -373,7 +373,7 @@ But currently: vector-space can't specify this dependency
 - **No log parsing** - Raw logs not structured for search
 - **No log retention policy** - GitHub artifacts kept indefinitely
 - **No log encryption** - Logs world-readable in GitHub
-- **No trace context** - No `traceparent` or OpenTelemetry trace ID propagation (mentioned in plan.md but not implemented)
+- **No trace context** - No `traceparent` or OpenTelemetry trace ID propagation (mentioned in STATUS.md but not implemented)
 - **No full-text search** - Can't search logs across repos
 - **No log sampling** - All logs kept (cost inefficient at scale)
 - **No automated incident correlation** - Can't link logs to incidents
@@ -637,35 +637,35 @@ hardcoded per workflow
 
 ### ALIGNED WITH CURRENT PLAN.MD (Production-Critical)
 
-These items are already in plan.md and should be prioritized:
+These items are already in STATUS.md and should be prioritized:
 
 #### Phase 1: Security & Isolation (Weeks 1-2) - IN PLAN
-1. **Fix critical security vulnerabilities** (plan.md:36-38, issues.md:41-105)
-2. **Per-repo secrets via OIDC** - Already planned in plan.md:107-109
-3. **Token-bucket rate limiting** - Mentioned in plan.md:51, 111-114
-4. **Optional Firecracker isolation** - Stretch goal in plan.md:1788-1792
+1. **Fix critical security vulnerabilities** (STATUS.md:36-38, issues.md:41-105)
+2. **Per-repo secrets via OIDC** - Already planned in STATUS.md:107-109
+3. **Token-bucket rate limiting** - Mentioned in STATUS.md:51, 111-114
+4. **Optional Firecracker isolation** - Stretch goal in STATUS.md:1788-1792
 
 #### Phase 2: Observability (Weeks 3-4) - IN PLAN
-1. **Complete BigQuery pipeline** - Variables empty, needs wiring (plan.md:121-124)
+1. **Complete BigQuery pipeline** - Variables empty, needs wiring (STATUS.md:121-124)
 2. **Per-repo telemetry** - Schema supports it, dashboards missing
-3. **Cost/carbon tracking** - Already in plan.md:1658, 1768
+3. **Cost/carbon tracking** - Already in STATUS.md:1658, 1768
 
 #### Phase 3: Fair Scheduling (Weeks 5-6) - IN PLAN
-1. **Runner fairness budgets** - plan.md:51, 105-107
+1. **Runner fairness budgets** - STATUS.md:51, 105-107
 2. **Concurrency enforcement** - Partial implementation exists
 3. **Queue depth monitoring** - Telemetry schema ready
 
 ### FUTURE ENHANCEMENTS (Not in Current Plan)
 
-These are valuable but go beyond the current plan.md scope:
+These are valuable but go beyond the current STATUS.md scope:
 
 #### Optional: Service Mesh Patterns (Post-v1.0)
-1. **API gateway** - Not mentioned in plan.md, could be future enhancement
+1. **API gateway** - Not mentioned in STATUS.md, could be future enhancement
 2. **Config server** - Would require architecture change
 3. **Service registry** - Dynamic registration not in current scope
 
 #### Optional: Advanced Orchestration (Post-v1.0)
-1. **GitOps/ArgoCD** - Not in plan.md, imperative model currently used
+1. **GitOps/ArgoCD** - Not in STATUS.md, imperative model currently used
 2. **Dependency DAG** - Could extend matrix pattern
 3. **Progressive rollout** - Canary exists but not multi-repo
 

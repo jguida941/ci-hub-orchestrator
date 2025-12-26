@@ -1,7 +1,9 @@
 # ADR-0008: Hub Fixtures Strategy
 
-- Status: Accepted
-- Date: 2026-01-02
+**Status**: Accepted  
+**Date:** 2026-01-02  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 

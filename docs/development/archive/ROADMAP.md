@@ -2,7 +2,7 @@
 
 > ⚠️ **Historical Reference** - Phases 0-3 context only.
 >
-> **Active Execution Plan:** See `REUSABLE_WORKFLOW_MIGRATION.md` for current work.
+> **Active Execution Plan:** See `docs/development/architecture/ARCHITECTURE_PLAN.md` for current work.
 >
 > This document discovered that dispatch templates drift, leading to the migration plan.
 > Phases 4-8 have been superseded by the migration plan's Parts 1-6.
@@ -10,8 +10,8 @@
 **Version:** 1.0.0
 **Date:** 2025-12-15
 **Status:** Phases 0-3 Complete; Phases 4-8 superseded by migration plan
-**References:** See `requirements/` (P0/P1/nonfunctional) for current checklists.
-**Active Plan:** `docs/development/REUSABLE_WORKFLOW_MIGRATION.md`
+**References:** See `docs/development/specs/` (P0/P1/nonfunctional) for current checklists.
+**Active Plan:** `docs/development/architecture/ARCHITECTURE_PLAN.md`
 
 ---
 
@@ -162,13 +162,13 @@ A **user-friendly CI/CD template repository** that can run pipelines for **any l
 
 | Task | Status | Notes |
 |------|--------|-------|
-| Audit existing codebase | Done | See RESEARCH.md |
-| Research best practices | Done | See RESEARCH.md |
+| Audit existing codebase | Done | See RESEARCH_LOG.md |
+| Research best practices | Done | See RESEARCH_LOG.md |
 | Create ROADMAP.md | Done | This document |
-| Create RESEARCH.md | Done | Comprehensive |
+| Create RESEARCH_LOG.md | Done | Comprehensive |
 
 **Deliverables:**
-- [x] RESEARCH.md with all findings
+- [x] RESEARCH_LOG.md with all findings
 - [x] ROADMAP.md with phases
 - [x] ADR directory structure (`docs/adr/`)
 - [x] First 3 ADRs written (0001-0003)
@@ -323,7 +323,7 @@ A **user-friendly CI/CD template repository** that can run pipelines for **any l
 **Deliverables:**
 - [x] Fixture repos for all scenarios (`ci-cd-hub-fixtures` repo with java-passing, java-failing, python-passing, python-failing)
 - [x] CI that tests hub against fixtures (`smoke-test.yml` workflow)
-- [x] Documentation for fixtures (`docs/development/SMOKE_TEST_REPOS.md`)
+- [x] Documentation for fixtures (`docs/development/execution/SMOKE_TEST_REPOS.md`)
 
 **Acceptance Criteria:**
 - [x] Hub correctly passes/fails expected repos
@@ -496,7 +496,7 @@ hub-release/
 │   ├── TOOLS.md
 │   ├── MODES.md
 │   ├── TROUBLESHOOTING.md
-│   ├── RESEARCH.md
+│   ├── RESEARCH_LOG.md
 │   ├── ROADMAP.md
 │   └── adr/
 │       ├── 0001-central-vs-distributed.md
@@ -522,8 +522,8 @@ hub-release/
 
 | Document | Purpose |
 |----------|---------|
-| [RESEARCH.md](./RESEARCH.md) | Research findings and best practices |
-| [plan.md](../plan.md) | Original planning notes |
+| [RESEARCH_LOG.md](./RESEARCH_LOG.md) | Research findings and best practices |
+| [STATUS.md](../STATUS.md) | Original planning notes |
 | [defaults.yaml](../config/defaults.yaml) | Global configuration |
 | [ONBOARDING.md](./ONBOARDING.md) | Getting started guide |
 
@@ -532,4 +532,4 @@ hub-release/
 **Document History:**
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0.0 | 2025-12-14 | Claude | Initial creation from RESEARCH.md + plan.md |
+| 1.0.0 | 2025-12-14 | Claude | Initial creation from RESEARCH_LOG.md + STATUS.md |

@@ -1,7 +1,9 @@
 # ADR-0009: Monorepo Support via repo.subdir
 
-- Status: Accepted
-- Date: 2026-12-15
+**Status**: Accepted  
+**Date:** 2026-12-15  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 

@@ -16,7 +16,7 @@ This document summarizes the smoke test setup completed on 2025-12-14.
 ### 1. Documentation
 
 #### Primary Smoke Test Guide
-**File:** `/hub-release/docs/development/SMOKE_TEST.md`
+**File:** `/hub-release/docs/development/execution/SMOKE_TEST.md`
 
 Comprehensive guide covering:
 - Overview of smoke test purpose and scope
@@ -29,7 +29,7 @@ Comprehensive guide covering:
 - Configuration file references
 
 #### Smoke Test Repository Requirements
-**File:** `/hub-release/docs/development/SMOKE_TEST_REPOS.md`
+**File:** `/hub-release/docs/development/execution/SMOKE_TEST_REPOS.md`
 
 Detailed documentation about:
 - Current smoke test repositories (Java and Python)
@@ -154,7 +154,7 @@ After running smoke test:
 
 ### Immediate
 1. Record the run URL in this summary (done)
-2. Mark smoke test checkbox in `requirements/P0.md` if successful
+2. Mark smoke test checkbox in `docs/development/specs/P0.md` if successful
 
 ### Future Improvements
 1. Consider creating dedicated fixture repositories for more predictable results
@@ -176,8 +176,8 @@ hub-release/
 └── docs/
     ├── README.md (index)
     ├── guides/WORKFLOWS.md (UPDATED)
-    ├── development/SMOKE_TEST.md
-    └── development/SMOKE_TEST_REPOS.md
+    ├── development/execution/SMOKE_TEST.md
+    └── development/execution/SMOKE_TEST_REPOS.md
 ```
 
 ---
@@ -193,7 +193,7 @@ hub-release/
 
 ## P0 Requirement Status
 
-From `requirements/P0.md`:
+From `docs/development/specs/P0.md`:
 
 ```
 ## 4. Smoke Test

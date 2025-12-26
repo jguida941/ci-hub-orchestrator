@@ -85,13 +85,20 @@ Both repositories are:
 
 ## In-Repo Fixture Option (recommended for predictability)
 
-If you push a dedicated fixtures repository (e.g., `jguida941/ci-cd-hub-fixtures`) containing:
-- `java-passing` (tests pass)
-- `java-failing` (one failing test)
-- `python-passing` (tests pass)
-- `python-failing` (one failing test)
+The dedicated fixtures repository (`jguida941/ci-cd-hub-fixtures`) contains subdirs for each fixture scenario:
 
-Then point hub configs to those repos (see `config/repos/fixtures-*.yaml`), and run smoke tests against them for deterministic outcomes. Source repo: https://github.com/jguida941/ci-cd-hub-fixtures
+**Core fixtures:**
+- `java-maven-pass` / `java-maven-fail` - Maven projects
+- `python-pyproject-pass` / `python-pyproject-fail` - pyproject.toml projects
+
+**Extended fixtures (see `docs/development/execution/SMOKE_TEST.md`):**
+- `java-gradle-pass` / `java-gradle-fail` - Gradle projects
+- `python-setup-pass` / `python-setup-fail` - setup.py projects
+- `python-src-layout-pass` - src/ layout
+- `java-multi-module-pass` - Multi-module Maven
+- `monorepo-pass/java`, `monorepo-pass/python` - Mixed repo subdirs
+
+Hub configs point to these subdirs via `repo.subdir`. Source repo: https://github.com/jguida941/ci-cd-hub-fixtures
 
 ---
 

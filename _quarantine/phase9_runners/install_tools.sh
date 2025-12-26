@@ -242,7 +242,7 @@ install_rekor() {
     exit 1
   fi
 
-  # Enforce version match per plan.md supply-chain pinning requirements
+  # Enforce version match per STATUS.md supply-chain pinning requirements
   # rekor-cli prints ASCII banner before version info, so capture full output
   VERSION_OUTPUT=$(rekor-cli version 2>&1 || true)
   if ! echo "$VERSION_OUTPUT" | grep -q "${REKOR_VERSION}"; then

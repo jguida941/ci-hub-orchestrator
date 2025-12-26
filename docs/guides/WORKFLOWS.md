@@ -1,8 +1,10 @@
 # Workflows Reference
 
-> Verified against `.github/workflows/*.yml`. Update this doc when workflow triggers or inputs change.
+**Verified against**: `.github/workflows/*.yml`.  
+Update this doc when workflow triggers or inputs change.
 
-**Templates & Profiles:** For ready-made repo configs and tool profiles, see `templates/README.md` (apply via `python scripts/apply_profile.py ...`).
+**Templates & Profiles:** For ready-made repo configs and tool profiles.  
+See `templates/README.md` (apply via `python scripts/apply_profile.py ...`).
 
 ---
 
@@ -151,7 +153,7 @@ Comprehensive CI pipeline for the hub repository itself with full security scann
 
 **File:** `.github/workflows/smoke-test.yml`
 
-Docs: see `docs/development/SMOKE_TEST.md` and `docs/development/SMOKE_TEST_REPOS.md`
+Docs: see `docs/development/execution/SMOKE_TEST.md` and `docs/development/execution/SMOKE_TEST_REPOS.md`
 
 Quick validation test using minimal Java and Python repos to verify hub functionality before release. Runs core tools only (heavy tools like mutation testing and OWASP disabled for speed).
 
@@ -176,7 +178,7 @@ Quick validation test using minimal Java and Python repos to verify hub function
 - Requires at least 2 smoke test repos (Java + Python)
 - Uses relaxed thresholds (50% coverage vs 70% default)
 - Validates repository discovery, tool execution, artifact generation, and summary creation
-- See [docs/development/SMOKE_TEST.md](../development/SMOKE_TEST.md) for detailed guide
+- See [docs/development/execution/SMOKE_TEST.md](../development/execution/SMOKE_TEST.md) for detailed guide
 
 ---
 

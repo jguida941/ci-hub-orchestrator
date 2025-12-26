@@ -8,7 +8,7 @@ Documentation had drift: broken references (`issues.md`, `START_HERE.md` casing)
 
 ## Decision
 - Establish SoT per concern:
-  - Roadmap/control catalog: `plan.md`
+  - Roadmap/control catalog: `STATUS.md`
   - Readiness/status: `docs/status/honest-status.md` (primary); historical snapshot at `docs/status/archive/implementation-2025-11-02.md`
   - Day-1 actions: `docs/start-here.md`
   - Backlog summary: `docs/backlog.md` (issues are canonical)

@@ -2,9 +2,9 @@
 
 > **Single source of truth** for project status, priorities, and remaining work.
 >
-> **See also:** `REUSABLE_WORKFLOW_MIGRATION.md` for detailed technical implementation.
+> **See also:** `docs/development/architecture/ARCHITECTURE_PLAN.md` for detailed technical implementation.
 >
-> **Last Updated:** 2025-12-23
+> **Last Updated:** 2025-12-26
 > **Version Target:** v1.0.0
 
 ---
@@ -19,9 +19,9 @@
 | Reusable Workflows | Working | `python-ci.yml`, `java-ci.yml` with `workflow_call` |
 | Caller Templates | Working | `hub-python-ci.yml`, `hub-java-ci.yml` |
 | Schema Validation | Working | `config-validate.yml` workflow |
-| CLI Tool (`cihub`) | **v0.1.0** | 5 commands: detect/init/update/validate/setup-secrets |
+| CLI Tool (`cihub`) | Working | detect/init/update/validate/setup-secrets/new/config |
 | Tests | **80 tests** | 6 test files covering all scripts |
-| ADRs | **20 ADRs** | 0001 through 0020 complete |
+| ADRs | **27 ADRs** | 0001 through 0027 complete |
 | Smoke Test | **PASSING** | Last run: 2025-12-22 |
 
 ### What's Broken
@@ -30,22 +30,24 @@
 |-----------|--------|-------|
 | Hub Orchestrator | **FAILING** | Schedule and push triggers failing (needs investigation) |
 | Hub Security | **FAILING** | Security workflow also failing |
+| Hub Production CI | **FAILING** | Coverage gate (29% < 70%), scorecard global env, pip-audit vulns, zizmor CLI flag mismatch |
 
-### Workflow Health (2025-12-23)
+### CI Blockers (2025-12-26)
 
 ```
-Hub: Run All Repos     PASSING  (5m35s)
-Smoke Test             PASSING  (1m30s)
-Hub Self-Check         PASSING  (20s)
-Validate Hub Configs   PASSING  (13s)
+Coverage gate          FAILING  (29% < 70%)
+Scorecard              FAILING  (global env not allowed)
+pip-audit              FAILING  (2 vulnerabilities)
+zizmor                 FAILING  (CLI flag mismatch)
 Hub Orchestrator       FAILING  (schedule + push)
+Hub Security           FAILING
 ```
 
 ---
 
 ## P0 Checklist (Ship-Ready)
 
-All P0 items complete. See `requirements/P0.md` for details.
+All P0 items complete. See `docs/development/specs/P0.md` for details.
 
 - [x] Central mode clones and tests repos
 - [x] Java CI (Maven/Gradle support)
@@ -64,10 +66,11 @@ All P0 items complete. See `requirements/P0.md` for details.
 
 ## P1 Checklist (Should-Have)
 
-- [x] ADRs: 20 complete (0001-0020)
+- [x] ADRs: 27 complete (0001-0027)
 - [x] Profiles/templates: 12 profiles complete
 - [x] Fixtures: `ci-cd-hub-fixtures` repo with passing/failing examples
-- [x] CLI: `cihub` v0.1.0 with detect/init/update/validate/setup-secrets
+- [x] CLI: `cihub` detect/init/update/validate/setup-secrets/new/config
+- [ ] Fixtures: expand repo subdirs to match new matrix
 - [ ] CLI: validate `setup-secrets` token trim/verify with a real dispatch run
 - [ ] Dashboard: GitHub Pages site (HTML exists, needs deployment)
 - [x] Orchestrator fix: Input passthrough complete (mutation_score_min, run_hypothesis, run_jqwik, all max_* thresholds)
@@ -90,12 +93,13 @@ All P0 items complete. See `requirements/P0.md` for details.
 
 Security scan workflow also failing. Needs investigation.
 
-### 3. Report Schema ✅ Complete
+### 3. Hub Production CI Failing
 
-All fields now implemented:
-- `tools_ran` includes hypothesis (Python) and jqwik (Java)
-- `tool_metrics` includes mypy_errors
-- Schema version 2.0 emitted by both workflows
+Blocking issues:
+- Coverage gate: 29% < 70%
+- Scorecard: global `env` not allowed in workflow
+- pip-audit: 2 vulnerabilities (see artifact)
+- zizmor: CLI flags out of date for pinned version
 
 ---
 
@@ -118,7 +122,7 @@ All fields now implemented:
 
 ### ADRs
 
-20 ADRs document all major decisions. See `docs/adr/README.md`.
+27 ADRs document all major decisions. See `docs/adr/README.md`.
 
 Key decisions:
 - ADR-0001: Central mode is default
@@ -143,6 +147,8 @@ Key decisions:
 
 Run: `pytest tests/`
 
+**Current CI coverage:** 29% (gate is 70%)
+
 ---
 
 ## Scripts
@@ -163,7 +169,7 @@ Run: `pytest tests/`
 ### High Priority
 1. **Fix Hub Orchestrator** - Investigate why schedule/push triggers fail
 2. **Fix Hub Security** - Investigate why security workflow fails
-3. **Complete report schema** - Add hypothesis/jqwik to tools_ran, mypy_errors to tool_metrics
+3. **Fix Hub Production CI gates** - coverage, scorecard env, pip-audit, zizmor flags
 4. **Dashboard deployment** - GitHub Pages setup
 
 ### Medium Priority
@@ -183,9 +189,9 @@ Run: `pytest tests/`
 - Reusable workflows (`python-ci.yml`, `java-ci.yml`, `kyverno-ci.yml`)
 - Caller templates (`hub-python-ci.yml`, `hub-java-ci.yml`)
 - Report schema 2.0
-- CLI v0.1.0 (`cihub`) with 5 commands
+- CLI (`cihub`) with detect/init/update/validate/setup-secrets/new/config
 - 80 tests across 6 files
-- 20 ADRs
+- 27 ADRs
 
 **Deferred to v1.1.0:**
 - Dashboard/GitHub Pages
@@ -199,11 +205,11 @@ Run: `pytest tests/`
 
 | Resource | Path |
 |----------|------|
-| Requirements | `requirements/P0.md`, `requirements/P1.md` |
+| Requirements | `docs/development/specs/P0.md`, `docs/development/specs/P1.md` |
 | ADRs | `docs/adr/` |
 | Schema | `schema/ci-hub-config.schema.json` |
 | Fixtures | `ci-cd-hub-fixtures` repo |
-| Smoke Test | `docs/development/SMOKE_TEST_SETUP_SUMMARY.md` |
+| Smoke Test | `docs/development/status/SMOKE_TEST_SNAPSHOT_2025-12-14.md` |
 
 ---
 
@@ -212,4 +218,3 @@ Run: `pytest tests/`
 - Keep checkboxes honest - only mark `[x]` after verification
 - AGENTS.md should reflect current focus from this plan
 - Run smoke test after significant workflow changes
-

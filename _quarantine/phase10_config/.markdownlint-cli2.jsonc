@@ -2,7 +2,7 @@
   "globs": [
     "README.md",
     "docs/**/*.md",
-    "plan.md",
+    "STATUS.md",
     "policies/**/*.md",
     "tools/**/*.md"
   ],

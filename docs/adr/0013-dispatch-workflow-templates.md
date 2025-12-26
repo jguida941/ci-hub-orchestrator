@@ -4,8 +4,11 @@
 >
 > This ADR established dispatch templates that users copy to repos. ADR-0014 replaces this with reusable workflows + minimal callers to eliminate template drift and ensure consistent reporting.
 
-- Status: Superseded
-- Date: 2025-12-15
+**Status**: Superseded  
+**Date:** 2025-12-15  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
+
 - Superseded by: ADR-0014 (2025-12-17)
 
 ## Context

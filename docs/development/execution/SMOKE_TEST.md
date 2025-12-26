@@ -60,11 +60,54 @@ Both test repos have relaxed thresholds:
 - Max vulnerabilities: 100 (relaxed)
 
 **Fixtures option (recommended for predictability):**
-If you push a dedicated fixtures repo (`jguida941/ci-cd-hub-fixtures`) containing `java-passing`, `java-failing`, `python-passing`, `python-failing`, point the hub configs to:
-- `config/repos/fixtures-java-passing.yaml`
-- `config/repos/fixtures-java-failing.yaml`
-- `config/repos/fixtures-python-passing.yaml`
-- `config/repos/fixtures-python-failing.yaml`
+The dedicated fixtures repo (`jguida941/ci-cd-hub-fixtures`) contains subdirs for each fixture scenario.
+
+### Fixture Matrix
+
+| Fixture Subdir           | Language | Config File                                            | Purpose                     |
+|--------------------------|----------|--------------------------------------------------------|-----------------------------|
+| `java-maven-pass`        | Java     | `config/repos/fixtures-java-passing.yaml`              | Maven, all Java tools pass  |
+| `java-maven-fail`        | Java     | `config/repos/fixtures-java-failing.yaml`              | Maven, controlled failures  |
+| `java-gradle-pass`       | Java     | `config/repos/fixtures-java-gradle-passing.yaml`       | Gradle coverage             |
+| `java-gradle-fail`       | Java     | `config/repos/fixtures-java-gradle-failing.yaml`       | Gradle failure paths        |
+| `java-multi-module-pass` | Java     | `config/repos/fixtures-java-multi-module-passing.yaml` | Parent/child modules        |
+| `python-pyproject-pass`  | Python   | `config/repos/fixtures-python-passing.yaml`            | pyproject layout            |
+| `python-pyproject-fail`  | Python   | `config/repos/fixtures-python-failing.yaml`            | pyproject failures          |
+| `python-setup-pass`      | Python   | `config/repos/fixtures-python-setup-passing.yaml`      | setup.py layout             |
+| `python-setup-fail`      | Python   | `config/repos/fixtures-python-setup-failing.yaml`      | setup.py failures           |
+| `python-src-layout-pass` | Python   | `config/repos/fixtures-python-src-layout-passing.yaml` | src/ layout                 |
+| `monorepo-pass/java`     | Java     | `config/repos/fixtures-monorepo-java-passing.yaml`     | Mixed repo, Java subdir     |
+| `monorepo-fail/java`     | Java     | `config/repos/fixtures-monorepo-java-failing.yaml`     | Mixed repo, Java failures   |
+| `monorepo-pass/python`   | Python   | `config/repos/fixtures-monorepo-python-passing.yaml`   | Mixed repo, Python subdir   |
+| `monorepo-fail/python`   | Python   | `config/repos/fixtures-monorepo-python-failing.yaml`   | Mixed repo, Python failures |
+
+### Heavy Tool Fixtures (Optional)
+
+Heavy tools (Trivy, CodeQL) are **off by default** for speed. For nightly/release validation:
+
+| Fixture Config               | Purpose                 | When to Run          |
+|------------------------------|-------------------------|----------------------|
+| `fixtures-java-heavy.yaml`   | Java + Trivy + CodeQL   | Nightly, pre-release |
+| `fixtures-python-heavy.yaml` | Python + Trivy + CodeQL | Nightly, pre-release |
+
+> **Note:** These fixtures are NOT part of the default smoke test. Run them intentionally when you need to verify heavy tool pipelines.
+
+To create these configs:
+```yaml
+# fixtures-java-heavy.yaml
+java:
+  tools:
+    trivy:
+      enabled: true
+    codeql:
+      enabled: true
+```
+
+### Naming Convention
+
+- **Fixture subdirs** (e.g., `java-maven-pass`) are the canonical identifiers and must match exactly between the fixtures repo and the `repo.subdir` field in hub configs.
+- **Config filenames** (e.g., `fixtures-java-passing.yaml`) are internal hub identifiers and do not need to match fixture subdir names.
+- The `repo.subdir` field in each config is the source of truth for fixture mapping.
 
 ---
 
@@ -464,7 +507,7 @@ These would be purpose-built for testing and could include:
 
 After smoke test passes:
 
-1. ✅ Mark smoke test checkbox in `hub-release/requirements/P0.md`
+1. ✅ Mark smoke test checkbox in `hub-release/docs/development/specs/P0.md`
 2. Run smoke test on CI/CD (not just manually)
 3. Add smoke test to pre-release checklist
 4. Document smoke test in release notes
@@ -474,7 +517,7 @@ After smoke test passes:
 
 ## References
 
-- [P0 Requirements](../../requirements/P0.md) - Smoke test acceptance criteria
+- [P0 Requirements](../specs/P0.md) - Smoke test acceptance criteria
 - [Workflows Reference](../guides/WORKFLOWS.md) - Hub workflow documentation
 - [Config Reference](../reference/CONFIG_REFERENCE.md) - Configuration options
 - [Tools Reference](../reference/TOOLS.md) - Tool descriptions and outputs

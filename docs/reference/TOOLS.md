@@ -18,7 +18,7 @@ Comprehensive documentation for all quality, security, and testing tools support
 
 ### Java Tools
 
-| Tool | Central Mode | Dispatch Template | Config Toggle | Status |
+| Tool | Central Mode | Distributed Mode | Config Toggle | Status |
 |------|--------------|-------------------|---------------|--------|
 | JaCoCo | Wired + Toggle | Wired + Toggle | `java.tools.jacoco.enabled` | Production |
 | Checkstyle | Wired + Toggle | Wired + Toggle | `java.tools.checkstyle.enabled` | Production |
@@ -33,7 +33,7 @@ Comprehensive documentation for all quality, security, and testing tools support
 
 ### Python Tools
 
-| Tool | Central Mode | Dispatch Template | Config Toggle | Status |
+| Tool | Central Mode | Distributed Mode | Config Toggle | Status |
 |------|--------------|-------------------|---------------|--------|
 | pytest + coverage | Wired + Toggle | Wired + Toggle | `python.tools.pytest.enabled` | Production |
 | Ruff | Wired + Toggle | Wired + Toggle | `python.tools.ruff.enabled` | Production |
@@ -50,7 +50,7 @@ Comprehensive documentation for all quality, security, and testing tools support
 
 ### Universal Tools
 
-| Tool | Central Mode | Dispatch Template | When Runs | Status |
+| Tool | Central Mode | Distributed Mode | When Runs | Status |
 |------|--------------|-------------------|-----------|--------|
 | Semgrep | Wired + Toggle | Wired + Toggle | If `*.tools.semgrep.enabled` | Production |
 | Trivy | Wired + Toggle | Wired + Toggle | If `*.tools.trivy.enabled` | Production |
@@ -687,7 +687,7 @@ java:
 - [WORKFLOWS.md](../guides/WORKFLOWS.md) - Workflow details
 - [MODES.md](../guides/MODES.md) - Central vs Distributed
 - [TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md) - Common issues
-- [RESEARCH.md](../development/RESEARCH.md) - Deep research on each tool
+- [RESEARCH_LOG.md](../development/research/RESEARCH_LOG.md) - Deep research on each tool
 
 ## Tool gating
 - Tools run based on config run_* flags from merged config.

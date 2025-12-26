@@ -1,7 +1,9 @@
 # ADR-0026: Repo-Side Execution Guardrails
 
-- Status: Proposed (Placeholder)
-- Date: 2025-12-25
+**Status**: Proposed (Placeholder)  
+**Date:** 2025-12-25  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 
@@ -93,10 +95,10 @@ This ADR is a placeholder documenting the design. Implementation requires:
 3. Manifest storage mechanism
 4. Validation logic for generated workflows
 
-See `docs/development/NEW_PLAN.md` for the workflow generator plan.
+See `docs/development/architecture/ARCHITECTURE_PLAN.md` for the workflow generator plan.
 
 ## References
 
 - ADR-0025: CLI Modular Restructure
 - ADR-0001: Central vs Distributed Mode
-- `docs/development/NEW_PLAN.md` - Workflow Generator section
+- `docs/development/architecture/ARCHITECTURE_PLAN.md` - Workflow Generator section

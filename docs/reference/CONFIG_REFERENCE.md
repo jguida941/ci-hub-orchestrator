@@ -20,11 +20,11 @@ cp templates/repo/.ci-hub.yml path/to/my-repo/.ci-hub.yml
 
 ### 2. Pick a Profile
 
-| Profile | Description | Best For |
-|---------|-------------|----------|
-| **Fast** | Core tools only (lint, test, coverage) | PRs, quick feedback |
-| **Quality** | Adds mutation testing, type checking | Pre-merge, release |
-| **Security** | All security scanners (SAST, SCA, container) | Security audits |
+| Profile      | Description                                  | Best For            |
+|--------------|----------------------------------------------|---------------------|
+| **Fast**     | Core tools only (lint, test, coverage)       | PRs, quick feedback |
+| **Quality**  | Adds mutation testing, type checking         | Pre-merge, release  |
+| **Security** | All security scanners (SAST, SCA, container) | Security audits     |
 
 See `templates/profiles/` for ready-to-use profile configs.
 
@@ -49,12 +49,13 @@ See `templates/profiles/` for ready-to-use profile configs.
 Configuration is merged with the following precedence (highest wins):
 
 ```
-1. Repo-local .ci-hub.yml       (in target repo root - optional, highest) — only in central mode
+1. Repo-local .ci-hub.yml       (in target repo root - optional, highest)
 2. Hub config/repos/<repo>.yaml (hub-side per-repo override)
 3. Hub config/defaults.yaml     (global defaults)
+
 Profiles: templates/profiles/*.yaml are starting points; apply them into config/repos, then repo-local overrides win.
 
-Dispatch mode: repo-local `.ci-hub.yml` is merged over hub config when present (repo wins).
+Both modes: repo-local `.ci-hub.yml` is merged over hub config when present (repo wins).
 ```
 
 **Example:** If `defaults.yaml` sets `java.tools.jacoco.min_coverage: 70` but `config/repos/my-app.yaml` sets it to `80`, the merged value is `80`.
@@ -112,17 +113,17 @@ Config validation failed for config/repos/my-app.yaml:
 
 ### repo (Required)
 
-| Field | Type | Required | Default | Description |
-|-------|------|----------|---------|-------------|
-| `repo.owner` | string | Yes | — | GitHub owner or organization |
-| `repo.name` | string | Yes | — | Repository name |
-| `repo.language` | enum | No | `java` | `java` or `python` |
-| `repo.default_branch` | string | No | `main` | Branch for CI runs |
-| `repo.run_group` | enum | No | `full` | Group tag to filter runs (e.g., `full`, `fixtures`, `smoke`) |
-| `repo.dispatch_enabled` | boolean | No | `true` | If `false`, hub skips dispatch mode for this repo |
-| `repo.force_all_tools` | boolean | No | `false` | Force-enable all tools for this repo (overrides individual `tool.enabled` flags) |
-| `repo.use_central_runner` | boolean | No | `true` | If `true`, hub clones repo and runs tools (central mode). If `false`, hub dispatches to target repo's workflow (distributed mode). |
-| `repo.repo_side_execution` | boolean | No | `false` | If `true`, enables `cihub generate-workflow` to write workflows INTO target repos. Requires explicit `--apply` flag. Default `false` keeps target repos clean. |
+| Field                      | Type    | Required | Default | Description                                                                                                                                                    |
+|----------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `repo.owner`               | string  | Yes      | —       | GitHub owner or organization                                                                                                                                   |
+| `repo.name`                | string  | Yes      | —       | Repository name                                                                                                                                                |
+| `repo.language`            | enum    | No       | `java`  | `java` or `python`                                                                                                                                             |
+| `repo.default_branch`      | string  | No       | `main`  | Branch for CI runs                                                                                                                                             |
+| `repo.run_group`           | enum    | No       | `full`  | Group tag to filter runs (e.g., `full`, `fixtures`, `smoke`)                                                                                                   |
+| `repo.dispatch_enabled`    | boolean | No       | `true`  | If `false`, hub skips dispatch mode for this repo                                                                                                              |
+| `repo.force_all_tools`     | boolean | No       | `false` | Force-enable all tools for this repo (overrides individual `tool.enabled` flags)                                                                               |
+| `repo.use_central_runner`  | boolean | No       | `true`  | If `true`, hub clones repo and runs tools (central mode). If `false`, hub dispatches to target repo's workflow (distributed mode).                             |
+| `repo.repo_side_execution` | boolean | No       | `false` | If `true`, enables `cihub init` to write workflows INTO target repos. Requires explicit `--apply` flag. Default `false` keeps target repos clean. |
 
 **Example:**
 ```yaml
@@ -139,100 +140,100 @@ repo:
 
 ### java (Top-level)
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `java.version` | string | `"21"` | JDK version (17, 21, etc.) |
-| `java.distribution` | enum | `temurin` | `temurin`, `corretto`, `zulu`, `microsoft` |
-| `java.build_tool` | enum | `maven` | `maven` or `gradle` |
+| Field               | Type   | Default   | Description                                |
+|---------------------|--------|-----------|--------------------------------------------|
+| `java.version`      | string | `"21"`    | JDK version (17, 21, etc.)                 |
+| `java.distribution` | enum   | `temurin` | `temurin`, `corretto`, `zulu`, `microsoft` |
+| `java.build_tool`   | enum   | `maven`   | `maven` or `gradle`                        |
 
 ### java.tools.jacoco
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run JaCoCo coverage |
-| `min_coverage` | integer | `70` | Minimum coverage % (0-100) |
+| Field          | Type    | Default | Description                |
+|----------------|---------|---------|----------------------------|
+| `enabled`      | boolean | `true`  | Run JaCoCo coverage        |
+| `min_coverage` | integer | `70`    | Minimum coverage % (0-100) |
 
 ### java.tools.checkstyle
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run Checkstyle |
-| `fail_on_violation` | boolean | `true` | Fail build on violations |
-| `max_errors` | integer | `0` | Max allowed errors (0 = fail on any) |
-| `config_file` | string | `null` | Path to checkstyle.xml (null = default) |
+| Field               | Type    | Default | Description                             |
+|---------------------|---------|---------|-----------------------------------------|
+| `enabled`           | boolean | `true`  | Run Checkstyle                          |
+| `fail_on_violation` | boolean | `true`  | Fail build on violations                |
+| `max_errors`        | integer | `0`     | Max allowed errors (0 = fail on any)    |
+| `config_file`       | string  | `null`  | Path to checkstyle.xml (null = default) |
 
 ### java.tools.spotbugs
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run SpotBugs |
-| `fail_on_error` | boolean | `true` | Fail build on bugs found |
-| `max_bugs` | integer | `0` | Max allowed bugs (0 = fail on any) |
-| `effort` | enum | `max` | `min`, `default`, `max` |
-| `threshold` | enum | `medium` | `low`, `medium`, `high` |
+| Field           | Type    | Default  | Description                        |
+|-----------------|---------|----------|------------------------------------|
+| `enabled`       | boolean | `true`   | Run SpotBugs                       |
+| `fail_on_error` | boolean | `true`   | Fail build on bugs found           |
+| `max_bugs`      | integer | `0`      | Max allowed bugs (0 = fail on any) |
+| `effort`        | enum    | `max`    | `min`, `default`, `max`            |
+| `threshold`     | enum    | `medium` | `low`, `medium`, `high`            |
 
 ### java.tools.owasp
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run OWASP Dependency-Check |
-| `fail_on_cvss` | integer | `7` | Fail if any vuln has CVSS >= this (0-10) |
-| `nvd_api_key_required` | boolean | `true` | Require NVD_API_KEY secret |
+| Field                  | Type    | Default | Description                              |
+|------------------------|---------|---------|------------------------------------------|
+| `enabled`              | boolean | `true`  | Run OWASP Dependency-Check               |
+| `fail_on_cvss`         | integer | `7`     | Fail if any vuln has CVSS >= this (0-10) |
+| `nvd_api_key_required` | boolean | `true`  | Require NVD_API_KEY secret               |
 
 ### java.tools.pitest
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run PITest mutation testing (can be expensive) |
-| `min_mutation_score` | integer | `70` | Minimum mutation score % (0-100) |
-| `threads` | integer | `4` | Parallel threads |
-| `timeout_multiplier` | integer | `2` | Timeout factor |
+| Field                | Type    | Default | Description                                    |
+|----------------------|---------|---------|------------------------------------------------|
+| `enabled`            | boolean | `true`  | Run PITest mutation testing (can be expensive) |
+| `min_mutation_score` | integer | `70`    | Minimum mutation score % (0-100)               |
+| `threads`            | integer | `4`     | Parallel threads                               |
+| `timeout_multiplier` | integer | `2`     | Timeout factor                                 |
 
 ### java.tools.jqwik
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field     | Type    | Default | Description                      |
+|-----------|---------|---------|----------------------------------|
 | `enabled` | boolean | `false` | Run jqwik property-based testing |
 
 ### java.tools.pmd
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run PMD |
-| `fail_on_violation` | boolean | `false` | Fail build on violations |
-| `max_violations` | integer | `0` | Max allowed violations (0 = fail on any) |
+| Field               | Type    | Default | Description                              |
+|---------------------|---------|---------|------------------------------------------|
+| `enabled`           | boolean | `true`  | Run PMD                                  |
+| `fail_on_violation` | boolean | `false` | Fail build on violations                 |
+| `max_violations`    | integer | `0`     | Max allowed violations (0 = fail on any) |
 
 ### java.tools.semgrep
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Run Semgrep SAST (expensive - enable when needed) |
-| `fail_on_findings` | boolean | `false` | Fail build on findings |
-| `max_findings` | integer | `0` | Max allowed findings (0 = fail on any) |
+| Field              | Type    | Default | Description                                       |
+|--------------------|---------|---------|---------------------------------------------------|
+| `enabled`          | boolean | `false` | Run Semgrep SAST (expensive - enable when needed) |
+| `fail_on_findings` | boolean | `false` | Fail build on findings                            |
+| `max_findings`     | integer | `0`     | Max allowed findings (0 = fail on any)            |
 
 ### java.tools.trivy
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Run Trivy container scan (expensive - enable when needed) |
-| `fail_on_critical` | boolean | `false` | Fail on CRITICAL vulns |
-| `fail_on_high` | boolean | `false` | Fail on HIGH vulns |
+| Field              | Type    | Default | Description                                               |
+|--------------------|---------|---------|-----------------------------------------------------------|
+| `enabled`          | boolean | `false` | Run Trivy container scan (expensive - enable when needed) |
+| `fail_on_critical` | boolean | `false` | Fail on CRITICAL vulns                                    |
+| `fail_on_high`     | boolean | `false` | Fail on HIGH vulns                                        |
 
 ### java.tools.codeql
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Run CodeQL SAST (expensive - enable when needed) |
-| `languages` | array | `["java"]` | Languages to analyze |
+| Field       | Type    | Default    | Description                                      |
+|-------------|---------|------------|--------------------------------------------------|
+| `enabled`   | boolean | `false`    | Run CodeQL SAST (expensive - enable when needed) |
+| `languages` | array   | `["java"]` | Languages to analyze                             |
 
 ### java.tools.docker
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Build and test Docker |
-| `compose_file` | string | `docker-compose.yml` | Docker Compose file path |
-| `health_endpoint` | string | `/actuator/health` | Health check endpoint |
-| `health_timeout` | integer | `300` | Health check timeout (seconds) |
+| Field             | Type    | Default              | Description                    |
+|-------------------|---------|----------------------|--------------------------------|
+| `enabled`         | boolean | `false`              | Build and test Docker          |
+| `compose_file`    | string  | `docker-compose.yml` | Docker Compose file path       |
+| `health_endpoint` | string  | `/actuator/health`   | Health check endpoint          |
+| `health_timeout`  | integer | `300`                | Health check timeout (seconds) |
 
 > **Dispatch vs Config:** `run_docker` (the tool toggle) is a dispatch input. `docker_compose_file` and `docker_health_endpoint` are config strings set in `.ci-hub.yml` or the caller template's `with:` block—they are NOT dispatch inputs.
 
@@ -242,106 +243,106 @@ repo:
 
 ### python (Top-level)
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field            | Type   | Default  | Description    |
+|------------------|--------|----------|----------------|
 | `python.version` | string | `"3.12"` | Python version |
 
 ### python.tools.pytest
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run pytest with coverage |
-| `min_coverage` | integer | `70` | Minimum coverage % (0-100) |
-| `fail_fast` | boolean | `false` | Stop on first failure |
+| Field          | Type    | Default | Description                |
+|----------------|---------|---------|----------------------------|
+| `enabled`      | boolean | `true`  | Run pytest with coverage   |
+| `min_coverage` | integer | `70`    | Minimum coverage % (0-100) |
+| `fail_fast`    | boolean | `false` | Stop on first failure      |
 
 ### python.tools.ruff
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run Ruff linter |
-| `fail_on_error` | boolean | `true` | Fail build on lint errors |
-| `max_errors` | integer | `0` | Max allowed errors (0 = fail on any) |
+| Field           | Type    | Default | Description                          |
+|-----------------|---------|---------|--------------------------------------|
+| `enabled`       | boolean | `true`  | Run Ruff linter                      |
+| `fail_on_error` | boolean | `true`  | Fail build on lint errors            |
+| `max_errors`    | integer | `0`     | Max allowed errors (0 = fail on any) |
 
 ### python.tools.bandit
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run Bandit security scanner |
-| `fail_on_high` | boolean | `true` | Fail on HIGH severity issues |
+| Field          | Type    | Default | Description                  |
+|----------------|---------|---------|------------------------------|
+| `enabled`      | boolean | `true`  | Run Bandit security scanner  |
+| `fail_on_high` | boolean | `true`  | Fail on HIGH severity issues |
 
 ### python.tools.pip_audit
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run pip-audit |
-| `fail_on_vuln` | boolean | `true` | Fail on vulnerabilities |
+| Field          | Type    | Default | Description             |
+|----------------|---------|---------|-------------------------|
+| `enabled`      | boolean | `true`  | Run pip-audit           |
+| `fail_on_vuln` | boolean | `true`  | Fail on vulnerabilities |
 
 ### python.tools.mypy
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field     | Type    | Default | Description                    |
+|-----------|---------|---------|--------------------------------|
 | `enabled` | boolean | `false` | Run mypy type checker (opt-in) |
 
 ### python.tools.mutmut
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run mutmut mutation testing (can be expensive) |
-| `min_mutation_score` | integer | `70` | Minimum mutation score % (0-100) |
-| `timeout_minutes` | integer | `15` | Maximum runtime |
+| Field                | Type    | Default | Description                                    |
+|----------------------|---------|---------|------------------------------------------------|
+| `enabled`            | boolean | `true`  | Run mutmut mutation testing (can be expensive) |
+| `min_mutation_score` | integer | `70`    | Minimum mutation score % (0-100)               |
+| `timeout_minutes`    | integer | `15`    | Maximum runtime                                |
 
 ### python.tools.hypothesis
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run hypothesis property-based tests |
+| Field     | Type    | Default | Description                         |
+|-----------|---------|---------|-------------------------------------|
+| `enabled` | boolean | `true`  | Run hypothesis property-based tests |
 
 ### python.tools.semgrep
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Run Semgrep SAST (expensive - enable when needed) |
-| `fail_on_findings` | boolean | `false` | Fail build on findings |
-| `max_findings` | integer | `0` | Max allowed findings (0 = fail on any) |
+| Field              | Type    | Default | Description                                       |
+|--------------------|---------|---------|---------------------------------------------------|
+| `enabled`          | boolean | `false` | Run Semgrep SAST (expensive - enable when needed) |
+| `fail_on_findings` | boolean | `false` | Fail build on findings                            |
+| `max_findings`     | integer | `0`     | Max allowed findings (0 = fail on any)            |
 
 ### python.tools.trivy
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Run Trivy container scan (expensive - enable when needed) |
-| `fail_on_critical` | boolean | `false` | Fail on CRITICAL vulns |
-| `fail_on_high` | boolean | `false` | Fail on HIGH vulns |
+| Field              | Type    | Default | Description                                               |
+|--------------------|---------|---------|-----------------------------------------------------------|
+| `enabled`          | boolean | `false` | Run Trivy container scan (expensive - enable when needed) |
+| `fail_on_critical` | boolean | `false` | Fail on CRITICAL vulns                                    |
+| `fail_on_high`     | boolean | `false` | Fail on HIGH vulns                                        |
 
 ### python.tools.codeql
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Run CodeQL SAST (expensive - enable when needed) |
-| `languages` | array | `["python"]` | Languages to analyze |
+| Field       | Type    | Default      | Description                                      |
+|-------------|---------|--------------|--------------------------------------------------|
+| `enabled`   | boolean | `false`      | Run CodeQL SAST (expensive - enable when needed) |
+| `languages` | array   | `["python"]` | Languages to analyze                             |
 
 ### python.tools.docker
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Build and test Docker |
+| Field     | Type    | Default  | Description           |
+|-----------|---------|----------|-----------------------|
+| `enabled` | boolean | `falese` | Build and test Docker |
 
 > **Dispatch vs Config:** `run_docker` (the tool toggle) is a dispatch input. Docker-specific config like compose file paths remain in `.ci-hub.yml` or the caller template's `with:` block—they are NOT dispatch inputs.
 
 ### python.tools.black
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run Black format checker |
-| `fail_on_format_issues` | boolean | `false` | Fail build on format issues |
-| `max_issues` | integer | `0` | Max allowed issues (0 = fail on any) |
+| Field                   | Type    | Default | Description                          |
+|-------------------------|---------|---------|--------------------------------------|
+| `enabled`               | boolean | `true`  | Run Black format checker             |
+| `fail_on_format_issues` | boolean | `false` | Fail build on format issues          |
+| `max_issues`            | integer | `0`     | Max allowed issues (0 = fail on any) |
 
 ### python.tools.isort
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Run isort import checker |
-| `fail_on_issues` | boolean | `false` | Fail build on import issues |
-| `max_issues` | integer | `0` | Max allowed issues (0 = fail on any) |
+| Field            | Type    | Default | Description                          |
+|------------------|---------|---------|--------------------------------------|
+| `enabled`        | boolean | `true`  | Run isort import checker             |
+| `fail_on_issues` | boolean | `false` | Fail build on import issues          |
+| `max_issues`     | integer | `0`     | Max allowed issues (0 = fail on any) |
 
 ---
 
@@ -349,30 +350,30 @@ repo:
 
 ### reports
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `reports.retention_days` | integer | `30` | Artifact retention (days) |
+| Field                    | Type    | Default | Description               |
+|--------------------------|---------|---------|---------------------------|
+| `reports.retention_days` | integer | `30`    | Artifact retention (days) |
 
 ### reports.badges
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Generate status badges |
-| `branch` | string | `main` | Branch for badge URLs |
+| Field     | Type    | Default | Description            |
+|-----------|---------|---------|------------------------|
+| `enabled` | boolean | `true`  | Generate status badges |
+| `branch`  | string  | `main`  | Branch for badge URLs  |
 
 ### reports.codecov
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Upload to Codecov |
+| Field              | Type    | Default | Description          |
+|--------------------|---------|---------|----------------------|
+| `enabled`          | boolean | `true`  | Upload to Codecov    |
 | `fail_ci_on_error` | boolean | `false` | Fail if upload fails |
 
 ### reports.github_summary
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `true` | Generate step summary |
-| `include_metrics` | boolean | `true` | Include metrics table |
+| Field             | Type    | Default | Description           |
+|-------------------|---------|---------|-----------------------|
+| `enabled`         | boolean | `true`  | Generate step summary |
+| `include_metrics` | boolean | `true`  | Include metrics table |
 
 ---
 
@@ -380,12 +381,12 @@ repo:
 
 ### thresholds
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `coverage_min` | integer | `70` | Global minimum coverage % |
-| `mutation_score_min` | integer | `70` | Global minimum mutation score % |
-| `max_critical_vulns` | integer | `0` | Max CRITICAL vulnerabilities |
-| `max_high_vulns` | integer | `0` | Max HIGH vulnerabilities |
+| Field                | Type    | Default | Description                     |
+|----------------------|---------|---------|---------------------------------|
+| `coverage_min`       | integer | `70`    | Global minimum coverage %       |
+| `mutation_score_min` | integer | `70`    | Global minimum mutation score % |
+| `max_critical_vulns` | integer | `0`     | Max CRITICAL vulnerabilities    |
+| `max_high_vulns`     | integer | `0`     | Max HIGH vulnerabilities        |
 
 > **Note:** These thresholds are enforced where scanners emit severity counts (OWASP, Trivy, pip-audit, Bandit).
 
@@ -395,16 +396,16 @@ repo:
 
 ### notifications.slack
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Enable Slack notifications |
-| `on_failure` | boolean | `true` | Notify on failure |
-| `on_success` | boolean | `false` | Notify on success |
+| Field        | Type    | Default | Description                |
+|--------------|---------|---------|----------------------------|
+| `enabled`    | boolean | `false` | Enable Slack notifications |
+| `on_failure` | boolean | `true`  | Notify on failure          |
+| `on_success` | boolean | `false` | Notify on success          |
 
 ### notifications.email
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
+| Field     | Type    | Default | Description                |
+|-----------|---------|---------|----------------------------|
 | `enabled` | boolean | `false` | Enable email notifications |
 
 ---
@@ -413,17 +414,17 @@ repo:
 
 These features are placeholders for future implementation:
 
-| Feature | Config Key | Description |
-|---------|------------|-------------|
-| Chaos Testing | `chaos.enabled` | Inject failures to test resilience |
-| DR Drills | `dr_drill.enabled` | Automated backup/restore testing |
-| Cache Sentinel | `cache_sentinel.enabled` | Detect cache tampering |
-| Runner Isolation | `runner_isolation.enabled` | Concurrency limits |
-| Supply Chain | `supply_chain.enabled` | SBOM, VEX, provenance |
-| Egress Control | `egress_control.enabled` | Network allowlists |
-| Canary Deploy | `canary.enabled` | Gradual rollout |
-| Telemetry | `telemetry.enabled` | Pipeline metrics collection |
-| Kyverno | `kyverno.enabled` | K8s admission policies |
+| Feature          | Config Key                 | Description                        |
+|------------------|----------------------------|------------------------------------|
+| Chaos Testing    | `chaos.enabled`            | Inject failures to test resilience |
+| DR Drills        | `dr_drill.enabled`         | Automated backup/restore testing   |
+| Cache Sentinel   | `cache_sentinel.enabled`   | Detect cache tampering             |
+| Runner Isolation | `runner_isolation.enabled` | Concurrency limits                 |
+| Supply Chain     | `supply_chain.enabled`     | SBOM, VEX, provenance              |
+| Egress Control   | `egress_control.enabled`   | Network allowlists                 |
+| Canary Deploy    | `canary.enabled`           | Gradual rollout                    |
+| Telemetry        | `telemetry.enabled`        | Pipeline metrics collection        |
+| Kyverno          | `kyverno.enabled`          | K8s admission policies             |
 
 See `config/optional/*.yaml` for full configuration options when enabling.
 
@@ -435,41 +436,41 @@ The `hub_ci` section controls the hub's own CI pipeline (`hub-production-ci.yml`
 
 ### hub_ci (Top-level)
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `hub_ci.enabled` | boolean | `true` | Enable hub CI pipeline |
+| Field            | Type    | Default | Description            |
+|------------------|---------|---------|------------------------|
+| `hub_ci.enabled` | boolean | `true`  | Enable hub CI pipeline |
 
 ### hub_ci.tools
 
 All tools default to `true` (enabled).
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `actionlint` | boolean | `true` | Workflow syntax validation |
-| `zizmor` | boolean | `true` | Workflow security scanning |
-| `ruff` | boolean | `true` | Python linting and formatting |
-| `syntax` | boolean | `true` | Python syntax validation |
-| `mypy` | boolean | `true` | Static type checking |
-| `yamllint` | boolean | `true` | YAML syntax validation |
-| `pytest` | boolean | `true` | Unit tests with coverage |
-| `mutmut` | boolean | `true` | Mutation testing |
-| `bandit` | boolean | `true` | Python SAST |
-| `pip_audit` | boolean | `true` | Dependency vulnerability scan |
-| `gitleaks` | boolean | `true` | Secret detection |
-| `trivy` | boolean | `true` | Filesystem/config scanning |
-| `validate_templates` | boolean | `true` | Template validation |
-| `validate_configs` | boolean | `true` | Config schema validation |
-| `verify_matrix_keys` | boolean | `true` | Matrix key consistency |
-| `license_check` | boolean | `true` | License compliance |
-| `dependency_review` | boolean | `true` | PR dependency review |
-| `scorecard` | boolean | `true` | OpenSSF scorecard |
+| Field                | Type    | Default | Description                   |
+|----------------------|---------|---------|-------------------------------|
+| `actionlint`         | boolean | `true`  | Workflow syntax validation    |
+| `zizmor`             | boolean | `true`  | Workflow security scanning    |
+| `ruff`               | boolean | `true`  | Python linting and formatting |
+| `syntax`             | boolean | `true`  | Python syntax validation      |
+| `mypy`               | boolean | `true`  | Static type checking          |
+| `yamllint`           | boolean | `true`  | YAML syntax validation        |
+| `pytest`             | boolean | `true`  | Unit tests with coverage      |
+| `mutmut`             | boolean | `true`  | Mutation testing              |
+| `bandit`             | boolean | `true`  | Python SAST                   |
+| `pip_audit`          | boolean | `true`  | Dependency vulnerability scan |
+| `gitleaks`           | boolean | `true`  | Secret detection              |
+| `trivy`              | boolean | `true`  | Filesystem/config scanning    |
+| `validate_templates` | boolean | `true`  | Template validation           |
+| `validate_configs`   | boolean | `true`  | Config schema validation      |
+| `verify_matrix_keys` | boolean | `true`  | Matrix key consistency        |
+| `license_check`      | boolean | `true`  | License compliance            |
+| `dependency_review`  | boolean | `true`  | PR dependency review          |
+| `scorecard`          | boolean | `true`  | OpenSSF scorecard             |
 
 ### hub_ci.thresholds
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `coverage_min` | integer | `70` | Minimum coverage percentage (0-100) |
-| `mutation_score_min` | integer | `70` | Minimum mutation score percentage (0-100) |
+| Field                | Type    | Default | Description                               |
+|----------------------|---------|---------|-------------------------------------------|
+| `coverage_min`       | integer | `70`    | Minimum coverage percentage (0-100)       |
+| `mutation_score_min` | integer | `70`    | Minimum mutation score percentage (0-100) |
 
 ### Example
 
@@ -623,12 +624,12 @@ thresholds:
 
 ### Common Errors
 
-| Error | Cause | Fix |
-|-------|-------|-----|
-| `repo.owner is required` | Missing owner field | Add `repo.owner: your-github-handle` |
-| `repo.language: 'ruby' is not valid` | Unsupported language | Use `java` or `python` |
-| `min_coverage: 150 exceeds maximum` | Value out of range | Use 0-100 |
-| `tools.unknown_tool is not allowed` | Typo in tool name | Check spelling against this doc |
+| Error                                | Cause                | Fix                                  |
+|--------------------------------------|----------------------|--------------------------------------|
+| `repo.owner is required`             | Missing owner field  | Add `repo.owner: your-github-handle` |
+| `repo.language: 'ruby' is not valid` | Unsupported language | Use `java` or `python`               |
+| `min_coverage: 150 exceeds maximum`  | Value out of range   | Use 0-100                            |
+| `tools.unknown_tool is not allowed`  | Typo in tool name    | Check spelling against this doc      |
 
 ### Debugging Config Loading
 

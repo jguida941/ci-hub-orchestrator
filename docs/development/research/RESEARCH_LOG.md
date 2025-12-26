@@ -334,14 +334,14 @@ jacoco:
 5. **force_all_tools** - Now config-driven (`repo.force_all_tools`) and applied per-repo by orchestrator
 6. **Missing permissions block** - Needs `actions:write`, `contents:read`
 
-### Two Operating Modes (from plan.md):
+### Two Operating Modes (from STATUS.md):
 
 | Mode | Description | Default? |
 |------|-------------|----------|
 | Central Execution | Hub clones repos, runs tests directly | YES (default) |
 | Distributed Execution | Hub dispatches to repo workflows | NO (optional, guarded) |
 
-### Docs to Create (from plan.md):
+### Docs to Create (from STATUS.md):
 
 | Doc | Purpose | Diátaxis Type |
 |-----|---------|---------------|
@@ -352,7 +352,7 @@ jacoco:
 | TROUBLESHOOTING.md | Common failures, fixes | How-To |
 | TEMPLATES.md | List templates, when to use | How-To |
 
-### Templates to Create (from plan.md):
+### Templates to Create (from STATUS.md):
 
 | Template | Path | Purpose |
 |----------|------|---------|
@@ -404,7 +404,7 @@ jacoco:
 
 ---
 
-## 9. Complete Tool Catalog (from plan.md)
+## 9. Complete Tool Catalog (from STATUS.md)
 
 ### Fast Feedback Tools (Run on Every PR)
 
@@ -873,7 +873,7 @@ supply_chain:
 | SDLC Phase | Hub Activity |
 |------------|--------------|
 | Planning | Define scope: what languages, tools, modes |
-| Requirements | Document in RESEARCH.md, create ADRs |
+| Requirements | Document in RESEARCH_LOG.md, create ADRs |
 | Design | Architecture decisions, config hierarchy |
 | Development | Build workflows, scripts, templates |
 | Testing | Test with fixture repos, validate configs |
@@ -1012,7 +1012,7 @@ hub-release/
 │   ├── TOOLS.md             # Reference
 │   ├── MODES.md             # Explanation
 │   ├── TROUBLESHOOTING.md   # How-To
-│   ├── RESEARCH.md          # Research log
+│   ├── RESEARCH_LOG.md          # Research log
 │   └── adr/                 # Architecture Decision Records
 │       ├── 0001-central-vs-distributed.md
 │       ├── 0002-config-precedence.md
@@ -1057,7 +1057,7 @@ hub-release/
 │
 ├── README.md
 ├── CHANGELOG.md
-├── plan.md
+├── STATUS.md
 └── pyproject.toml
 ```
 
@@ -1719,8 +1719,8 @@ All major research compiled. Ready to:
 3. Begin Phase 1 implementation
 
 ### Documents Created:
-- `docs/RESEARCH.md` - This file (~1700 lines)
-- `docs/ROADMAP.md` - Phased implementation plan
+- `docs/RESEARCH_LOG.md` - This file (~1700 lines)
+- `docs/development/architecture/ARCHITECTURE_PLAN.md` - Master architecture plan
 
 ### Topics Covered (31 total):
 - ADR/MADR, GitHub Actions, Diátaxis, YAML, Feature Toggles

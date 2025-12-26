@@ -1,7 +1,9 @@
 # ADR-0002: Config Precedence Hierarchy
 
-- Status: Accepted
-- Date: 2025-12-14
+**Status**: Accepted  
+**Date:** 2025-12-14  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 

@@ -17,7 +17,7 @@ python -m pip install -e ".[dev]"
 
 ## Fixture Coverage
 
-See `docs/development/FIXTURES_PLAN.md` for the fixture matrix and subdir list.
+See `docs/development/execution/SMOKE_TEST.md` for the fixture matrix and subdir list.
 
 ## CLI Integration Runner (Recommended)
 

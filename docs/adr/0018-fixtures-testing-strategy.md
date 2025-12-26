@@ -1,7 +1,9 @@
 # ADR-0018: Fixtures & Testing Strategy
 
-- Status: Accepted
-- Date: 2025-12-18
+**Status**: Accepted  
+**Date:** 2025-12-18  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-25  
 
 ## Context
 
@@ -235,3 +237,23 @@ max_semgrep_findings: 10  # Focus is Docker/Trivy, not code quality
 - ADR-0008: Hub Fixtures Strategy
 - ADR-0014: Reusable Workflow Migration
 - ADR-0016: Mutation Testing Policy
+
+---
+
+## Addendum (2025-12-25): Expanded Fixture Matrix
+
+The fixture naming scheme has been expanded to encode language, build system, layout, and outcome:
+
+**New naming convention:**
+- `java-maven-pass`, `java-maven-fail` - Maven projects
+- `java-gradle-pass`, `java-gradle-fail` - Gradle projects
+- `python-pyproject-pass`, `python-pyproject-fail` - pyproject.toml projects
+- `python-setup-pass`, `python-setup-fail` - setup.py projects
+- `python-src-layout-pass` - src/ layout
+- `java-multi-module-pass` - Multi-module Maven
+- `monorepo-pass/java`, `monorepo-fail/java` - Monorepo subdirs
+
+**Heavy tool fixtures (optional):**
+Heavy tools (Trivy, CodeQL) are off by default for speed. Optional `fixtures-*-heavy.yaml` configs enable them for nightly/release validation.
+
+See `docs/development/execution/SMOKE_TEST.md` for the full matrix and naming convention.

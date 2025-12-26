@@ -1,10 +1,12 @@
 # Reusable Workflow Migration Plan
 
-> ⚠️ **STALE DOCUMENT:** This document is outdated and needs to be updated. Some information may not reflect the current state of the project.
+> **Status:** Legacy archive (2025-12-23). This document is retained for historical context only and must not be used as current guidance.
+
+> ⚠️ **STALE DOCUMENT:** This document is outdated. Fixture naming has changed from `java-passing`/`python-failing` to an expanded matrix (`java-maven-pass`, `python-pyproject-fail`, etc.). See `docs/development/execution/SMOKE_TEST.md` for current fixture strategy.
 
 > **This is the primary execution plan for CI/CD Hub.** Supersedes ROADMAP.md phases 4-8.
 >
-> **See also:** `plan.md` for high-level status and checklists.
+> **See also:** `docs/development/status/STATUS.md` for high-level status and checklists.
 
 **Status:** Phase 2 - Polish & Stabilization
 **Created:** 2025-12-15
@@ -1677,7 +1679,7 @@ grep "uses:.*java-ci.yml@v1" templates/repo/hub-java-ci.yml
 | 3.7 | Update workflow guide | `docs/guides/WORKFLOWS.md` | Update any `*-ci-dispatch.yml` references | [ ] |
 | 3.8 | Update roadmap | `docs/development/ROADMAP.md` | Update dispatch template references | [ ] |
 | 3.9 | Update outstanding items | `docs/development/OUTSTANDING.md` | Update dispatch template references | [ ] |
-| 3.10 | Update research notes | `docs/development/RESEARCH.md` | Update dispatch template references (if exists) | [ ] |
+| 3.10 | Update research notes | `docs/development/research/RESEARCH_LOG.md` | Update dispatch template references (if exists) | [ ] |
 | 3.11 | Add superseded notice | `docs/adr/0013-dispatch-workflow-templates.md` | Header: "**Status: Superseded by [ADR-0014](./0014-reusable-workflow-migration.md)**" | [ ] |
 | 3.12 | Update report schema docs | Various guides | Show new 12+ field schema with `schema_version` | [ ] |
 
@@ -1830,7 +1832,7 @@ curl -s -o /dev/null -w "%{http_code}" \
 | `docs/guides/WORKFLOWS.md` | 3 | Update dispatch references |
 | `docs/development/ROADMAP.md` | 3 | Update dispatch references |
 | `docs/development/OUTSTANDING.md` | 3 | Update dispatch references |
-| `docs/development/RESEARCH.md` | 3 | Update dispatch references (if exists) |
+| `docs/development/research/RESEARCH_LOG.md` | 3 | Update dispatch references (if exists) |
 | `docs/reference/CONFIG_REFERENCE.md` | 1C, 3 | Fix coverage_min, update schema docs |
 | `docs/reference/TOOLS.md` | 3 | Update workflow references |
 | `config/optional/extra-tests.yaml` | 1C | Fix coverage_min |

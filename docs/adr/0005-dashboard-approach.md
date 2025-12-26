@@ -1,7 +1,9 @@
 # ADR-0005: Dashboard Approach
 
-- Status: Proposed
-- Date: 2025-12-14
+**Status**: Proposed  
+**Date:** 2025-12-14  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 
@@ -114,5 +116,5 @@ https://user.github.io/ci-cd-hub/
 
 ## Current Status
 
-**NOT YET IMPLEMENTED.** This ADR documents the planned approach. Implementation is tracked in requirements/P1.md section 4.
+**NOT YET IMPLEMENTED.** This ADR documents the planned approach. Implementation is tracked in docs/development/specs/P1.md section 4.
 

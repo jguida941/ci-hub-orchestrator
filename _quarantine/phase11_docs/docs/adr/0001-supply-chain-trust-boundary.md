@@ -4,7 +4,7 @@ Date: 2025-11-02
 Owners: Platform team
 
 ## Context
-The hub asserts SLSA-aligned guarantees (pinned GitHub Actions, cosign/Rekor signing, SBOM/VEX referrers, determinism harness) and publishes an evidence bundle. These controls are described in `README.md`, `plan.md`, and `docs/status/honest-status.md`, but were not captured as an explicit decision with scope and expectations.
+The hub asserts SLSA-aligned guarantees (pinned GitHub Actions, cosign/Rekor signing, SBOM/VEX referrers, determinism harness) and publishes an evidence bundle. These controls are described in `README.md`, `STATUS.md`, and `docs/status/honest-status.md`, but were not captured as an explicit decision with scope and expectations.
 
 ## Decision
 - CI must run on SHA-pinned actions with least-privilege permissions and OIDC-only credentials.
@@ -19,6 +19,6 @@ The hub asserts SLSA-aligned guarantees (pinned GitHub Actions, cosign/Rekor sig
 
 ## References
 - README.md (Security boundaries & claims)
-- plan.md (Phase 1 outcomes, gap tracker)
+- STATUS.md (Phase 1 outcomes, gap tracker)
 - docs/status/honest-status.md
 - tools/build_vuln_input/, tools/rekor_monitor.sh, tools/verify_rekor_proof.py

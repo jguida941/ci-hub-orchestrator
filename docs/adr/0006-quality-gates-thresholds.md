@@ -1,7 +1,9 @@
 # ADR-0006: Quality Gates and Thresholds
 
-- Status: Accepted
-- Date: 2025-12-14
+**Status**: Accepted  
+**Date:** 2025-12-14  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 

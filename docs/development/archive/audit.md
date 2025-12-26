@@ -1,5 +1,7 @@
 # Full Audit + Code Review
 
+> **Status:** Legacy archive (2025-12-14). This document is retained for historical context only and must not be used as current guidance.
+
 **Auditor:** Claude
 **Date:** 2025-12-14
 **Scope:** All changes made by ChatGPT against the 5-step plan
@@ -28,9 +30,9 @@ ChatGPT exceeded the original 5-step plan. Beyond docs reorganization, it also:
 |------|--------|-------|
 | 1. Create docs files | ✅ DONE | 6 docs + adr/README.md |
 | 2. Fix P0.md typo | ✅ N/A | Typo not found |
-| 3. Update ROADMAP.md | ✅ DONE | Links to requirements/ |
+| 3. Update ROADMAP.md | ✅ DONE | Links to docs/development/specs/ |
 | 4. Update AGENTS.md | ✅ DONE | Current Focus accurate |
-| 5. Trim plan.md | ✅ DONE | 30 lines, execution checklist |
+| 5. Trim STATUS.md | ✅ DONE | 30 lines, execution checklist |
 
 ### Bonus Work (Not in Original Plan)
 
@@ -180,9 +182,9 @@ Needs: Full field-by-field documentation from defaults.yaml
 Issues:
 - Just lists tools without details
 - Missing: thresholds, artifacts, prerequisites, when each runs
-- RESEARCH.md has 300+ lines on tools - this should be expanded
+- RESEARCH_LOG.md has 300+ lines on tools - this should be expanded
 
-Needs: Expansion using RESEARCH.md sections 9-12
+Needs: Expansion using RESEARCH_LOG.md sections 9-12
 
 ### docs/TEMPLATES.md (66 lines)
 **Quality: B+**
@@ -362,7 +364,7 @@ The following issues from initial review have been confirmed resolved:
 | templates/hub/config/repos/repo-template.yaml | Created | 63 |
 | .github/workflows/config-validate.yml | Created | ~50 |
 | .github/workflows/hub-orchestrator.yml | Modified | 591 |
-| plan.md | Replaced | 30 |
+| STATUS.md | Replaced | 30 |
 | AGENTS.md | Modified | 214 |
 | docs/ROADMAP.md | Modified | 520 |
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Scan live job environment and processes for leaked secrets
-# Enforces secretless runtime posture per plan.md:31,84
+# Enforces secretless runtime posture per STATUS.md:31,84
 
 set -euo pipefail
 

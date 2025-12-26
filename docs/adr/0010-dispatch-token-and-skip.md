@@ -1,7 +1,10 @@
 # ADR-0010: Dispatch Token and Skip Flag
 
-- Status: Accepted
-- Date: 2025-12-22
+**Status**: Accepted  
+**Date:** 2025-12-22  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
+
 - Updated: 2025-12-23
 
 ## Context

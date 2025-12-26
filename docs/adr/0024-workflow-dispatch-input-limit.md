@@ -1,7 +1,9 @@
 # ADR-0024: Workflow Dispatch Input Limit
 
-- Status: Accepted
-- Date: 2025-12-24
+**Status**: Accepted  
+**Date:** 2025-12-24  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 

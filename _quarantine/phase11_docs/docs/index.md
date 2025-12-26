@@ -1,13 +1,13 @@
 # Documentation Index
 
-This is the master index for all CI/CD Hub documentation. All documents should be linked from here or from plan.md.
+This is the master index for all CI/CD Hub documentation. All documents should be linked from here or from STATUS.md.
 
 ---
 
 ## Quick Links
 
 - [README](../README.md) - Project overview and quick start
-- [Plan](../plan.md) - Strategic roadmap and architecture
+- [Plan](../STATUS.md) - Strategic roadmap and architecture
 - [Start Here](start-here.md) - Day 1 action plan
 - [Structure](../STRUCTURE.md) - Repository file tree
 
@@ -72,14 +72,14 @@ This is the master index for all CI/CD Hub documentation. All documents should b
 
 All documentation in this repository follows these standards:
 
-- **Review Cycle**: Monthly for critical docs (plan.md, status/), quarterly for others
+- **Review Cycle**: Monthly for critical docs (STATUS.md, status/), quarterly for others
 - **Ownership**: See CODEOWNERS file for document owners
 - **Updates**: All changes require PR review
 - **Validation**: Automated link checking and orphan detection in CI
 
 To add a new document:
 1. Place it in the appropriate docs/ subdirectory
-2. Add a link from this index or from plan.md
+2. Add a link from this index or from STATUS.md
 3. Run ✅ No orphan documents found in docs/ to verify linkage
 4. Submit PR for review
 

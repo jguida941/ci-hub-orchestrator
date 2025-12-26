@@ -1,7 +1,9 @@
 # ADR-0004: Aggregation and Reporting
 
-- Status: Accepted
-- Date: 2025-12-14
+**Status**: Accepted  
+**Date:** 2025-12-14  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 

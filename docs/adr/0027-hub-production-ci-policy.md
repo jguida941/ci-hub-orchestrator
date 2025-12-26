@@ -1,7 +1,9 @@
 # ADR-0027: Hub Production CI Policy
 
-- Status: Accepted
-- Date: 2025-12-25
+**Status**: Accepted  
+**Date:** 2025-12-25  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 
@@ -44,5 +46,5 @@ critical check and enforce security/supply-chain standards.
 
 ## References
 
-- `docs/development/NEW_PLAN.md`
+- `docs/development/architecture/ARCHITECTURE_PLAN.md`
 - `.github/workflows/hub-production-ci.yml`

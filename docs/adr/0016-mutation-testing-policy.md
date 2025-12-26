@@ -1,7 +1,9 @@
 # ADR-0016: Mutation Testing Policy
 
-- Status: Accepted
-- Date: 2025-12-18
+**Status**: Accepted  
+**Date:** 2025-12-18  
+**Developer:** Justin Guida  
+**Last Reviewed:** 2025-12-26  
 
 ## Context
 
@@ -101,20 +103,55 @@ Mutation Score = (Killed Mutants / Total Mutants) × 100
 
 ## Implementation
 
-### Python (mutmut)
+### Python (mutmut 3.x)
+
+**Important:** mutmut 3.x removed CLI flags. All configuration must be in pyproject.toml.
+
+**pyproject.toml configuration (required):**
+
+```toml
+[tool.mutmut]
+paths_to_mutate = ["src/"]          # Array format required in 3.x
+tests_dir = ["tests/"]              # Array format required in 3.x
+also_copy = ["scripts/", "config/"] # Additional dirs needed by tests
+```
+
+**Workflow usage:**
 
 ```yaml
 - name: Run mutmut
-  run: |
-    # Check for pyproject.toml config
-    if grep -q '\[tool\.mutmut\]' pyproject.toml; then
-      mutmut run --runner="pytest -x -q"
-    else
-      mutmut run --paths-to-mutate="src" --runner="pytest -x -q"
-    fi
+  run: mutmut run  # 3.x reads all config from pyproject.toml
   continue-on-error: true
   timeout-minutes: 15
 ```
+
+**Version differences (2.x vs 3.x):**
+
+| Feature | mutmut 2.x | mutmut 3.x |
+|---------|------------|------------|
+| CLI paths | `--paths-to-mutate src/` | N/A (use pyproject.toml) |
+| CLI runner | `--runner "pytest -x"` | N/A (hardcoded pytest) |
+| Config format | strings or arrays | arrays only |
+| Import handling | N/A | `also_copy` for extra dirs |
+
+**Common issue:** If tests import modules outside `paths_to_mutate` (e.g., `scripts/`),
+add them to `also_copy` or tests will fail with `ModuleNotFoundError`.
+
+**This project's configuration:**
+
+```toml
+[tool.mutmut]
+paths_to_mutate = ["cihub/"]
+tests_dir = ["tests/"]
+also_copy = ["scripts/", "config/", "schema/", "templates/", ".github/"]
+```
+
+Directories required because tests:
+- `scripts/`: Import aggregate_reports, load_config, validate_summary
+- `config/`: Load defaults.yaml, repo configs
+- `schema/`: Validate against JSON schemas
+- `templates/`: Load template files (.ci-hub.yml, workflows)
+- `.github/`: Validate workflow YAML files
 
 ### Java (PITest)
 
