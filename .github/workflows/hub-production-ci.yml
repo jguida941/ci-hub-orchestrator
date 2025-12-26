@@ -86,11 +86,18 @@ jobs:
           # Install latest actionlint (supports workflow_call, id-token, ref_name)
           bash <(curl -s https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
 
-      - name: Run actionlint
+      - name: Setup reviewdog
+        uses: reviewdog/action-setup@e04ffabe3898a0af8d0fb1af00c188831c4b5893 # v1.3.2
+        with:
+          reviewdog_version: latest
+
+      - name: Run actionlint with reviewdog
+        env:
+          REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Only lint hub-production-ci.yml (other files are reusable workflow templates)
-          ./actionlint -format '{{range $err := .}}::error file={{$err.Filepath}},line={{$err.Line}},col={{$err.Column}}::{{$err.Message}}%0A{{end}}' \
-            .github/workflows/hub-production-ci.yml
+          ./actionlint -format '{{json .}}' .github/workflows/hub-production-ci.yml | \
+            reviewdog -f=actionlint -reporter=github-check -level=error -fail-level=error
 
   zizmor:
     name: Workflow Security (zizmor)
