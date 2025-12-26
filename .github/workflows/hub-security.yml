@@ -293,6 +293,7 @@ jobs:
         env:
           MATRIX_NAME: ${{ matrix.name }}
           MATRIX_LANGUAGE: ${{ matrix.language }}
+          HAS_SOURCE: ${{ steps.source-check.outputs.has_source }}
           PIP_AUDIT_VULNS: ${{ steps.pip-audit.outputs.vulnerabilities }}
           BANDIT_HIGH: ${{ steps.bandit.outputs.high }}
           RUFF_ISSUES: ${{ steps.ruff-security.outputs.issues }}
@@ -314,18 +315,25 @@ jobs:
           |-----|--------|----------|
           EOF
 
+          # Determine CodeQL status
+          if [ "${HAS_SOURCE}" = "true" ]; then
+            CODEQL_STATUS="Complete"
+          else
+            CODEQL_STATUS="Skipped (no source code)"
+          fi
+
           if [ "${MATRIX_LANGUAGE}" = "python" ]; then
             cat >&3 << EOF
           | pip-audit | ${PIP_AUDIT_VULNS:-0} vulns | - |
           | bandit | ${BANDIT_HIGH:-0} high severity | - |
           | ruff-security | ${RUFF_ISSUES:-0} issues | - |
-          | codeql | Complete | - |
+          | codeql | ${CODEQL_STATUS} | - |
           | sbom | Generated | - |
           EOF
           else
             cat >&3 << EOF
           | OWASP | ${OWASP_CRITICAL:-0} critical, ${OWASP_HIGH:-0} high | - |
-          | codeql | Complete | - |
+          | codeql | ${CODEQL_STATUS} | - |
           | sbom | Generated | - |
           EOF
           fi
