@@ -1825,9 +1825,44 @@ move into the CLI so the YAML surface stays small and consistent.
 - `cihub ci` (or `cihub run <tool>`) executes tools, applies thresholds,
   and produces `report.json` + unified summary.
 - Workflows should not re-implement parsing or report composition in bash.
+- Do not add `config_override` workflow inputs; `.ci-hub.yml` remains the only
+  source of truth to avoid hidden config layers.
 
 This is the required foundation for the GUI and for consistent summaries
 across Python, Java, and hub-run-all.
+
+---
+
+## Optional Composite Actions (Post-CLI Parity)
+
+Composite actions can shrink reusable workflows to ~50 lines without adding
+new configuration layers. This is optional and should only be done after the
+CLI output contract is stable.
+
+Example composite actions (hub repo only):
+
+- `.github/actions/setup-python-env/action.yml`
+  - `actions/setup-python@v5`
+  - `python -m pip install --upgrade pip`
+  - `pip install cihub[ci]`
+- `.github/actions/upload-ci-report/action.yml`
+  - `actions/upload-artifact@v4`
+  - `path: .cihub/report.json`, `.cihub/summary.md`, `.cihub/tool-outputs/*.json`
+
+Target repos still use 5–10 line callers; composites are internal helpers.
+
+---
+
+## Makefile Integration (CLI-First)
+
+Makefile execution must be explicit and opt-in.
+
+- CLI flag: `cihub preflight --use-makefile`
+- Workflow: `cihub ci --preflight` (preflight can call Make targets)
+- Config opt-in:
+  - `python.tools.makefile: { enabled: true, targets: ["lint", "test"] }`
+
+GUI exposes a toggle + target list; defaults remain off to prevent surprises.
 
 ---
 

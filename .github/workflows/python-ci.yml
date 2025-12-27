@@ -1,16 +1,59 @@
 # ============================================================================
-# CI/CD Hub - Reusable Python CI Workflow (CLI-driven)
+# CI/CD Hub - Python CI Workflow
 # ============================================================================
-# Call this workflow from any Python repository to run the full CI pipeline.
-# It installs cihub from the hub repo and executes `cihub ci`.
 #
-# Usage in your repo's workflow:
+# Reusable workflow with boolean toggles for Python linting, testing, and
+# security scanning. Configure tools via .ci-hub.yml, run via `cihub ci`.
+#
+# HOW IT WORKS:
+#   1. Your repo calls this workflow via `uses:`
+#   2. This workflow installs and runs `cihub ci`
+#   3. cihub reads YOUR .ci-hub.yml config file
+#   4. Tools execute based on YOUR enabled: true/false toggles
+#   5. Report + summary written to .cihub/ directory
+#
+# TOGGLE CONFIGURATION (in your repo's .ci-hub.yml):
+#   python:
+#     tools:
+#       pytest:    { enabled: true }   # Testing + coverage
+#       ruff:      { enabled: true }   # Fast linting
+#       black:     { enabled: true }   # Code formatting
+#       isort:     { enabled: true }   # Import sorting
+#       bandit:    { enabled: true }   # Security scanning
+#       pip_audit: { enabled: true }   # Dependency vulnerabilities
+#       mypy:      { enabled: false }  # Type checking (opt-in)
+#       mutmut:    { enabled: true }   # Mutation testing
+#       hypothesis:{ enabled: true }   # Property-based testing (with pytest)
+#       semgrep:   { enabled: false }  # SAST (expensive, opt-in)
+#       trivy:     { enabled: false }  # Container scan (expensive, opt-in)
+#       codeql:    { enabled: false }  # CodeQL (expensive, opt-in)
+#       docker:    { enabled: false }  # Docker build/test (opt-in)
+#
+# QUICK START WITH PROFILES (hub-side config):
+#   Use a pre-built profile to generate hub configs:
+#     cihub new myrepo --profile python-minimal   # pytest + ruff only (~2-5 min)
+#     cihub new myrepo --profile python-quality   # All core tools (~15-30 min)
+#     cihub new myrepo --profile python-security  # + semgrep, trivy, codeql
+#
+# THRESHOLDS (quality gates in .ci-hub.yml):
+#   thresholds:
+#     coverage_min: 70        # Fail if coverage < 70%
+#     mutation_score_min: 70  # Fail if mutation score < 70%
+#     max_high_vulns: 0       # Fail on any high-severity vulnerability
+#     max_ruff_errors: 0      # Fail on any linting error
+#
+# CALLER EXAMPLE (minimal - config lives in .ci-hub.yml):
+#   # .github/workflows/hub-ci.yml
 #   jobs:
 #     ci:
-#       uses: jguida941/ci-cd-hub/.github/workflows/python-ci.yml@main
-#       with:
-#         python_version: '3.12'
+#       uses: jguida941/ci-cd-hub/.github/workflows/python-ci.yml@v1
 #       secrets: inherit
+#
+# INSTALL: Tools are installed from the hub repo via `pip install -e "hub[ci]"`
+#          (PyPI distribution is planned; see ADR-0033).
+#          Extras include: pytest, ruff, black, isort, bandit, pip-audit,
+#          mypy, mutmut, hypothesis, semgrep (see pyproject.toml [ci] extras)
+#
 # ============================================================================
 
 name: Python CI Pipeline

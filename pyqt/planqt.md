@@ -21,6 +21,7 @@ Explicit scope + constraints (must be in plan):
 - No inline parsing/scraping in YAML. Parsing, gating, and summaries live in `cihub`.
 - `cihub ci` (or `cihub run <tool>`) reads `.ci-hub.yml`, runs tools, applies thresholds,
   produces `report.json`, and renders the unified summary.
+- No `config_override` workflow inputs (avoid extra config layers). `.ci-hub.yml` is the only source of truth.
 - PyQt6 GUI is a strict wrapper around CLI (QProcess + JSON output). No logic duplication.
 - Full automation: create repo, set secrets, branch protection, write configs/workflows,
   push changes (default PR flow; direct push only if user opts in).
@@ -75,12 +76,33 @@ Research additions (explicit requirements):
 - Custom command parsing modes: exit_code, json, regex.
 - Private deps auth: PIP_INDEX_URL with secrets; Maven settings.xml secret.
 - PyQt6 CLI wrapper must use QProcess with streamed output (no blocking UI).
-- Makefile support is explicit in config (never auto-run).
+- Makefile support is explicit in config (never auto-run); expose GUI toggle.
 - Workflow limits documented (10 nesting levels, 50 unique calls).
 - Schema validation via check-jsonschema + pre-commit hook.
 - POM editing: current approach is fragile; consider pom-tuner patterns.
 - Secrets automation: set/list/verify/discover commands.
 - CLI framework: keep argparse for base install; revisit Typer later if needed.
+
+Composite actions (optional, post-CLI parity):
+- Goal: reduce reusable workflow YAML to ~50 lines without adding new config layers.
+- Keep composite actions in hub repo only; target repos still use 5–10 line callers.
+- Example action sketch:
+  - `.github/actions/setup-python-env/action.yml`
+    - uses: actions/setup-python@v5
+    - run: python -m pip install --upgrade pip
+    - run: pip install cihub[ci]
+  - `.github/actions/upload-ci-report/action.yml`
+    - uses: actions/upload-artifact@v4
+    - path: .cihub/report.json + .cihub/summary.md
+- Decision: optional phase; do not implement until CLI outputs are stable.
+
+Makefile integration (CLI-first):
+- Add `cihub preflight --use-makefile` and `cihub ci --preflight` to run make targets first.
+- Config opt-in:
+  python:
+    tools:
+      makefile: { enabled: true, targets: ["lint", "test"] }
+- GUI should expose a toggle + target list; defaults remain off.
 
 Execution order (avoid rework):
 - Build CLI core first (`cihub ci`, `cihub run <tool>`, `cihub report build/summary`).
