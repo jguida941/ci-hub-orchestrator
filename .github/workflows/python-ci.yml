@@ -180,6 +180,7 @@ jobs:
         env:
           HUB_REPO_INPUT: ${{ inputs.hub_repo }}
           HUB_REF_INPUT: ${{ inputs.hub_ref }}
+          WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           if [ -n "$HUB_REPO_INPUT" ] || [ -n "$HUB_REF_INPUT" ]; then
             if [ -z "$HUB_REPO_INPUT" ] || [ -z "$HUB_REF_INPUT" ]; then
@@ -189,14 +190,14 @@ jobs:
             repo="$HUB_REPO_INPUT"
             ref="$HUB_REF_INPUT"
           else
-            if [ -z "${GITHUB_WORKFLOW_REF:-}" ]; then
-              echo "::error::GITHUB_WORKFLOW_REF is not set; cannot resolve hub repo/ref"
+            if [ -z "$WORKFLOW_REF" ]; then
+              echo "::error::github.workflow_ref is not set; cannot resolve hub repo/ref"
               exit 1
             fi
-            ref="${GITHUB_WORKFLOW_REF##*@}"
-            repo="${GITHUB_WORKFLOW_REF%%/.github/*}"
-            if [ -z "$repo" ] || [ "$repo" = "$GITHUB_WORKFLOW_REF" ] || [ -z "$ref" ] || [ "$ref" = "$GITHUB_WORKFLOW_REF" ]; then
-              echo "::error::Unable to parse hub repo/ref from GITHUB_WORKFLOW_REF=$GITHUB_WORKFLOW_REF"
+            ref="${WORKFLOW_REF##*@}"
+            repo="${WORKFLOW_REF%%/.github/*}"
+            if [ -z "$repo" ] || [ "$repo" = "$WORKFLOW_REF" ] || [ -z "$ref" ] || [ "$ref" = "$WORKFLOW_REF" ]; then
+              echo "::error::Unable to parse hub repo/ref from workflow_ref=$WORKFLOW_REF"
               exit 1
             fi
           fi
