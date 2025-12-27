@@ -170,13 +170,15 @@ jobs:
       - name: Resolve hub ref
         id: hub-ref
         run: |
+          if [ -z "${GITHUB_WORKFLOW_REF:-}" ]; then
+            echo "::error::GITHUB_WORKFLOW_REF is not set; cannot resolve hub repo/ref"
+            exit 1
+          fi
           ref="${GITHUB_WORKFLOW_REF##*@}"
           repo="${GITHUB_WORKFLOW_REF%%/.github/*}"
-          if [ -z "$repo" ] || [ "$repo" = "$GITHUB_WORKFLOW_REF" ]; then
-            repo="jguida941/ci-cd-hub"
-          fi
-          if [ -z "$ref" ] || [ "$ref" = "$GITHUB_WORKFLOW_REF" ]; then
-            ref="main"
+          if [ -z "$repo" ] || [ "$repo" = "$GITHUB_WORKFLOW_REF" ] || [ -z "$ref" ] || [ "$ref" = "$GITHUB_WORKFLOW_REF" ]; then
+            echo "::error::Unable to parse hub repo/ref from GITHUB_WORKFLOW_REF=$GITHUB_WORKFLOW_REF"
+            exit 1
           fi
           echo "repo=$repo" >> "$GITHUB_OUTPUT"
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
@@ -217,25 +219,7 @@ jobs:
       - name: Read report outputs
         id: report
         run: |
-          python << 'PY'
-          import json
-          import os
-
-          report = json.load(open(".cihub/report.json", encoding="utf-8"))
-          results = report.get("results", {})
-          tools = report.get("tools_configured", {})
-          tests_failed = int(results.get("tests_failed", 0))
-
-          if tools.get("pytest"):
-              status = "success" if tests_failed == 0 else "failure"
-          else:
-              status = "skipped"
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as handle:
-              handle.write(f"build_status={status}\n")
-              handle.write(f"coverage={results.get('coverage', 0)}\n")
-              handle.write(f"mutation_score={results.get('mutation_score', 0)}\n")
-          PY
+          cihub report outputs --report .cihub/report.json
 
       - name: Upload CI report
         if: always()

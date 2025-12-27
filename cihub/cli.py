@@ -1150,6 +1150,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report_summary.set_defaults(func=cmd_report)
 
+    report_outputs = report_sub.add_parser(
+        "outputs", help="Write workflow outputs from report.json"
+    )
+    add_json_flag(report_outputs)
+    report_outputs.add_argument(
+        "--report", required=True, help="Path to report.json"
+    )
+    report_outputs.add_argument(
+        "--output", help="Path to write outputs (defaults to GITHUB_OUTPUT)"
+    )
+    report_outputs.set_defaults(func=cmd_report)
+
     new = subparsers.add_parser("new", help="Create hub-side repo config")
     add_json_flag(new)
     new.add_argument("name", help="Repo config name (config/repos/<name>.yaml)")
