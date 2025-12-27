@@ -60,8 +60,8 @@ hub-config = "scripts.load_config:main"
 hub-report = "scripts.aggregate_reports:main"
 cihub = "cihub.__main__:main"
 
-[tool.setuptools]
-packages = ["cihub"]
+[tool.setuptools.packages.find]
+include = ["cihub*"]
 
 [tool.ruff]
 line-length = 88
