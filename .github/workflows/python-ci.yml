@@ -102,6 +102,10 @@ on:
         description: 'Maximum allowed high vulnerabilities across scanners'
         type: number
         default: 0
+      owasp_cvss_fail:
+        description: 'CVSS score to fail on for Trivy (default: 7)'
+        type: number
+        default: 7
       max_semgrep_findings:
         description: 'Maximum allowed Semgrep findings (default: 0 = fail on any)'
         type: number
@@ -118,15 +122,6 @@ on:
         description: 'Maximum allowed Ruff errors (default: 0 = fail on any)'
         type: number
         default: 0
-
-      # ---- Threshold Override (single input, all thresholds) ----
-      # YAML string containing thresholds from .ci-hub.yml or orchestrator
-      # Takes precedence over individual threshold inputs above
-      # Format: "coverage_min: 80\nmax_critical_vulns: 0\n..."
-      threshold_overrides_yaml:
-        description: 'YAML string with threshold overrides (from .ci-hub.yml)'
-        type: string
-        default: ''
 
       # ---- Reports ----
       retention_days:
@@ -168,18 +163,9 @@ jobs:
       ruff_errors: ${{ steps.ruff.outputs.errors }}
       bandit_high: ${{ steps.bandit.outputs.high }}
       bandit_medium: ${{ steps.bandit.outputs.medium }}
+      bandit_low: ${{ steps.bandit.outputs.low }}
       black_issues: ${{ steps.black.outputs.issues }}
       isort_issues: ${{ steps.isort.outputs.issues }}
-      # Effective thresholds (from .ci-hub.yml or inputs)
-      eff_coverage_min: ${{ steps.thresholds.outputs.coverage_min }}
-      eff_mutation_score_min: ${{ steps.thresholds.outputs.mutation_score_min }}
-      eff_max_critical_vulns: ${{ steps.thresholds.outputs.max_critical_vulns }}
-      eff_max_high_vulns: ${{ steps.thresholds.outputs.max_high_vulns }}
-      eff_max_semgrep_findings: ${{ steps.thresholds.outputs.max_semgrep_findings }}
-      eff_max_black_issues: ${{ steps.thresholds.outputs.max_black_issues }}
-      eff_max_isort_issues: ${{ steps.thresholds.outputs.max_isort_issues }}
-      eff_max_ruff_errors: ${{ steps.thresholds.outputs.max_ruff_errors }}
-      eff_owasp_cvss_fail: ${{ steps.thresholds.outputs.owasp_cvss_fail }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -192,105 +178,6 @@ jobs:
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
-
-      # ========================================
-      # RESOLVE EFFECTIVE THRESHOLDS
-      # Priority: threshold_overrides_yaml > .ci-hub.yml > inputs
-      # See ADR-0024 for rationale
-      # ========================================
-      - name: Resolve Thresholds
-        id: thresholds
-        env:
-          INPUT_COVERAGE_MIN: ${{ inputs.coverage_min }}
-          INPUT_MUTATION_SCORE_MIN: ${{ inputs.mutation_score_min }}
-          INPUT_MAX_CRITICAL_VULNS: ${{ inputs.max_critical_vulns }}
-          INPUT_MAX_HIGH_VULNS: ${{ inputs.max_high_vulns }}
-          INPUT_MAX_SEMGREP_FINDINGS: ${{ inputs.max_semgrep_findings }}
-          INPUT_MAX_BLACK_ISSUES: ${{ inputs.max_black_issues }}
-          INPUT_MAX_ISORT_ISSUES: ${{ inputs.max_isort_issues }}
-          INPUT_MAX_RUFF_ERRORS: ${{ inputs.max_ruff_errors }}
-          INPUT_THRESHOLD_OVERRIDES: ${{ inputs.threshold_overrides_yaml }}
-        run: |
-          # Start with input defaults
-          COVERAGE_MIN="$INPUT_COVERAGE_MIN"
-          MUTATION_SCORE_MIN="$INPUT_MUTATION_SCORE_MIN"
-          MAX_CRITICAL_VULNS="$INPUT_MAX_CRITICAL_VULNS"
-          MAX_HIGH_VULNS="$INPUT_MAX_HIGH_VULNS"
-          MAX_SEMGREP_FINDINGS="$INPUT_MAX_SEMGREP_FINDINGS"
-          MAX_BLACK_ISSUES="$INPUT_MAX_BLACK_ISSUES"
-          MAX_ISORT_ISSUES="$INPUT_MAX_ISORT_ISSUES"
-          MAX_RUFF_ERRORS="$INPUT_MAX_RUFF_ERRORS"
-          # CVSS threshold for Trivy - named owasp_cvss_fail for consistency with Java (default: 7)
-          OWASP_CVSS_FAIL=7
-
-          # Check for .ci-hub.yml in repo
-          if [ -f ".ci-hub.yml" ]; then
-            echo "Found .ci-hub.yml, loading thresholds..."
-            python3 << 'PYEOF'
-          import yaml
-          import os
-
-          try:
-              with open('.ci-hub.yml') as f:
-                  data = yaml.safe_load(f) or {}
-              thresholds = data.get('thresholds', {})
-              if thresholds:
-                  print(f"Loaded thresholds from .ci-hub.yml: {thresholds}")
-                  # Write to env file for shell to pick up
-                  with open('_thresholds_from_config.env', 'w') as ef:
-                      for k, v in thresholds.items():
-                          ef.write(f"{k.upper()}={v}\n")
-          except Exception as e:
-              print(f"Warning: could not read .ci-hub.yml: {e}")
-          PYEOF
-            if [ -f "_thresholds_from_config.env" ]; then
-              source _thresholds_from_config.env
-              rm -f _thresholds_from_config.env
-            fi
-          fi
-
-          # Override with threshold_overrides_yaml if provided (highest precedence)
-          OVERRIDES="$INPUT_THRESHOLD_OVERRIDES"
-          if [ -n "$OVERRIDES" ]; then
-            echo "Applying threshold_overrides_yaml..."
-            OVERRIDES="$OVERRIDES" python3 << 'PYEOF'
-          import os
-          import yaml
-
-          try:
-              raw = os.environ.get("OVERRIDES", "")
-              data = yaml.safe_load(raw) or {}
-              with open('_thresholds_override.env', 'w') as ef:
-                  for k, v in data.items():
-                      ef.write(f"{k.upper()}={v}\n")
-              print(f"Applied overrides: {data}")
-          except Exception as e:
-              print(f"Warning: could not parse threshold_overrides_yaml: {e}")
-          PYEOF
-            if [ -f "_thresholds_override.env" ]; then
-              source _thresholds_override.env
-              rm -f _thresholds_override.env
-            fi
-          fi
-
-          # Export effective thresholds as outputs
-          {
-            echo "coverage_min=$COVERAGE_MIN"
-            echo "mutation_score_min=$MUTATION_SCORE_MIN"
-            echo "max_critical_vulns=$MAX_CRITICAL_VULNS"
-            echo "max_high_vulns=$MAX_HIGH_VULNS"
-            echo "max_semgrep_findings=$MAX_SEMGREP_FINDINGS"
-            echo "max_black_issues=$MAX_BLACK_ISSUES"
-            echo "max_isort_issues=$MAX_ISORT_ISSUES"
-            echo "max_ruff_errors=$MAX_RUFF_ERRORS"
-            echo "owasp_cvss_fail=$OWASP_CVSS_FAIL"
-          } >> "$GITHUB_OUTPUT"
-
-          echo "Effective thresholds:"
-          echo "  coverage_min: $COVERAGE_MIN"
-          echo "  mutation_score_min: $MUTATION_SCORE_MIN"
-          echo "  max_critical_vulns: $MAX_CRITICAL_VULNS"
-          echo "  max_high_vulns: $MAX_HIGH_VULNS"
 
       - name: Set up Python ${{ inputs.python_version }}
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
@@ -323,7 +210,7 @@ jobs:
         if: inputs.run_ruff
         env:
           RUFF_ERRORS: ${{ steps.ruff.outputs.errors || 0 }}
-          MAX_RUFF: ${{ steps.thresholds.outputs.max_ruff_errors || 0 }}
+          MAX_RUFF: ${{ inputs.max_ruff_errors }}
         run: |
           ERRORS="$RUFF_ERRORS"
           MAX="$MAX_RUFF"
@@ -379,7 +266,7 @@ jobs:
         if: inputs.run_bandit
         env:
           BANDIT_HIGH: ${{ steps.bandit.outputs.high || 0 }}
-          MAX_HIGH_VULNS: ${{ steps.thresholds.outputs.max_high_vulns || 0 }}
+          MAX_HIGH_VULNS: ${{ inputs.max_high_vulns }}
         run: |
           HIGH="$BANDIT_HIGH"
           MAX_HIGH="$MAX_HIGH_VULNS"
@@ -406,7 +293,7 @@ jobs:
         if: inputs.run_black
         env:
           BLACK_ISSUES: ${{ steps.black.outputs.issues || 0 }}
-          MAX_BLACK: ${{ steps.thresholds.outputs.max_black_issues || 0 }}
+          MAX_BLACK: ${{ inputs.max_black_issues }}
         run: |
           ISSUES="$BLACK_ISSUES"
           MAX="$MAX_BLACK"
@@ -443,7 +330,7 @@ jobs:
         if: inputs.run_isort
         env:
           ISORT_ISSUES: ${{ steps.isort.outputs.issues || 0 }}
-          MAX_ISORT_ISSUES: ${{ steps.thresholds.outputs.max_isort_issues || 0 }}
+          MAX_ISORT_ISSUES: ${{ inputs.max_isort_issues }}
         run: |
           ISSUES="$ISORT_ISSUES"
           MAX="$MAX_ISORT_ISSUES"
@@ -461,194 +348,6 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
 
-      - name: Lint Summary
-        if: always()
-        env:
-          RUN_PYTEST: ${{ inputs.run_pytest }}
-          RUN_MUTMUT: ${{ inputs.run_mutmut }}
-          RUN_HYPOTHESIS: ${{ inputs.run_hypothesis }}
-          RUN_RUFF: ${{ inputs.run_ruff }}
-          RUN_BLACK: ${{ inputs.run_black }}
-          RUN_ISORT: ${{ inputs.run_isort }}
-          RUN_MYPY: ${{ inputs.run_mypy }}
-          RUN_BANDIT: ${{ inputs.run_bandit }}
-          RUN_PIP_AUDIT: ${{ inputs.run_pip_audit }}
-          RUN_SEMGREP: ${{ inputs.run_semgrep }}
-          RUN_TRIVY: ${{ inputs.run_trivy }}
-          RUN_CODEQL: ${{ inputs.run_codeql }}
-          RUN_DOCKER: ${{ inputs.run_docker }}
-          THR_COVERAGE_MIN: ${{ steps.thresholds.outputs.coverage_min }}
-          THR_MUTATION_SCORE_MIN: ${{ steps.thresholds.outputs.mutation_score_min }}
-          THR_MAX_RUFF_ERRORS: ${{ steps.thresholds.outputs.max_ruff_errors }}
-          THR_MAX_BLACK_ISSUES: ${{ steps.thresholds.outputs.max_black_issues }}
-          THR_MAX_ISORT_ISSUES: ${{ steps.thresholds.outputs.max_isort_issues }}
-          THR_MAX_CRITICAL_VULNS: ${{ steps.thresholds.outputs.max_critical_vulns }}
-          THR_MAX_HIGH_VULNS: ${{ steps.thresholds.outputs.max_high_vulns }}
-          THR_MAX_SEMGREP_FINDINGS: ${{ steps.thresholds.outputs.max_semgrep_findings }}
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
-          STEP_RUFF_ERRORS: ${{ steps.ruff.outputs.errors || 0 }}
-          STEP_BLACK_ISSUES: ${{ steps.black.outputs.issues || 0 }}
-          STEP_ISORT_ISSUES: ${{ steps.isort.outputs.issues || 0 }}
-          STEP_BANDIT_HIGH: ${{ steps.bandit.outputs.high || 0 }}
-          STEP_BANDIT_MED: ${{ steps.bandit.outputs.medium || 0 }}
-          STEP_BANDIT_LOW: ${{ steps.bandit.outputs.low || 0 }}
-        run: |
-          {
-            echo "## Lint Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Testing | pytest | $RUN_PYTEST |"
-            echo "| Testing | mutmut | $RUN_MUTMUT |"
-            echo "| Testing | Hypothesis | $RUN_HYPOTHESIS |"
-            echo "| Linting | Ruff | $RUN_RUFF |"
-            echo "| Linting | Black | $RUN_BLACK |"
-            echo "| Linting | isort | $RUN_ISORT |"
-            echo "| Linting | mypy | $RUN_MYPY |"
-            echo "| Security | Bandit | $RUN_BANDIT |"
-            echo "| Security | pip-audit | $RUN_PIP_AUDIT |"
-            echo "| Security | Semgrep | $RUN_SEMGREP |"
-            echo "| Security | Trivy | $RUN_TRIVY |"
-            echo "| Security | CodeQL | $RUN_CODEQL |"
-            echo "| Container | Docker | $RUN_DOCKER |"
-            echo ""
-            echo "### Thresholds (effective)"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Min Coverage | $THR_COVERAGE_MIN% |"
-            echo "| Min Mutation Score | $THR_MUTATION_SCORE_MIN% |"
-            echo "| Max Ruff Errors | $THR_MAX_RUFF_ERRORS |"
-            echo "| Max Black Issues | $THR_MAX_BLACK_ISSUES |"
-            echo "| Max isort Issues | $THR_MAX_ISORT_ISSUES |"
-            echo "| Max Critical Vulns | $THR_MAX_CRITICAL_VULNS |"
-            echo "| Max High Vulns | $THR_MAX_HIGH_VULNS |"
-            echo "| Max Semgrep Findings | $THR_MAX_SEMGREP_FINDINGS |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo ""
-            echo "#### Lint"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-
-            # Ruff
-            if [ "$RUN_RUFF" != "true" ]; then
-              echo "| Ruff | SKIP | - |"
-            else
-              RUFF_ISSUES="$STEP_RUFF_ERRORS"
-              RUFF_MAX="$THR_MAX_RUFF_ERRORS"
-              if [ "${RUFF_ISSUES:-0}" -le "${RUFF_MAX:-0}" ]; then
-                STATUS="PASS"
-              else
-                STATUS="FAIL"
-              fi
-              echo "| Ruff | $STATUS | issues: ${RUFF_ISSUES:-0} (max ${RUFF_MAX:-0}) |"
-            fi
-
-            # Black
-            if [ "$RUN_BLACK" != "true" ]; then
-              echo "| Black | SKIP | - |"
-            else
-              BLACK_ISSUES="$STEP_BLACK_ISSUES"
-              BLACK_MAX="$THR_MAX_BLACK_ISSUES"
-              if [ "${BLACK_ISSUES:-0}" -le "${BLACK_MAX:-0}" ]; then
-                STATUS="PASS"
-              else
-                STATUS="FAIL"
-              fi
-              echo "| Black | $STATUS | issues: ${BLACK_ISSUES:-0} (max ${BLACK_MAX:-0}) |"
-            fi
-
-            # isort
-            if [ "$RUN_ISORT" != "true" ]; then
-              echo "| isort | SKIP | - |"
-            else
-              ISORT_ISSUES="$STEP_ISORT_ISSUES"
-              ISORT_MAX="$THR_MAX_ISORT_ISSUES"
-              if [ "${ISORT_ISSUES:-0}" -le "${ISORT_MAX:-0}" ]; then
-                STATUS="PASS"
-              else
-                STATUS="FAIL"
-              fi
-              echo "| isort | $STATUS | issues: ${ISORT_ISSUES:-0} (max ${ISORT_MAX:-0}) |"
-            fi
-
-            # mypy (separate job)
-            if [ "$RUN_MYPY" != "true" ]; then
-              echo "| mypy | SKIP | - |"
-            else
-              echo "| mypy | ENABLED | See Type Check job |"
-            fi
-
-            echo ""
-            echo "#### Security"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-
-            # Bandit
-            if [ "$RUN_BANDIT" != "true" ]; then
-              echo "| Bandit | SKIP | - |"
-            else
-              BANDIT_HIGH="$STEP_BANDIT_HIGH"
-              BANDIT_MED="$STEP_BANDIT_MED"
-              BANDIT_LOW="$STEP_BANDIT_LOW"
-              BANDIT_MAX="$THR_MAX_HIGH_VULNS"
-              if [ "${BANDIT_HIGH:-0}" -le "${BANDIT_MAX:-0}" ]; then
-                STATUS="PASS"
-              else
-                STATUS="FAIL"
-              fi
-              echo "| Bandit | $STATUS | high: ${BANDIT_HIGH:-0}, med: ${BANDIT_MED:-0}, low: ${BANDIT_LOW:-0} (max high ${BANDIT_MAX:-0}) |"
-            fi
-
-            # pip-audit (separate job)
-            if [ "$RUN_PIP_AUDIT" = "true" ]; then
-              echo "| pip-audit | ENABLED | See Security Scan job |"
-            else
-              echo "| pip-audit | SKIP | - |"
-            fi
-
-            # Semgrep (separate job)
-            if [ "$RUN_SEMGREP" = "true" ]; then
-              echo "| Semgrep | ENABLED | See Semgrep job |"
-            else
-              echo "| Semgrep | SKIP | - |"
-            fi
-
-            # Trivy (separate job)
-            if [ "$RUN_TRIVY" = "true" ]; then
-              echo "| Trivy | ENABLED | See Trivy job |"
-            else
-              echo "| Trivy | SKIP | - |"
-            fi
-
-            # CodeQL (separate job)
-            if [ "$RUN_CODEQL" = "true" ]; then
-              echo "| CodeQL | ENABLED | See CodeQL job |"
-            else
-              echo "| CodeQL | SKIP | - |"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
   # ============================================================================
   # Test
   # ============================================================================
@@ -661,6 +360,10 @@ jobs:
       coverage: ${{ steps.coverage.outputs.percentage }}
       tests_passed: ${{ steps.test.outputs.tests_passed }}
       tests_failed: ${{ steps.test.outputs.tests_failed }}
+      tests_skipped: ${{ steps.test.outputs.tests_skipped }}
+      tests_runtime_seconds: ${{ steps.test.outputs.tests_runtime_seconds }}
+      coverage_lines_covered: ${{ steps.coverage.outputs.lines_covered }}
+      coverage_lines_total: ${{ steps.coverage.outputs.lines_total }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -696,15 +399,21 @@ jobs:
           # Extract test counts from JUnit XML
           PASSED=0
           FAILED=0
+          SKIPPED=0
+          RUNTIME=0
           if [ -f "test-results.xml" ]; then
             TESTS=$(grep -oP 'tests="\K[0-9]+' test-results.xml | head -1 || echo 0)
             FAILURES=$(grep -oP 'failures="\K[0-9]+' test-results.xml | head -1 || echo 0)
             ERRORS=$(grep -oP 'errors="\K[0-9]+' test-results.xml | head -1 || echo 0)
+            SKIPPED=$(grep -oP 'skipped="\K[0-9]+' test-results.xml | head -1 || echo 0)
+            RUNTIME=$(grep -oP 'time="\K[0-9.]+' test-results.xml | head -1 || echo 0)
             FAILED=$((FAILURES + ERRORS))
-            PASSED=$((TESTS - FAILED))
+            PASSED=$((TESTS - FAILED - SKIPPED))
           fi
           echo "tests_passed=$PASSED" >> "$GITHUB_OUTPUT"
           echo "tests_failed=$FAILED" >> "$GITHUB_OUTPUT"
+          echo "tests_skipped=$SKIPPED" >> "$GITHUB_OUTPUT"
+          echo "tests_runtime_seconds=$RUNTIME" >> "$GITHUB_OUTPUT"
 
       - name: Run Hypothesis Property Tests
         id: hypothesis
@@ -724,17 +433,23 @@ jobs:
         if: inputs.run_pytest
         run: |
           COVERAGE=0
+          LINES_COVERED=0
+          LINES_TOTAL=0
           if [ -f "coverage.xml" ]; then
             COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
+            LINES_COVERED=$(grep -oP 'lines-covered="\K[0-9]+' coverage.xml | head -1 || echo 0)
+            LINES_TOTAL=$(grep -oP 'lines-valid="\K[0-9]+' coverage.xml | head -1 || echo 0)
           fi
           echo "percentage=$COVERAGE" >> "$GITHUB_OUTPUT"
+          echo "lines_covered=$LINES_COVERED" >> "$GITHUB_OUTPUT"
+          echo "lines_total=$LINES_TOTAL" >> "$GITHUB_OUTPUT"
           echo "Coverage: $COVERAGE%"
 
       - name: Check Coverage Threshold
         if: inputs.run_pytest
         env:
           COVERAGE_PCT: ${{ steps.coverage.outputs.percentage || 0 }}
-          MIN_COVERAGE: ${{ needs.lint.outputs.eff_coverage_min }}
+          MIN_COVERAGE: ${{ inputs.coverage_min }}
         run: |
           COVERAGE=$COVERAGE_PCT
           MIN=$MIN_COVERAGE
@@ -742,85 +457,6 @@ jobs:
             echo "::error::Coverage $COVERAGE% is below minimum $MIN%"
             exit 1
           fi
-
-      - name: Test Summary
-        if: always()
-        env:
-          RUN_PYTEST: ${{ inputs.run_pytest }}
-          RUN_HYPOTHESIS: ${{ inputs.run_hypothesis }}
-          EFF_COVERAGE_MIN: ${{ needs.lint.outputs.eff_coverage_min }}
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
-          STEP_TESTS_PASSED: ${{ steps.test.outputs.tests_passed || 0 }}
-          STEP_TESTS_FAILED: ${{ steps.test.outputs.tests_failed || 0 }}
-          STEP_COVERAGE_PCT: ${{ steps.coverage.outputs.percentage || 0 }}
-          STEP_HYP_OUTCOME: ${{ steps.hypothesis.outcome }}
-          STEP_HYP_EXAMPLES: ${{ steps.hypothesis.outputs.examples || 0 }}
-        run: |
-          {
-            echo "## Test Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Testing | pytest | $RUN_PYTEST |"
-            echo "| Testing | Hypothesis | $RUN_HYPOTHESIS |"
-            echo ""
-            echo "### Thresholds (effective)"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Min Coverage | $EFF_COVERAGE_MIN% |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-
-            if [ "$RUN_PYTEST" != "true" ]; then
-              echo "| pytest | SKIP | - |"
-            else
-              TESTS_PASSED="$STEP_TESTS_PASSED"
-              TESTS_FAILED="$STEP_TESTS_FAILED"
-              COVERAGE="$STEP_COVERAGE_PCT"
-              MIN_COVERAGE="$EFF_COVERAGE_MIN"
-              if [ "${TESTS_FAILED:-0}" -gt 0 ] || [ "${COVERAGE:-0}" -lt "${MIN_COVERAGE:-0}" ]; then
-                STATUS="FAIL"
-              else
-                STATUS="PASS"
-              fi
-              echo "| pytest | $STATUS | passed: ${TESTS_PASSED:-0}, failed: ${TESTS_FAILED:-0}, coverage: ${COVERAGE:-0}% (min ${MIN_COVERAGE:-0}%) |"
-            fi
-
-            if [ "$RUN_HYPOTHESIS" != "true" ]; then
-              echo "| Hypothesis | SKIP | - |"
-            else
-              HYP_OUTCOME="$STEP_HYP_OUTCOME"
-              if [ "$HYP_OUTCOME" = "success" ]; then
-                STATUS="PASS"
-              else
-                STATUS="FAIL"
-              fi
-              EXAMPLES="$STEP_HYP_EXAMPLES"
-              echo "| Hypothesis | $STATUS | examples: ${EXAMPLES:-0} |"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload Test Results
         if: always() && inputs.run_pytest
@@ -904,8 +540,8 @@ jobs:
 
       - name: Enforce pip-audit Thresholds
         env:
-          EFF_MAX_CRITICAL_VULNS: ${{ needs.lint.outputs.eff_max_critical_vulns || 0 }}
-          EFF_MAX_HIGH_VULNS: ${{ needs.lint.outputs.eff_max_high_vulns || 0 }}
+          EFF_MAX_CRITICAL_VULNS: ${{ inputs.max_critical_vulns }}
+          EFF_MAX_HIGH_VULNS: ${{ inputs.max_high_vulns }}
         run: |
           CRITICAL=0
           HIGH=0
@@ -926,66 +562,6 @@ jobs:
             echo "::error::pip-audit high findings ($HIGH) exceed max_high_vulns $MAX_HIGH"
             exit 1
           fi
-
-      - name: Security Scan Summary
-        if: always()
-        env:
-          RUN_PIP_AUDIT: ${{ inputs.run_pip_audit }}
-          EFF_MAX_CRITICAL_VULNS: ${{ needs.lint.outputs.eff_max_critical_vulns }}
-          EFF_MAX_HIGH_VULNS: ${{ needs.lint.outputs.eff_max_high_vulns }}
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
-        run: |
-          {
-            echo "## Security Scan Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Security | pip-audit | $RUN_PIP_AUDIT |"
-            echo ""
-            echo "### Thresholds (effective)"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Max Critical Vulns | $EFF_MAX_CRITICAL_VULNS |"
-            echo "| Max High Vulns | $EFF_MAX_HIGH_VULNS |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-
-            CRITICAL=0
-            HIGH=0
-            if [ -f "pip-audit-report.json" ]; then
-              HIGH=$(python -c "import json; from pathlib import Path; path = Path('pip-audit-report.json'); data = json.loads(path.read_text()) if path.exists() else {}; print(sum(len(dep.get('vulnerabilities', []) or []) for dep in data.get('dependencies', [])))")
-            fi
-            MAX_CRITICAL="${EFF_MAX_CRITICAL_VULNS:-0}"
-            MAX_HIGH="${EFF_MAX_HIGH_VULNS:-0}"
-            if [ "${CRITICAL:-0}" -le "${MAX_CRITICAL:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ]; then
-              STATUS="PASS"
-            else
-              STATUS="FAIL"
-            fi
-            echo "| pip-audit | $STATUS | high: ${HIGH:-0} (max ${MAX_HIGH:-0}), critical: ${CRITICAL:-0} (max ${MAX_CRITICAL:-0}) |"
-          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # Type Checking
@@ -1032,58 +608,6 @@ jobs:
           retention-days: ${{ inputs.retention_days }}
           if-no-files-found: ignore
 
-      - name: Type Check Summary
-        if: always()
-        env:
-          RUN_MYPY: ${{ inputs.run_mypy }}
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
-          STEP_MYPY_ERRORS: ${{ steps.mypy.outputs.errors || 0 }}
-        run: |
-          {
-            echo "## Type Check Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Linting | mypy | $RUN_MYPY |"
-            echo ""
-            echo "### Thresholds"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Max mypy errors | N/A |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-
-            ERRORS="$STEP_MYPY_ERRORS"
-            if [ "${ERRORS:-0}" -eq 0 ]; then
-              STATUS="PASS"
-            else
-              STATUS="FAIL"
-            fi
-            echo "| mypy | $STATUS | errors: ${ERRORS:-0} |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
   # ============================================================================
   # Mutation Testing
   # ============================================================================
@@ -1094,6 +618,8 @@ jobs:
     if: always() && inputs.run_mutmut
     outputs:
       score: ${{ steps.mutmut.outputs.score }}
+      killed: ${{ steps.mutmut.outputs.killed }}
+      survived: ${{ steps.mutmut.outputs.survived }}
     defaults:
       run:
         working-directory: ${{ inputs.workdir }}
@@ -1214,67 +740,11 @@ jobs:
       - name: Enforce Mutation Threshold
         run: |
           SCORE=${{ steps.mutmut.outputs.score || 0 }}
-          MIN=${{ needs.lint.outputs.eff_mutation_score_min }}
+          MIN=${{ inputs.mutation_score_min }}
           if [ "$SCORE" -lt "$MIN" ]; then
             echo "::error::Mutation score $SCORE% is below minimum $MIN%"
             exit 1
           fi
-
-      - name: Mutation Summary
-        if: always()
-        env:
-          RUN_MUTMUT: ${{ inputs.run_mutmut }}
-          EFF_MUTATION_SCORE_MIN: ${{ needs.lint.outputs.eff_mutation_score_min }}
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
-          STEP_SCORE: ${{ steps.mutmut.outputs.score || 0 }}
-          STEP_KILLED: ${{ steps.mutmut.outputs.killed || 0 }}
-          STEP_SURVIVED: ${{ steps.mutmut.outputs.survived || 0 }}
-        run: |
-          {
-            echo "## Mutation Testing Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Testing | mutmut | $RUN_MUTMUT |"
-            echo ""
-            echo "### Thresholds (effective)"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Min Mutation Score | $EFF_MUTATION_SCORE_MIN% |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-
-            SCORE="$STEP_SCORE"
-            MIN_SCORE="$EFF_MUTATION_SCORE_MIN"
-            if [ "${SCORE:-0}" -ge "${MIN_SCORE:-0}" ]; then
-              STATUS="PASS"
-            else
-              STATUS="FAIL"
-            fi
-            echo "| mutmut | $STATUS | score: ${SCORE:-0}% (min ${MIN_SCORE:-0}%), killed: $STEP_KILLED, survived: $STEP_SURVIVED |"
-          } >> "$GITHUB_STEP_SUMMARY"
 
   # ============================================================================
   # Semgrep SAST
@@ -1318,60 +788,6 @@ jobs:
           echo "Semgrep Findings: $FINDINGS"
         continue-on-error: true
 
-      - name: Semgrep Summary
-        if: always()
-        env:
-          RUN_SEMGREP: ${{ inputs.run_semgrep }}
-          EFF_MAX_SEMGREP_FINDINGS: ${{ needs.lint.outputs.eff_max_semgrep_findings }}
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
-          STEP_FINDINGS: ${{ steps.semgrep.outputs.findings || 0 }}
-        run: |
-          {
-            echo "## Semgrep SAST Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Security | Semgrep | $RUN_SEMGREP |"
-            echo ""
-            echo "### Thresholds (effective)"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Max Semgrep Findings | $EFF_MAX_SEMGREP_FINDINGS |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-
-            FINDINGS="$STEP_FINDINGS"
-            MAX_FINDINGS="${EFF_MAX_SEMGREP_FINDINGS:-0}"
-            if [ "${FINDINGS:-0}" -le "${MAX_FINDINGS:-0}" ]; then
-              STATUS="PASS"
-            else
-              STATUS="FAIL"
-            fi
-            echo "| Semgrep | $STATUS | findings: ${FINDINGS:-0} (max ${MAX_FINDINGS:-0}) |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Upload Semgrep Report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -1384,7 +800,7 @@ jobs:
       - name: Enforce Semgrep Threshold
         env:
           STEP_FINDINGS: ${{ steps.semgrep.outputs.findings || 0 }}
-          EFF_MAX_SEMGREP_FINDINGS: ${{ needs.lint.outputs.eff_max_semgrep_findings || 0 }}
+          EFF_MAX_SEMGREP_FINDINGS: ${{ inputs.max_semgrep_findings }}
         run: |
           FINDINGS=$STEP_FINDINGS
           MAX_FINDINGS=$EFF_MAX_SEMGREP_FINDINGS
@@ -1454,70 +870,6 @@ jobs:
           echo "high=$HIGH" >> "$GITHUB_OUTPUT"
           echo "Trivy: $CRITICAL critical, $HIGH high"
 
-      - name: Trivy Summary
-        if: always()
-        env:
-          RUN_TRIVY: ${{ inputs.run_trivy }}
-          EFF_MAX_CRITICAL_VULNS: ${{ needs.lint.outputs.eff_max_critical_vulns }}
-          EFF_MAX_HIGH_VULNS: ${{ needs.lint.outputs.eff_max_high_vulns }}
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
-          STEP_DOCKERFILE_EXISTS: ${{ steps.check-dockerfile.outputs.exists }}
-          STEP_TRIVY_CRITICAL: ${{ steps.trivy-parse.outputs.critical || 0 }}
-          STEP_TRIVY_HIGH: ${{ steps.trivy-parse.outputs.high || 0 }}
-        run: |
-          {
-            echo "## Trivy Container Scan Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Security | Trivy | $RUN_TRIVY |"
-            echo ""
-            echo "### Thresholds (effective)"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Max Critical Vulns | $EFF_MAX_CRITICAL_VULNS |"
-            echo "| Max High Vulns | $EFF_MAX_HIGH_VULNS |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-
-            if [ "$STEP_DOCKERFILE_EXISTS" != "true" ]; then
-              echo "| Trivy | SKIP | No Dockerfile found |"
-            else
-              CRIT="$STEP_TRIVY_CRITICAL"
-              HIGH="$STEP_TRIVY_HIGH"
-              MAX_CRIT="${EFF_MAX_CRITICAL_VULNS:-0}"
-              MAX_HIGH="${EFF_MAX_HIGH_VULNS:-0}"
-              if [ "${CRIT:-0}" -le "${MAX_CRIT:-0}" ] && [ "${HIGH:-0}" -le "${MAX_HIGH:-0}" ]; then
-                STATUS="PASS"
-              else
-                STATUS="FAIL"
-              fi
-              echo "| Trivy | $STATUS | critical: ${CRIT:-0} (max ${MAX_CRIT:-0}), high: ${HIGH:-0} (max ${MAX_HIGH:-0}) |"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
       - name: Upload Trivy Report
         if: always() && steps.check-dockerfile.outputs.exists == 'true'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -1532,9 +884,9 @@ jobs:
         env:
           STEP_TRIVY_CRITICAL: ${{ steps.trivy-parse.outputs.critical || 0 }}
           STEP_TRIVY_HIGH: ${{ steps.trivy-parse.outputs.high || 0 }}
-          EFF_MAX_CRITICAL_VULNS: ${{ needs.lint.outputs.eff_max_critical_vulns || 0 }}
-          EFF_MAX_HIGH_VULNS: ${{ needs.lint.outputs.eff_max_high_vulns || 0 }}
-          EFF_OWASP_CVSS_FAIL: ${{ needs.lint.outputs.eff_owasp_cvss_fail }}
+          EFF_MAX_CRITICAL_VULNS: ${{ inputs.max_critical_vulns }}
+          EFF_MAX_HIGH_VULNS: ${{ inputs.max_high_vulns }}
+          EFF_OWASP_CVSS_FAIL: ${{ inputs.owasp_cvss_fail }}
           TRIVY_REPORT_PATH: ${{ github.workspace }}/trivy-report.json
         run: |
           CRIT="$STEP_TRIVY_CRITICAL"
@@ -1604,64 +956,6 @@ jobs:
             docker images | grep ci-test
           fi
 
-      - name: Docker Summary
-        if: always()
-        env:
-          RUN_DOCKER: ${{ inputs.run_docker }}
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
-          STEP_BUILD_OUTCOME: ${{ steps.docker-build.outcome }}
-          STEP_TEST_OUTCOME: ${{ steps.docker-test.outcome }}
-        run: |
-          {
-            echo "## Docker Build Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Container | Docker | $RUN_DOCKER |"
-            echo ""
-            echo "### Thresholds"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| N/A | N/A |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-
-            if [ ! -f "Dockerfile" ]; then
-              echo "| Docker | SKIP | No Dockerfile found |"
-            else
-              BUILD_STATUS="$STEP_BUILD_OUTCOME"
-              TEST_STATUS="$STEP_TEST_OUTCOME"
-              if [ "$BUILD_STATUS" = "success" ] && [ "$TEST_STATUS" = "success" ]; then
-                STATUS="PASS"
-              else
-                STATUS="FAIL"
-              fi
-              echo "| Docker | $STATUS | build: ${BUILD_STATUS:-unknown}, test: ${TEST_STATUS:-unknown} |"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-
   # ============================================================================
   # CodeQL
   # ============================================================================
@@ -1692,64 +986,13 @@ jobs:
         id: codeql-analyze
         uses: github/codeql-action/analyze@5d4e8d1aca955e8d8589aabd499c5cae939e33c7
 
-      - name: CodeQL Summary
-        if: always()
-        env:
-          RUN_CODEQL: ${{ inputs.run_codeql }}
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
-          STEP_CODEQL_OUTCOME: ${{ steps.codeql-analyze.outcome }}
-        run: |
-          {
-            echo "## CodeQL Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Security | CodeQL | $RUN_CODEQL |"
-            echo ""
-            echo "### Thresholds"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| N/A | N/A |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-            OUTCOME="$STEP_CODEQL_OUTCOME"
-            if [ "$OUTCOME" = "success" ]; then
-              STATUS="PASS"
-            else
-              STATUS="FAIL"
-            fi
-            echo "| CodeQL | $STATUS | outcome: ${OUTCOME:-unknown} (see Security tab) |"
-          } >> "$GITHUB_STEP_SUMMARY"
-
   # ============================================================================
   # Generate Report
   # ============================================================================
   report:
     name: Generate Report
     runs-on: ubuntu-latest
-    needs: [lint, test, security, typecheck, mutation-test, semgrep, trivy]
+    needs: [lint, test, security, typecheck, mutation-test, semgrep, trivy, docker-build, codeql]
     if: always()
 
     steps:
@@ -1767,14 +1010,26 @@ jobs:
           GITHUB_RUN_NUMBER: ${{ github.run_number }}
           GITHUB_SHA_VAL: ${{ github.sha }}
           GITHUB_REF_NAME_VAL: ${{ github.ref_name }}
+          GITHUB_WORKFLOW_REF_VAL: ${{ github.workflow_ref }}
           HUB_CORRELATION_ID: ${{ inputs.hub_correlation_id }}
           INPUT_PYTHON_VERSION: ${{ inputs.python_version }}
         run: |
+          WORKFLOW_REF="$GITHUB_WORKFLOW_REF_VAL"
+          if [ -z "$WORKFLOW_REF" ]; then
+            WORKFLOW_REF="${GITHUB_REPO}/.github/workflows/python-ci.yml@${GITHUB_REF_NAME_VAL}"
+          fi
+          WORKFLOW_VERSION="${WORKFLOW_REF##*@}"
+
           # Extract vulnerability counts from pip-audit report
           CRITICAL_VULNS=0
           HIGH_VULNS=0
           MEDIUM_VULNS=0
+          LOW_VULNS=0
           PIP_AUDIT_VULNS=0
+          TRIVY_CRITICAL=0
+          TRIVY_HIGH=0
+          TRIVY_MEDIUM=0
+          TRIVY_LOW=0
 
           PIP_AUDIT_REPORT=$(find all-reports -name "pip-audit-report.json" 2>/dev/null | head -1)
           if [ -n "$PIP_AUDIT_REPORT" ] && [ -f "$PIP_AUDIT_REPORT" ]; then
@@ -1791,18 +1046,20 @@ jobs:
             TRIVY_CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
             TRIVY_HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
             TRIVY_MEDIUM=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
+            TRIVY_LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' "$TRIVY_REPORT" 2>/dev/null || echo 0)
             # Add Trivy counts to totals
             CRITICAL_VULNS=$((CRITICAL_VULNS + TRIVY_CRITICAL))
             HIGH_VULNS=$((HIGH_VULNS + TRIVY_HIGH))
             MEDIUM_VULNS=$((MEDIUM_VULNS + TRIVY_MEDIUM))
+            LOW_VULNS=$((LOW_VULNS + TRIVY_LOW))
           fi
 
           cat > report.json << EOF
           {
             "schema_version": "2.0",
             "metadata": {
-              "workflow_version": "v1.0.0",
-              "workflow_ref": "${GITHUB_REPO}/.github/workflows/python-ci.yml@${GITHUB_REF_NAME_VAL}",
+              "workflow_version": "${WORKFLOW_VERSION}",
+              "workflow_ref": "${WORKFLOW_REF}",
               "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
             },
             "repository": "${GITHUB_REPO}",
@@ -1816,24 +1073,34 @@ jobs:
             "results": {
               "test": "${{ needs.test.outputs.status }}",
               "coverage": ${{ needs.test.outputs.coverage || 0 }},
+              "coverage_lines_covered": ${{ needs.test.outputs.coverage_lines_covered || 0 }},
+              "coverage_lines_total": ${{ needs.test.outputs.coverage_lines_total || 0 }},
               "mutation_score": ${{ needs.mutation-test.outputs.score || 0 }},
+              "mutation_killed": ${{ needs.mutation-test.outputs.killed || 0 }},
+              "mutation_survived": ${{ needs.mutation-test.outputs.survived || 0 }},
               "tests_passed": ${{ needs.test.outputs.tests_passed || 0 }},
               "tests_failed": ${{ needs.test.outputs.tests_failed || 0 }},
+              "tests_skipped": ${{ needs.test.outputs.tests_skipped || 0 }},
+              "tests_runtime_seconds": ${{ needs.test.outputs.tests_runtime_seconds || 0 }},
               "critical_vulns": ${CRITICAL_VULNS},
               "high_vulns": ${HIGH_VULNS},
-              "medium_vulns": ${MEDIUM_VULNS}
+              "medium_vulns": ${MEDIUM_VULNS},
+              "low_vulns": ${LOW_VULNS}
             },
             "tool_metrics": {
               "ruff_errors": ${{ needs.lint.outputs.ruff_errors || 0 }},
               "mypy_errors": ${{ needs.typecheck.outputs.errors || 0 }},
               "bandit_high": ${{ needs.lint.outputs.bandit_high || 0 }},
               "bandit_medium": ${{ needs.lint.outputs.bandit_medium || 0 }},
+              "bandit_low": ${{ needs.lint.outputs.bandit_low || 0 }},
               "black_issues": ${{ needs.lint.outputs.black_issues || 0 }},
               "isort_issues": ${{ needs.lint.outputs.isort_issues || 0 }},
               "pip_audit_vulns": ${PIP_AUDIT_VULNS},
               "semgrep_findings": ${{ needs.semgrep.outputs.findings || 0 }},
               "trivy_critical": ${{ needs.trivy.outputs.critical || 0 }},
-              "trivy_high": ${{ needs.trivy.outputs.high || 0 }}
+              "trivy_high": ${{ needs.trivy.outputs.high || 0 }},
+              "trivy_medium": ${TRIVY_MEDIUM},
+              "trivy_low": ${TRIVY_LOW}
             },
             "tools_configured": {
               "pytest": ${{ inputs.run_pytest }},
@@ -1853,7 +1120,7 @@ jobs:
             "tools_ran": {
               "pytest": ${{ inputs.run_pytest == true && needs.test.result != 'skipped' }},
               "ruff": ${{ inputs.run_ruff == true && needs.lint.result != 'skipped' }},
-              "bandit": ${{ inputs.run_bandit == true && needs.security.result != 'skipped' }},
+              "bandit": ${{ inputs.run_bandit == true && needs.lint.result != 'skipped' }},
               "pip_audit": ${{ inputs.run_pip_audit == true && needs.security.result != 'skipped' }},
               "mypy": ${{ inputs.run_mypy == true && needs.typecheck.result != 'skipped' }},
               "hypothesis": ${{ inputs.run_hypothesis == true && needs.test.result != 'skipped' }},
@@ -1862,13 +1129,13 @@ jobs:
               "mutmut": ${{ inputs.run_mutmut == true && needs.mutation-test.result != 'skipped' }},
               "semgrep": ${{ inputs.run_semgrep == true && needs.semgrep.result != 'skipped' }},
               "trivy": ${{ inputs.run_trivy == true && needs.trivy.result != 'skipped' }},
-              "docker": ${{ inputs.run_docker == true }},
-              "codeql": ${{ inputs.run_codeql == true }}
+              "docker": ${{ inputs.run_docker == true && needs.docker-build.result != 'skipped' }},
+              "codeql": ${{ inputs.run_codeql == true && needs.codeql.result != 'skipped' }}
             },
             "tools_success": {
               "pytest": ${{ inputs.run_pytest == true && needs.test.result == 'success' }},
               "ruff": ${{ inputs.run_ruff == true && needs.lint.result == 'success' }},
-              "bandit": ${{ inputs.run_bandit == true && needs.security.result == 'success' }},
+              "bandit": ${{ inputs.run_bandit == true && needs.lint.result == 'success' }},
               "pip_audit": ${{ inputs.run_pip_audit == true && needs.security.result == 'success' }},
               "mypy": ${{ inputs.run_mypy == true && needs.typecheck.result == 'success' }},
               "hypothesis": ${{ inputs.run_hypothesis == true && needs.test.result == 'success' }},
@@ -1877,8 +1144,29 @@ jobs:
               "mutmut": ${{ inputs.run_mutmut == true && needs.mutation-test.result == 'success' }},
               "semgrep": ${{ inputs.run_semgrep == true && needs.semgrep.result == 'success' }},
               "trivy": ${{ inputs.run_trivy == true && needs.trivy.result == 'success' }},
-              "docker": ${{ inputs.run_docker == true }},
-              "codeql": ${{ inputs.run_codeql == true }}
+              "docker": ${{ inputs.run_docker == true && needs.docker-build.result == 'success' }},
+              "codeql": ${{ inputs.run_codeql == true && needs.codeql.result == 'success' }}
+            },
+            "thresholds": {
+              "coverage_min": ${{ inputs.coverage_min }},
+              "mutation_score_min": ${{ inputs.mutation_score_min }},
+              "owasp_cvss_fail": ${{ inputs.owasp_cvss_fail }},
+              "max_critical_vulns": ${{ inputs.max_critical_vulns }},
+              "max_high_vulns": ${{ inputs.max_high_vulns }},
+              "max_semgrep_findings": ${{ inputs.max_semgrep_findings }},
+              "max_black_issues": ${{ inputs.max_black_issues }},
+              "max_isort_issues": ${{ inputs.max_isort_issues }},
+              "max_ruff_errors": ${{ inputs.max_ruff_errors }}
+            },
+            "dependency_severity": {
+              "critical": ${CRITICAL_VULNS},
+              "high": ${HIGH_VULNS},
+              "medium": ${MEDIUM_VULNS},
+              "low": ${LOW_VULNS}
+            },
+            "environment": {
+              "workdir": "${{ inputs.workdir }}",
+              "retention_days": ${{ inputs.retention_days }}
             }
           }
           EOF
@@ -1893,52 +1181,40 @@ jobs:
           path: report.json
           retention-days: ${{ inputs.retention_days }}
 
-      - name: Report Summary
-        if: always()
-        env:
-          PYTHON_VERSION: ${{ inputs.python_version }}
-          INPUT_WORKDIR: ${{ inputs.workdir }}
-          INPUT_RETENTION_DAYS: ${{ inputs.retention_days }}
-          INPUT_ARTIFACT_PREFIX: ${{ inputs.artifact_prefix }}
+      - name: Resolve Hub Workflow Ref
+        id: hub-ref
         run: |
-          {
-            echo "## Report Summary"
-            echo ""
-            echo "### Configuration"
-            echo "| Category | Tool | Enabled |"
-            echo "|----------|------|---------|"
-            echo "| Reporting | ci-report | true |"
-            echo ""
-            echo "### Thresholds"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| N/A | N/A |"
-            echo ""
-            echo "### Environment"
-            echo "| Setting | Value |"
-            echo "|---------|-------|"
-            echo "| Python Version | $PYTHON_VERSION |"
-            WORKDIR="$INPUT_WORKDIR"
-            if [ "$WORKDIR" = "." ] || [ -z "$WORKDIR" ]; then
-              echo "| Working Directory | \`.\` (repo root) |"
-            else
-              echo "| Working Directory | \`$WORKDIR\` |"
-            fi
-            echo "| Artifact Retention | $INPUT_RETENTION_DAYS days |"
-            PREFIX="$INPUT_ARTIFACT_PREFIX"
-            if [ -n "$PREFIX" ]; then
-              echo "| Artifact Prefix | \`$PREFIX\` |"
-            fi
-            echo ""
-            echo "### Results"
-            echo "| Tool | Status | Details |"
-            echo "|------|--------|---------|"
-            if [ -f "report.json" ]; then
-              STATUS="PASS"
-              DETAILS="report.json generated"
-            else
-              STATUS="FAIL"
-              DETAILS="report.json missing"
-            fi
-            echo "| ci-report | $STATUS | $DETAILS |"
-          } >> "$GITHUB_STEP_SUMMARY"
+          WF_REF="${GITHUB_WORKFLOW_REF:-}"
+          if [ -n "$WF_REF" ]; then
+            REPO="${WF_REF%%/.github/workflows/*}"
+            REF="${WF_REF##*@}"
+          else
+            REPO="jguida941/ci-cd-hub"
+            REF="main"
+          fi
+          echo "repo=$REPO" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Hub Scripts
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ steps.hub-ref.outputs.repo }}
+          ref: ${{ steps.hub-ref.outputs.ref }}
+          path: hub
+          persist-credentials: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Render Summary
+        if: always()
+        run: |
+          python hub/scripts/render_summary.py --report report.json --output summary.md
+          cat summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Validate Summary
+        if: always()
+        run: |
+          python hub/scripts/validate_summary.py \
+            --report report.json \
+            --summary summary.md \
+            --reports-dir all-reports \
+            --strict

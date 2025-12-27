@@ -218,6 +218,24 @@ jobs:
                   if key in inputs:
                       entry[key] = inputs[key]
 
+              # Thresholds (tool gates)
+              for key in (
+                  "coverage_min",
+                  "mutation_score_min",
+                  "owasp_cvss_fail",
+                  "max_critical_vulns",
+                  "max_high_vulns",
+                  "max_semgrep_findings",
+                  "max_pmd_violations",
+                  "max_checkstyle_errors",
+                  "max_spotbugs_bugs",
+                  "max_ruff_errors",
+                  "max_black_issues",
+                  "max_isort_issues",
+              ):
+                  if key in inputs:
+                      entry[key] = inputs[key]
+
               entries.append(entry)
 
           matrix = {"include": entries}
@@ -605,26 +623,41 @@ jobs:
         run: |
           pytest --cov=. --cov-report=xml --cov-report=term --junitxml=pytest-junit.xml -v 2>&1 | tee test-output.txt || true
 
-          # Extract test counts from final summary line only
-          TOTAL=$(grep -oP '\d+(?= passed)' test-output.txt | tail -1)
-          TOTAL=${TOTAL:-0}
-          FAILED=$(grep -oP '\d+(?= failed)' test-output.txt | tail -1)
-          FAILED=${FAILED:-0}
-          SKIPPED=$(grep -oP '\d+(?= skipped)' test-output.txt | tail -1)
-          SKIPPED=${SKIPPED:-0}
+          # Extract test counts from JUnit XML
+          PASSED=0
+          FAILED=0
+          SKIPPED=0
+          RUNTIME=0
+          if [ -f "pytest-junit.xml" ]; then
+            TESTS=$(grep -oP 'tests="\K[0-9]+' pytest-junit.xml | head -1 || echo 0)
+            FAILURES=$(grep -oP 'failures="\K[0-9]+' pytest-junit.xml | head -1 || echo 0)
+            ERRORS=$(grep -oP 'errors="\K[0-9]+' pytest-junit.xml | head -1 || echo 0)
+            SKIPPED=$(grep -oP 'skipped="\K[0-9]+' pytest-junit.xml | head -1 || echo 0)
+            RUNTIME=$(grep -oP 'time="\K[0-9.]+' pytest-junit.xml | head -1 || echo 0)
+            FAILED=$((FAILURES + ERRORS))
+            PASSED=$((TESTS - FAILED - SKIPPED))
+          fi
+          TOTAL=$((PASSED + FAILED + SKIPPED))
 
           COVERAGE=0
+          LINES_COVERED=0
+          LINES_TOTAL=0
           if [ -f "coverage.xml" ]; then
             COVERAGE=$(grep -oP 'line-rate="\K[0-9.]+' coverage.xml | head -1 | awk '{printf "%.0f", $1 * 100}')
             COVERAGE=${COVERAGE:-0}
+            LINES_COVERED=$(grep -oP 'lines-covered="\K[0-9]+' coverage.xml | head -1 || echo 0)
+            LINES_TOTAL=$(grep -oP 'lines-valid="\K[0-9]+' coverage.xml | head -1 || echo 0)
           fi
 
           {
             echo "total=$TOTAL"
-            echo "passed=$TOTAL"
+            echo "passed=$PASSED"
             echo "failed=$FAILED"
             echo "skipped=$SKIPPED"
+            echo "runtime=$RUNTIME"
             echo "coverage=$COVERAGE"
+            echo "coverage_lines_covered=$LINES_COVERED"
+            echo "coverage_lines_total=$LINES_TOTAL"
           } >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
@@ -937,313 +970,6 @@ jobs:
           echo "status=complete" >> "$GITHUB_OUTPUT"
         continue-on-error: true
 
-      # ========================================
-      # GENERATE BEAUTIFUL REPORT
-      # ========================================
-      - name: Generate QA Metrics Report
-        id: report
-        env:
-          MATRIX_LANGUAGE: ${{ matrix.language }}
-          MATRIX_CONFIG_BASENAME: ${{ matrix.config_basename }}
-          MATRIX_SUBDIR: ${{ matrix.subdir }}
-          MATRIX_OWNER: ${{ matrix.owner }}
-          MATRIX_NAME: ${{ matrix.name }}
-          MATRIX_BRANCH: ${{ matrix.branch }}
-          MATRIX_RUN_GROUP: ${{ matrix.run_group }}
-          MATRIX_JAVA_VERSION: ${{ matrix.java_version }}
-          MATRIX_PYTHON_VERSION: ${{ matrix.python_version }}
-          MATRIX_BUILD_TOOL: ${{ matrix.build_tool }}
-          MATRIX_RETENTION_DAYS: ${{ matrix.retention_days }}
-          # Java tool flags
-          MATRIX_RUN_JACOCO: ${{ matrix.run_jacoco }}
-          MATRIX_RUN_PITEST: ${{ matrix.run_pitest }}
-          MATRIX_RUN_CHECKSTYLE: ${{ matrix.run_checkstyle }}
-          MATRIX_RUN_PMD: ${{ matrix.run_pmd }}
-          MATRIX_RUN_SPOTBUGS: ${{ matrix.run_spotbugs }}
-          MATRIX_RUN_OWASP: ${{ matrix.run_owasp }}
-          MATRIX_RUN_JQWIK: ${{ matrix.run_jqwik }}
-          # Python tool flags
-          MATRIX_RUN_PYTEST: ${{ matrix.run_pytest }}
-          MATRIX_RUN_MUTMUT: ${{ matrix.run_mutmut }}
-          MATRIX_RUN_RUFF: ${{ matrix.run_ruff }}
-          MATRIX_RUN_BLACK: ${{ matrix.run_black }}
-          MATRIX_RUN_ISORT: ${{ matrix.run_isort }}
-          MATRIX_RUN_MYPY: ${{ matrix.run_mypy }}
-          MATRIX_RUN_BANDIT: ${{ matrix.run_bandit }}
-          MATRIX_RUN_PIP_AUDIT: ${{ matrix.run_pip_audit }}
-          MATRIX_RUN_HYPOTHESIS: ${{ matrix.run_hypothesis }}
-          # Common tool flags
-          MATRIX_RUN_SEMGREP: ${{ matrix.run_semgrep }}
-          MATRIX_RUN_TRIVY: ${{ matrix.run_trivy }}
-          MATRIX_RUN_CODEQL: ${{ matrix.run_codeql }}
-          MATRIX_RUN_DOCKER: ${{ matrix.run_docker }}
-          # Step outcomes (safe but included for consistency)
-          JAVA_BUILD_OUTCOME: ${{ steps.java-build.outcome }}
-          JAVA_COVERAGE_OUTCOME: ${{ steps.java-coverage.outcome }}
-          JAVA_MUTATION_OUTCOME: ${{ steps.java-mutation.outcome }}
-          JAVA_CHECKSTYLE_OUTCOME: ${{ steps.java-checkstyle.outcome }}
-          JAVA_PMD_OUTCOME: ${{ steps.java-pmd.outcome }}
-          JAVA_SPOTBUGS_OUTCOME: ${{ steps.java-spotbugs.outcome }}
-          JAVA_OWASP_OUTCOME: ${{ steps.java-owasp.outcome }}
-          JAVA_TESTS_OUTCOME: ${{ steps.java-tests.outcome }}
-          PYTHON_TESTS_OUTCOME: ${{ steps.python-tests.outcome }}
-          PYTHON_MUTMUT_OUTCOME: ${{ steps.python-mutmut.outcome }}
-          PYTHON_RUFF_OUTCOME: ${{ steps.python-ruff.outcome }}
-          PYTHON_BLACK_OUTCOME: ${{ steps.python-black.outcome }}
-          PYTHON_ISORT_OUTCOME: ${{ steps.python-isort.outcome }}
-          PYTHON_MYPY_OUTCOME: ${{ steps.python-mypy.outcome }}
-          PYTHON_BANDIT_OUTCOME: ${{ steps.python-bandit.outcome }}
-          PYTHON_PIPAUDIT_OUTCOME: ${{ steps.python-pipaudit.outcome }}
-          SEMGREP_OUTCOME: ${{ steps.semgrep.outcome }}
-          TRIVY_OUTCOME: ${{ steps.trivy.outcome }}
-          CODEQL_OUTCOME: ${{ steps.codeql.outcome }}
-          DOCKER_BUILD_OUTCOME: ${{ steps.docker-build.outcome }}
-          # Step outputs
-          JAVA_COV_PERCENT: ${{ steps.java-coverage.outputs.percent }}
-          JAVA_MUT_SCORE: ${{ steps.java-mutation.outputs.score }}
-          JAVA_TESTS_TOTAL: ${{ steps.java-tests.outputs.total }}
-          JAVA_TESTS_RUNTIME: ${{ steps.java-tests.outputs.runtime }}
-          JAVA_TESTS_FAILED: ${{ steps.java-tests.outputs.failed }}
-          JAVA_TESTS_SKIPPED: ${{ steps.java-tests.outputs.skipped }}
-          JAVA_COV_LINES: ${{ steps.java-coverage.outputs.lines }}
-          JAVA_MUT_KILLED: ${{ steps.java-mutation.outputs.killed }}
-          JAVA_MUT_SURVIVED: ${{ steps.java-mutation.outputs.survived }}
-          JAVA_OWASP_CRITICAL: ${{ steps.java-owasp.outputs.critical }}
-          JAVA_OWASP_HIGH: ${{ steps.java-owasp.outputs.high }}
-          JAVA_OWASP_MEDIUM: ${{ steps.java-owasp.outputs.medium }}
-          JAVA_OWASP_LOW: ${{ steps.java-owasp.outputs.low }}
-          JAVA_SPOTBUGS_COUNT: ${{ steps.java-spotbugs.outputs.count }}
-          JAVA_PMD_VIOLATIONS: ${{ steps.java-pmd.outputs.violations }}
-          JAVA_CHECKSTYLE_VIOLATIONS: ${{ steps.java-checkstyle.outputs.violations }}
-          SEMGREP_FINDINGS: ${{ steps.semgrep.outputs.findings }}
-          TRIVY_CRITICAL: ${{ steps.trivy.outputs.critical }}
-          TRIVY_HIGH: ${{ steps.trivy.outputs.high }}
-          PYTHON_COV_PERCENT: ${{ steps.python-tests.outputs.coverage_percent }}
-          PYTHON_MUT_SCORE: ${{ steps.python-mutmut.outputs.score }}
-          PYTHON_TESTS_TOTAL: ${{ steps.python-tests.outputs.total }}
-          PYTHON_TESTS_RUNTIME: ${{ steps.python-tests.outputs.runtime }}
-          PYTHON_TESTS_FAILED: ${{ steps.python-tests.outputs.failed }}
-          PYTHON_TESTS_SKIPPED: ${{ steps.python-tests.outputs.skipped }}
-          PYTHON_COV_LINES: ${{ steps.python-tests.outputs.coverage_lines }}
-          PYTHON_MUT_KILLED: ${{ steps.python-mutmut.outputs.killed }}
-          PYTHON_MUT_SURVIVED: ${{ steps.python-mutmut.outputs.survived }}
-          PYTHON_BANDIT_HIGH: ${{ steps.python-bandit.outputs.high }}
-          PYTHON_BANDIT_MEDIUM: ${{ steps.python-bandit.outputs.medium }}
-          PYTHON_BANDIT_LOW: ${{ steps.python-bandit.outputs.low }}
-          PYTHON_PIPAUDIT_VULNS: ${{ steps.python-pipaudit.outputs.vulnerabilities }}
-          PYTHON_HYPOTHESIS_EXAMPLES: ${{ steps.python-hypothesis.outputs.examples }}
-          PYTHON_RUFF_ERRORS: ${{ steps.python-ruff.outputs.errors }}
-          PYTHON_RUFF_SECURITY: ${{ steps.python-ruff.outputs.security }}
-          PYTHON_BLACK_ISSUES: ${{ steps.python-black.outputs.issues }}
-          PYTHON_ISORT_ISSUES: ${{ steps.python-isort.outputs.issues }}
-          PYTHON_MYPY_ERRORS: ${{ steps.python-mypy.outputs.errors }}
-        run: |
-          # Create reports directory for this config
-          REPORT_SUFFIX="${MATRIX_CONFIG_BASENAME}${MATRIX_SUBDIR:+-${MATRIX_SUBDIR}}"
-          REPORT_DIR="reports/${REPORT_SUFFIX}"
-          mkdir -p "$REPORT_DIR"
-          SUMMARY_FILE="$REPORT_DIR/summary.md"
-          exec 3> "$SUMMARY_FILE"
-
-          # Write to summary.md first, then copy to GITHUB_STEP_SUMMARY
-          {
-            echo "# Configuration Summary"
-            echo ""
-          } >&3
-
-          if [ "$MATRIX_LANGUAGE" = "java" ]; then
-            # Helper function to check if outcome is success
-            is_success() { [ "$1" = "success" ] && echo "true" || echo "false"; }
-            ran() { [ "$1" = "success" ] || [ "$1" = "failure" ] && echo "true" || echo "false"; }
-            {
-              echo "## Tools Enabled"
-              echo "| Category | Tool | Configured | Ran | Success |"
-              echo "|----------|------|------------|-----|---------|"
-              echo "| Build | maven | true | true | $(is_success "$JAVA_BUILD_OUTCOME") |"
-              echo "| Testing | JaCoCo Coverage | ${MATRIX_RUN_JACOCO} | $(ran "$JAVA_COVERAGE_OUTCOME") | $(is_success "$JAVA_COVERAGE_OUTCOME") |"
-              echo "| Testing | PITest | ${MATRIX_RUN_PITEST} | $(ran "$JAVA_MUTATION_OUTCOME") | $(is_success "$JAVA_MUTATION_OUTCOME") |"
-              echo "| Linting | Checkstyle | ${MATRIX_RUN_CHECKSTYLE} | $(ran "$JAVA_CHECKSTYLE_OUTCOME") | $(is_success "$JAVA_CHECKSTYLE_OUTCOME") |"
-              echo "| Linting | PMD | ${MATRIX_RUN_PMD} | $(ran "$JAVA_PMD_OUTCOME") | $(is_success "$JAVA_PMD_OUTCOME") |"
-              echo "| Linting | SpotBugs | ${MATRIX_RUN_SPOTBUGS} | $(ran "$JAVA_SPOTBUGS_OUTCOME") | $(is_success "$JAVA_SPOTBUGS_OUTCOME") |"
-              echo "| Security | OWASP Dependency-Check | ${MATRIX_RUN_OWASP} | $(ran "$JAVA_OWASP_OUTCOME") | $(is_success "$JAVA_OWASP_OUTCOME") |"
-              echo "| Security | Semgrep | ${MATRIX_RUN_SEMGREP} | $(ran "$SEMGREP_OUTCOME") | $(is_success "$SEMGREP_OUTCOME") |"
-              echo "| Security | Trivy | ${MATRIX_RUN_TRIVY} | $(ran "$TRIVY_OUTCOME") | $(is_success "$TRIVY_OUTCOME") |"
-              echo "| Security | CodeQL | ${MATRIX_RUN_CODEQL} | $(ran "$CODEQL_OUTCOME") | $(is_success "$CODEQL_OUTCOME") |"
-              echo "| Testing | jqwik | ${MATRIX_RUN_JQWIK} | $(ran "$JAVA_TESTS_OUTCOME") | $(is_success "$JAVA_TESTS_OUTCOME") |"
-              echo "| Container | Docker | ${MATRIX_RUN_DOCKER} | $(ran "$DOCKER_BUILD_OUTCOME") | $(is_success "$DOCKER_BUILD_OUTCOME") |"
-              echo ""
-              echo "## Environment"
-              echo "| Setting | Value |"
-              echo "|---------|-------|"
-              echo "| Java Version | ${MATRIX_JAVA_VERSION:-NOT SET} |"
-              echo "| Build Tool | ${MATRIX_BUILD_TOOL:-NOT SET} |"
-              echo "| Working Directory | \`${MATRIX_SUBDIR:-.}\` |"
-              echo "| Repository | ${MATRIX_OWNER}/${MATRIX_NAME} |"
-              echo "| Branch | ${MATRIX_BRANCH} |"
-              echo "| Language | Java |"
-              echo "| Config | ${MATRIX_CONFIG_BASENAME} |"
-              echo "| Run Group | ${MATRIX_RUN_GROUP} |"
-              echo "| Run Number | #${GITHUB_RUN_NUMBER} |"
-              echo "| Artifact Retention | ${MATRIX_RETENTION_DAYS:-NOT SET}${MATRIX_RETENTION_DAYS:+ days} |"
-              echo ""
-              echo "---"
-              echo ""
-            } >&3
-          else
-            {
-              echo "## Tools Enabled"
-              echo "| Category | Tool | Configured | Ran | Success |"
-              echo "|----------|------|------------|-----|---------|"
-              echo "| Testing | pytest | ${MATRIX_RUN_PYTEST} | $(ran "$PYTHON_TESTS_OUTCOME") | $(is_success "$PYTHON_TESTS_OUTCOME") |"
-              echo "| Testing | mutmut | ${MATRIX_RUN_MUTMUT} | $(ran "$PYTHON_MUTMUT_OUTCOME") | $(is_success "$PYTHON_MUTMUT_OUTCOME") |"
-              echo "| Linting | Ruff | ${MATRIX_RUN_RUFF} | $(ran "$PYTHON_RUFF_OUTCOME") | $(is_success "$PYTHON_RUFF_OUTCOME") |"
-              echo "| Linting | Black | ${MATRIX_RUN_BLACK} | $(ran "$PYTHON_BLACK_OUTCOME") | $(is_success "$PYTHON_BLACK_OUTCOME") |"
-              echo "| Linting | isort | ${MATRIX_RUN_ISORT} | $(ran "$PYTHON_ISORT_OUTCOME") | $(is_success "$PYTHON_ISORT_OUTCOME") |"
-              echo "| Linting | mypy | ${MATRIX_RUN_MYPY} | $(ran "$PYTHON_MYPY_OUTCOME") | $(is_success "$PYTHON_MYPY_OUTCOME") |"
-              echo "| Security | Bandit | ${MATRIX_RUN_BANDIT} | $(ran "$PYTHON_BANDIT_OUTCOME") | $(is_success "$PYTHON_BANDIT_OUTCOME") |"
-              echo "| Security | pip-audit | ${MATRIX_RUN_PIP_AUDIT} | $(ran "$PYTHON_PIPAUDIT_OUTCOME") | $(is_success "$PYTHON_PIPAUDIT_OUTCOME") |"
-              echo "| Security | Semgrep | ${MATRIX_RUN_SEMGREP} | $(ran "$SEMGREP_OUTCOME") | $(is_success "$SEMGREP_OUTCOME") |"
-              echo "| Security | Trivy | ${MATRIX_RUN_TRIVY} | $(ran "$TRIVY_OUTCOME") | $(is_success "$TRIVY_OUTCOME") |"
-              echo "| Security | CodeQL | ${MATRIX_RUN_CODEQL} | $(ran "$CODEQL_OUTCOME") | $(is_success "$CODEQL_OUTCOME") |"
-              echo "| Testing | Hypothesis | ${MATRIX_RUN_HYPOTHESIS} | $(ran "$PYTHON_TESTS_OUTCOME") | $(is_success "$PYTHON_TESTS_OUTCOME") |"
-              echo "| Container | Docker | ${MATRIX_RUN_DOCKER} | $(ran "$DOCKER_BUILD_OUTCOME") | $(is_success "$DOCKER_BUILD_OUTCOME") |"
-              echo ""
-              echo "## Environment"
-              echo "| Setting | Value |"
-              echo "|---------|-------|"
-              echo "| Python Version | ${MATRIX_PYTHON_VERSION:-NOT SET} |"
-              echo "| Working Directory | \`${MATRIX_SUBDIR:-.}\` |"
-              echo "| Repository | ${MATRIX_OWNER}/${MATRIX_NAME} |"
-              echo "| Branch | ${MATRIX_BRANCH} |"
-              echo "| Language | Python |"
-              echo "| Config | ${MATRIX_CONFIG_BASENAME} |"
-              echo "| Run Group | ${MATRIX_RUN_GROUP} |"
-              echo "| Run Number | #${GITHUB_RUN_NUMBER} |"
-              echo "| Artifact Retention | ${MATRIX_RETENTION_DAYS:-NOT SET}${MATRIX_RETENTION_DAYS:+ days} |"
-              echo ""
-              echo "---"
-              echo ""
-            } >&3
-          fi
-          exec 3>&-
-
-          if [ "$MATRIX_LANGUAGE" = "java" ]; then
-            # Calculate progress bar
-            COV=${JAVA_COV_PERCENT:-0}
-            MUT=${JAVA_MUT_SCORE:-0}
-            COV_BAR=$(printf '█%.0s' $(seq 1 $((COV / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - COV / 5))) 2>/dev/null)
-            MUT_BAR=$(printf '█%.0s' $(seq 1 $((MUT / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - MUT / 5))) 2>/dev/null)
-
-            {
-              echo "## QA Metrics (Java)"
-              echo ""
-              echo "| Metric | Result | Details |"
-              echo "|--------|--------|---------|"
-              echo "| **Tests** | ${JAVA_TESTS_TOTAL:-0} executed | Runtime: ${JAVA_TESTS_RUNTIME:-0s}, Failures: ${JAVA_TESTS_FAILED:-0}, Skipped: ${JAVA_TESTS_SKIPPED:-0} |"
-              echo "| **Line Coverage (JaCoCo)** | ${COV}% ${COV_BAR} | ${JAVA_COV_LINES:-0 / 0} lines covered |"
-              echo "| **Mutation Score (PITest)** | ${MUT}% ${MUT_BAR} | ${JAVA_MUT_KILLED:-0} killed, ${JAVA_MUT_SURVIVED:-0} survived |"
-              echo "| **Dependency-Check** | scan complete | ${JAVA_OWASP_CRITICAL:-0} crit, ${JAVA_OWASP_HIGH:-0} high, ${JAVA_OWASP_MEDIUM:-0} med |"
-              echo "| **SpotBugs** | ${JAVA_SPOTBUGS_COUNT:-0} bugs | Static analysis |"
-              echo "| **PMD** | ${JAVA_PMD_VIOLATIONS:-0} violations | Code analysis |"
-              echo "| **Checkstyle** | ${JAVA_CHECKSTYLE_VIOLATIONS:-0} violations | Code style |"
-              echo "| **Semgrep** | ${SEMGREP_FINDINGS:-0} findings | SAST analysis |"
-              echo "| **Trivy** | ${TRIVY_CRITICAL:-0} crit, ${TRIVY_HIGH:-0} high | Container scan |"
-              echo ""
-              echo "### Dependency Severity"
-              echo "| Severity | Count |"
-              echo "|----------|-------|"
-              echo "| Critical | ${JAVA_OWASP_CRITICAL:-0} |"
-              echo "| High | ${JAVA_OWASP_HIGH:-0} |"
-              echo "| Medium | ${JAVA_OWASP_MEDIUM:-0} |"
-              echo "| Low | ${JAVA_OWASP_LOW:-0} |"
-              echo ""
-            } >&3
-
-          else
-            # Python report
-            COV=${PYTHON_COV_PERCENT:-0}
-            COV_BAR=$(printf '█%.0s' $(seq 1 $((COV / 5))) 2>/dev/null; printf '░%.0s' $(seq 1 $((20 - COV / 5))) 2>/dev/null)
-
-            {
-              echo "## QA Metrics (Python)"
-              echo ""
-              echo "| Metric | Result | Details |"
-              echo "|--------|--------|---------|"
-              echo "| **Tests (pytest)** | ${PYTHON_TESTS_TOTAL:-0} executed | Passed: ${PYTHON_TESTS_PASSED:-0}, Failed: ${PYTHON_TESTS_FAILED:-0}, Skipped: ${PYTHON_TESTS_SKIPPED:-0} |"
-              echo "| **Line Coverage** | ${COV}% ${COV_BAR} | pytest-cov |"
-              echo "| **Mutation (mutmut)** | ${PYTHON_MUT_SCORE:-0}% | ${PYTHON_MUT_KILLED:-0} killed, ${PYTHON_MUT_SURVIVED:-0} survived |"
-              echo "| **Hypothesis** | ${PYTHON_HYPOTHESIS_EXAMPLES:-0} examples | Property-based testing |"
-              echo "| **Ruff Lint** | ${PYTHON_RUFF_ERRORS:-0} issues | Security rules: ${PYTHON_RUFF_SECURITY:-0} |"
-              echo "| **Bandit Security** | scan complete | High: ${PYTHON_BANDIT_HIGH:-0}, Med: ${PYTHON_BANDIT_MEDIUM:-0}, Low: ${PYTHON_BANDIT_LOW:-0} |"
-              echo "| **pip-audit** | ${PYTHON_PIPAUDIT_VULNS:-0} vulns | Dependency check |"
-              echo "| **Black** | ${PYTHON_BLACK_ISSUES:-0} files | Format check |"
-              echo "| **isort** | ${PYTHON_ISORT_ISSUES:-0} files | Import ordering |"
-              echo "| **mypy** | ${PYTHON_MYPY_ERRORS:-0} errors | Type check |"
-              echo "| **Semgrep** | ${SEMGREP_FINDINGS:-0} findings | SAST analysis |"
-              echo "| **Trivy** | ${TRIVY_CRITICAL:-0} crit, ${TRIVY_HIGH:-0} high | Container scan |"
-              echo "| **CodeQL** | $(is_success "$CODEQL_OUTCOME") | SAST analysis |"
-              echo "| **Docker** | $(is_success "$DOCKER_BUILD_OUTCOME") | Container build |"
-              echo ""
-              echo "### Security Summary"
-              echo "| Severity | Count |"
-              echo "|----------|-------|"
-              echo "| High | ${PYTHON_BANDIT_HIGH:-0} |"
-              echo "| Medium | ${PYTHON_BANDIT_MEDIUM:-0} |"
-              echo "| Low | ${PYTHON_BANDIT_LOW:-0} |"
-              echo ""
-            } >&3
-          fi
-
-          # Quality Gates
-          {
-            echo ""
-            echo "---"
-            echo ""
-            echo "### Quality Gates"
-            echo ""
-            echo "| Check | Status |"
-            echo "|-------|--------|"
-          } >&3
-
-          # Helper for pass/fail status
-          gate_status() { [ "${1:-0}" = "0" ] && echo "Passed" || echo "$2"; }
-
-          if [ "$MATRIX_LANGUAGE" = "java" ]; then
-            echo "| Unit Tests | $(gate_status "${JAVA_TESTS_FAILED}" "Failed") |" >&3
-            echo "| JaCoCo Coverage | Generated |" >&3
-            echo "| PITest Mutation | Generated |" >&3
-            echo "| Checkstyle | $(gate_status "${JAVA_CHECKSTYLE_VIOLATIONS}" "Violations") |" >&3
-            echo "| SpotBugs | $(gate_status "${JAVA_SPOTBUGS_COUNT}" "Bugs found") |" >&3
-            echo "| PMD | $(gate_status "${JAVA_PMD_VIOLATIONS}" "Violations") |" >&3
-            owasp_ok=$([[ "${JAVA_OWASP_CRITICAL:-0}" = "0" && "${JAVA_OWASP_HIGH:-0}" = "0" ]] && echo "Passed" || echo "Vulnerabilities")
-            echo "| OWASP Check | $owasp_ok |" >&3
-            echo "| Semgrep | $(gate_status "${SEMGREP_FINDINGS}" "Findings") |" >&3
-          else
-            echo "| pytest | $(gate_status "${PYTHON_TESTS_FAILED}" "Failed") |" >&3
-            echo "| Coverage | Generated |" >&3
-            echo "| mutmut Mutation | Generated |" >&3
-            echo "| Hypothesis | Complete |" >&3
-            echo "| Ruff | $(gate_status "${PYTHON_RUFF_ERRORS}" "Issues") |" >&3
-            echo "| Bandit | $(gate_status "${PYTHON_BANDIT_HIGH}" "Security issues") |" >&3
-            echo "| pip-audit | $(gate_status "${PYTHON_PIPAUDIT_VULNS}" "Vulnerabilities") |" >&3
-            echo "| Black | $(gate_status "${PYTHON_BLACK_ISSUES}" "Format issues") |" >&3
-            echo "| isort | $(gate_status "${PYTHON_ISORT_ISSUES}" "Import issues") |" >&3
-            echo "| mypy | $(gate_status "${PYTHON_MYPY_ERRORS}" "Type errors") |" >&3
-            echo "| Semgrep | $(gate_status "${SEMGREP_FINDINGS}" "Findings") |" >&3
-            echo "| Trivy | $(gate_status "${TRIVY_CRITICAL}" "Vulnerabilities") |" >&3
-            echo "| CodeQL | $(is_success "$CODEQL_OUTCOME") |" >&3
-            echo "| Docker | $(is_success "$DOCKER_BUILD_OUTCOME") |" >&3
-          fi
-
-          {
-            echo ""
-            echo "Job summary generated at run-time"
-          } >&3
-
-          exec 3>&-
-          # Copy summary to GitHub Step Summary for display
-          cat "$SUMMARY_FILE" >> "$GITHUB_STEP_SUMMARY"
-
       - name: Write Report JSON
         if: always()
         env:
@@ -1255,6 +981,8 @@ jobs:
           MATRIX_BRANCH: ${{ matrix.branch }}
           MATRIX_JAVA_VERSION: ${{ matrix.java_version }}
           MATRIX_PYTHON_VERSION: ${{ matrix.python_version }}
+          MATRIX_BUILD_TOOL: ${{ matrix.build_tool }}
+          MATRIX_RETENTION_DAYS: ${{ matrix.retention_days }}
           # GitHub context (passed via env to prevent template injection)
           GH_RUN_ID: ${{ github.run_id }}
           GH_RUN_NUMBER: ${{ github.run_number }}
@@ -1279,6 +1007,19 @@ jobs:
           MATRIX_RUN_TRIVY: ${{ matrix.run_trivy }}
           MATRIX_RUN_CODEQL: ${{ matrix.run_codeql }}
           MATRIX_RUN_DOCKER: ${{ matrix.run_docker }}
+          # Thresholds
+          MATRIX_COVERAGE_MIN: ${{ matrix.coverage_min }}
+          MATRIX_MUTATION_SCORE_MIN: ${{ matrix.mutation_score_min }}
+          MATRIX_OWASP_CVSS_FAIL: ${{ matrix.owasp_cvss_fail }}
+          MATRIX_MAX_CRITICAL_VULNS: ${{ matrix.max_critical_vulns }}
+          MATRIX_MAX_HIGH_VULNS: ${{ matrix.max_high_vulns }}
+          MATRIX_MAX_SEMGREP_FINDINGS: ${{ matrix.max_semgrep_findings }}
+          MATRIX_MAX_PMD_VIOLATIONS: ${{ matrix.max_pmd_violations }}
+          MATRIX_MAX_CHECKSTYLE_ERRORS: ${{ matrix.max_checkstyle_errors }}
+          MATRIX_MAX_SPOTBUGS_BUGS: ${{ matrix.max_spotbugs_bugs }}
+          MATRIX_MAX_RUFF_ERRORS: ${{ matrix.max_ruff_errors }}
+          MATRIX_MAX_BLACK_ISSUES: ${{ matrix.max_black_issues }}
+          MATRIX_MAX_ISORT_ISSUES: ${{ matrix.max_isort_issues }}
           # Step outcomes
           JAVA_COVERAGE_OUTCOME: ${{ steps.java-coverage.outcome }}
           JAVA_CHECKSTYLE_OUTCOME: ${{ steps.java-checkstyle.outcome }}
@@ -1305,9 +1046,15 @@ jobs:
           JAVA_MUT_SCORE: ${{ steps.java-mutation.outputs.score }}
           JAVA_TESTS_PASSED: ${{ steps.java-tests.outputs.passed }}
           JAVA_TESTS_FAILED: ${{ steps.java-tests.outputs.failed }}
+          JAVA_TESTS_SKIPPED: ${{ steps.java-tests.outputs.skipped }}
+          JAVA_TESTS_RUNTIME: ${{ steps.java-tests.outputs.runtime }}
+          JAVA_COV_LINES: ${{ steps.java-coverage.outputs.lines }}
+          JAVA_MUT_KILLED: ${{ steps.java-mutation.outputs.killed }}
+          JAVA_MUT_SURVIVED: ${{ steps.java-mutation.outputs.survived }}
           JAVA_OWASP_CRITICAL: ${{ steps.java-owasp.outputs.critical }}
           JAVA_OWASP_HIGH: ${{ steps.java-owasp.outputs.high }}
           JAVA_OWASP_MEDIUM: ${{ steps.java-owasp.outputs.medium }}
+          JAVA_OWASP_LOW: ${{ steps.java-owasp.outputs.low }}
           JAVA_SPOTBUGS_COUNT: ${{ steps.java-spotbugs.outputs.count }}
           JAVA_PMD_VIOLATIONS: ${{ steps.java-pmd.outputs.violations }}
           JAVA_CHECKSTYLE_VIOLATIONS: ${{ steps.java-checkstyle.outputs.violations }}
@@ -1318,8 +1065,15 @@ jobs:
           PYTHON_MUT_SCORE: ${{ steps.python-mutmut.outputs.score }}
           PYTHON_TESTS_PASSED: ${{ steps.python-tests.outputs.passed }}
           PYTHON_TESTS_FAILED: ${{ steps.python-tests.outputs.failed }}
+          PYTHON_TESTS_SKIPPED: ${{ steps.python-tests.outputs.skipped }}
+          PYTHON_TESTS_RUNTIME: ${{ steps.python-tests.outputs.runtime }}
+          PYTHON_COV_LINES_COVERED: ${{ steps.python-tests.outputs.coverage_lines_covered }}
+          PYTHON_COV_LINES_TOTAL: ${{ steps.python-tests.outputs.coverage_lines_total }}
+          PYTHON_MUT_KILLED: ${{ steps.python-mutmut.outputs.killed }}
+          PYTHON_MUT_SURVIVED: ${{ steps.python-mutmut.outputs.survived }}
           PYTHON_BANDIT_HIGH: ${{ steps.python-bandit.outputs.high }}
           PYTHON_BANDIT_MEDIUM: ${{ steps.python-bandit.outputs.medium }}
+          PYTHON_BANDIT_LOW: ${{ steps.python-bandit.outputs.low }}
           PYTHON_PIPAUDIT_VULNS: ${{ steps.python-pipaudit.outputs.vulnerabilities }}
           PYTHON_RUFF_ERRORS: ${{ steps.python-ruff.outputs.errors }}
           PYTHON_MYPY_ERRORS: ${{ steps.python-mypy.outputs.errors }}
@@ -1348,11 +1102,10 @@ jobs:
           REPORT_DIR="reports/${REPORT_SUFFIX}"
           mkdir -p "$REPORT_DIR"
 
-          # Summary was already written to $REPORT_DIR/summary.md in the previous step
-
           COMMIT_SHA=$(git -C repo rev-parse HEAD 2>/dev/null || echo "")
           TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           WORKFLOW_REF="${GITHUB_REPOSITORY}/.github/workflows/hub-run-all.yml@${GITHUB_REF_NAME}"
+          WORKFLOW_VERSION="${WORKFLOW_REF##*@}"
 
           # Helper functions for boolean conversion
           ran() { [ "$1" = "success" ] || [ "$1" = "failure" ] && echo "true" || echo "false"; }
@@ -1368,23 +1121,34 @@ jobs:
             CRITICAL_VULNS=${JAVA_OWASP_CRITICAL:-0}
             HIGH_VULNS=${JAVA_OWASP_HIGH:-0}
             MEDIUM_VULNS=${JAVA_OWASP_MEDIUM:-0}
+            LOW_VULNS=${JAVA_OWASP_LOW:-0}
+
+            JAVA_COV_LINES_COVERED=0
+            JAVA_COV_LINES_TOTAL=0
+            if [ -n "${JAVA_COV_LINES:-}" ]; then
+              JAVA_COV_LINES_COVERED=$(echo "$JAVA_COV_LINES" | awk -F'/' '{gsub(/ /,""); print $1}')
+              JAVA_COV_LINES_TOTAL=$(echo "$JAVA_COV_LINES" | awk -F'/' '{gsub(/ /,""); print $2}')
+            fi
 
             TRIVY_CRIT=${TRIVY_CRITICAL:-0}
             TRIVY_HI=${TRIVY_HIGH:-0}
             TRIVY_MED=0
+            TRIVY_LOW=0
             if [ -f "repo/trivy-report.json" ]; then
               TRIVY_MED=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' repo/trivy-report.json 2>/dev/null || echo 0)
+              TRIVY_LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' repo/trivy-report.json 2>/dev/null || echo 0)
             fi
 
             CRITICAL_VULNS=$((CRITICAL_VULNS + TRIVY_CRIT))
             HIGH_VULNS=$((HIGH_VULNS + TRIVY_HI))
             MEDIUM_VULNS=$((MEDIUM_VULNS + TRIVY_MED))
+            LOW_VULNS=$((LOW_VULNS + TRIVY_LOW))
 
             cat > "$REPORT_DIR/report.json" << EOF
           {
             "schema_version": "2.0",
             "metadata": {
-              "workflow_version": "v1.0.0",
+              "workflow_version": "${WORKFLOW_VERSION}",
               "workflow_ref": "${WORKFLOW_REF}",
               "generated_at": "${TIMESTAMP}"
             },
@@ -1398,12 +1162,19 @@ jobs:
             "results": {
               "build": "${BUILD_STATUS}",
               "coverage": ${JAVA_COV_PERCENT:-0},
+              "coverage_lines_covered": ${JAVA_COV_LINES_COVERED:-0},
+              "coverage_lines_total": ${JAVA_COV_LINES_TOTAL:-0},
               "mutation_score": ${JAVA_MUT_SCORE:-0},
+              "mutation_killed": ${JAVA_MUT_KILLED:-0},
+              "mutation_survived": ${JAVA_MUT_SURVIVED:-0},
               "tests_passed": ${JAVA_TESTS_PASSED:-0},
               "tests_failed": ${JAVA_TESTS_FAILED:-0},
+              "tests_skipped": ${JAVA_TESTS_SKIPPED:-0},
+              "tests_runtime_seconds": ${JAVA_TESTS_RUNTIME:-0},
               "critical_vulns": ${CRITICAL_VULNS},
               "high_vulns": ${HIGH_VULNS},
-              "medium_vulns": ${MEDIUM_VULNS}
+              "medium_vulns": ${MEDIUM_VULNS},
+              "low_vulns": ${LOW_VULNS}
             },
             "tool_metrics": {
               "checkstyle_issues": ${JAVA_CHECKSTYLE_VIOLATIONS:-0},
@@ -1411,9 +1182,13 @@ jobs:
               "pmd_violations": ${JAVA_PMD_VIOLATIONS:-0},
               "owasp_critical": ${JAVA_OWASP_CRITICAL:-0},
               "owasp_high": ${JAVA_OWASP_HIGH:-0},
+              "owasp_medium": ${JAVA_OWASP_MEDIUM:-0},
+              "owasp_low": ${JAVA_OWASP_LOW:-0},
               "semgrep_findings": ${SEMGREP_FINDINGS:-0},
               "trivy_critical": ${TRIVY_CRITICAL:-0},
-              "trivy_high": ${TRIVY_HIGH:-0}
+              "trivy_high": ${TRIVY_HIGH:-0},
+              "trivy_medium": ${TRIVY_MED:-0},
+              "trivy_low": ${TRIVY_LOW:-0}
             },
             "tools_configured": {
               "jacoco": ${MATRIX_RUN_JACOCO:-false},
@@ -1453,6 +1228,28 @@ jobs:
               "trivy": $(succeeded "$TRIVY_OUTCOME"),
               "codeql": $(succeeded "$CODEQL_OUTCOME"),
               "docker": $(succeeded "$DOCKER_BUILD_OUTCOME")
+            },
+            "thresholds": {
+              "coverage_min": ${MATRIX_COVERAGE_MIN:-0},
+              "mutation_score_min": ${MATRIX_MUTATION_SCORE_MIN:-0},
+              "owasp_cvss_fail": ${MATRIX_OWASP_CVSS_FAIL:-0},
+              "max_critical_vulns": ${MATRIX_MAX_CRITICAL_VULNS:-0},
+              "max_high_vulns": ${MATRIX_MAX_HIGH_VULNS:-0},
+              "max_semgrep_findings": ${MATRIX_MAX_SEMGREP_FINDINGS:-0},
+              "max_pmd_violations": ${MATRIX_MAX_PMD_VIOLATIONS:-0},
+              "max_checkstyle_errors": ${MATRIX_MAX_CHECKSTYLE_ERRORS:-0},
+              "max_spotbugs_bugs": ${MATRIX_MAX_SPOTBUGS_BUGS:-0}
+            },
+            "dependency_severity": {
+              "critical": ${CRITICAL_VULNS},
+              "high": ${HIGH_VULNS},
+              "medium": ${MEDIUM_VULNS},
+              "low": ${LOW_VULNS}
+            },
+            "environment": {
+              "build_tool": "${MATRIX_BUILD_TOOL}",
+              "workdir": "${MATRIX_SUBDIR:-.}",
+              "retention_days": ${MATRIX_RETENTION_DAYS:-0}
             }
           }
           EOF
@@ -1470,23 +1267,27 @@ jobs:
             CRITICAL_VULNS=0
             HIGH_VULNS=${PYTHON_PIPAUDIT_VULNS:-0}
             MEDIUM_VULNS=0
+            LOW_VULNS=0
 
             TRIVY_CRIT=${TRIVY_CRITICAL:-0}
             TRIVY_HI=${TRIVY_HIGH:-0}
             TRIVY_MED=0
+            TRIVY_LOW=0
             if [ -f "repo/trivy-report.json" ]; then
               TRIVY_MED=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "MEDIUM")] | length' repo/trivy-report.json 2>/dev/null || echo 0)
+              TRIVY_LOW=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity == "LOW")] | length' repo/trivy-report.json 2>/dev/null || echo 0)
             fi
 
             CRITICAL_VULNS=$((CRITICAL_VULNS + TRIVY_CRIT))
             HIGH_VULNS=$((HIGH_VULNS + TRIVY_HI))
             MEDIUM_VULNS=$((MEDIUM_VULNS + TRIVY_MED))
+            LOW_VULNS=$((LOW_VULNS + TRIVY_LOW))
 
             cat > "$REPORT_DIR/report.json" << EOF
           {
             "schema_version": "2.0",
             "metadata": {
-              "workflow_version": "v1.0.0",
+              "workflow_version": "${WORKFLOW_VERSION}",
               "workflow_ref": "${WORKFLOW_REF}",
               "generated_at": "${TIMESTAMP}"
             },
@@ -1500,24 +1301,34 @@ jobs:
             "results": {
               "test": "${TEST_STATUS}",
               "coverage": ${PYTHON_COV_PERCENT:-0},
+              "coverage_lines_covered": ${PYTHON_COV_LINES_COVERED:-0},
+              "coverage_lines_total": ${PYTHON_COV_LINES_TOTAL:-0},
               "mutation_score": ${PYTHON_MUT_SCORE:-0},
+              "mutation_killed": ${PYTHON_MUT_KILLED:-0},
+              "mutation_survived": ${PYTHON_MUT_SURVIVED:-0},
               "tests_passed": ${PYTHON_TESTS_PASSED:-0},
               "tests_failed": ${PYTHON_TESTS_FAILED:-0},
+              "tests_skipped": ${PYTHON_TESTS_SKIPPED:-0},
+              "tests_runtime_seconds": ${PYTHON_TESTS_RUNTIME:-0},
               "critical_vulns": ${CRITICAL_VULNS},
               "high_vulns": ${HIGH_VULNS},
-              "medium_vulns": ${MEDIUM_VULNS}
+              "medium_vulns": ${MEDIUM_VULNS},
+              "low_vulns": ${LOW_VULNS}
             },
             "tool_metrics": {
               "ruff_errors": ${PYTHON_RUFF_ERRORS:-0},
               "mypy_errors": ${PYTHON_MYPY_ERRORS:-0},
               "bandit_high": ${PYTHON_BANDIT_HIGH:-0},
               "bandit_medium": ${PYTHON_BANDIT_MEDIUM:-0},
+              "bandit_low": ${PYTHON_BANDIT_LOW:-0},
               "black_issues": ${PYTHON_BLACK_ISSUES:-0},
               "isort_issues": ${PYTHON_ISORT_ISSUES:-0},
               "pip_audit_vulns": ${PYTHON_PIPAUDIT_VULNS:-0},
               "semgrep_findings": ${SEMGREP_FINDINGS:-0},
               "trivy_critical": ${TRIVY_CRITICAL:-0},
-              "trivy_high": ${TRIVY_HIGH:-0}
+              "trivy_high": ${TRIVY_HIGH:-0},
+              "trivy_medium": ${TRIVY_MED:-0},
+              "trivy_low": ${TRIVY_LOW:-0}
             },
             "tools_configured": {
               "pytest": ${MATRIX_RUN_PYTEST:-false},
@@ -1563,10 +1374,42 @@ jobs:
               "trivy": $(succeeded "$TRIVY_OUTCOME"),
               "codeql": $(succeeded "$CODEQL_OUTCOME"),
               "docker": $(succeeded "$DOCKER_BUILD_OUTCOME")
+            },
+            "thresholds": {
+              "coverage_min": ${MATRIX_COVERAGE_MIN:-0},
+              "mutation_score_min": ${MATRIX_MUTATION_SCORE_MIN:-0},
+              "owasp_cvss_fail": ${MATRIX_OWASP_CVSS_FAIL:-0},
+              "max_critical_vulns": ${MATRIX_MAX_CRITICAL_VULNS:-0},
+              "max_high_vulns": ${MATRIX_MAX_HIGH_VULNS:-0},
+              "max_semgrep_findings": ${MATRIX_MAX_SEMGREP_FINDINGS:-0},
+              "max_ruff_errors": ${MATRIX_MAX_RUFF_ERRORS:-0},
+              "max_black_issues": ${MATRIX_MAX_BLACK_ISSUES:-0},
+              "max_isort_issues": ${MATRIX_MAX_ISORT_ISSUES:-0}
+            },
+            "dependency_severity": {
+              "critical": ${CRITICAL_VULNS},
+              "high": ${HIGH_VULNS},
+              "medium": ${MEDIUM_VULNS},
+              "low": ${LOW_VULNS}
+            },
+            "environment": {
+              "workdir": "${MATRIX_SUBDIR:-.}",
+              "retention_days": ${MATRIX_RETENTION_DAYS:-0}
             }
           }
           EOF
           fi
+
+      - name: Render Summary
+        if: always()
+        env:
+          MATRIX_CONFIG_BASENAME: ${{ matrix.config_basename }}
+          MATRIX_SUBDIR: ${{ matrix.subdir }}
+        run: |
+          REPORT_SUFFIX="${MATRIX_CONFIG_BASENAME}${MATRIX_SUBDIR:+-${MATRIX_SUBDIR}}"
+          REPORT_DIR="reports/${REPORT_SUFFIX}"
+          python3 hub/scripts/render_summary.py --report "$REPORT_DIR/report.json" --output "$REPORT_DIR/summary.md"
+          cat "$REPORT_DIR/summary.md" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Validate Summary
         if: always()

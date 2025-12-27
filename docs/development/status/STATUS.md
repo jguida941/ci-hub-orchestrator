@@ -19,7 +19,7 @@
 | Reusable Workflows | Working | `python-ci.yml`, `java-ci.yml` with `workflow_call` |
 | Caller Templates | Working | `hub-python-ci.yml`, `hub-java-ci.yml` |
 | Schema Validation | Working | `config-validate.yml` workflow |
-| CLI Tool (`cihub`) | Working | detect/init/update/validate/setup-secrets/new/config |
+| CLI Tool (`cihub`) | Working | Modular commands + wizard + `--json` for current commands |
 | Tests | **80 tests** | 6 test files covering all scripts |
 | ADRs | **28 ADRs** | 0001 through 0028 complete |
 | Smoke Test | **PASSING** | Last run: 2025-12-22 |
@@ -70,6 +70,7 @@ All P0 items complete. See `docs/development/specs/P0.md` for details.
 - [x] Profiles/templates: 12 profiles complete
 - [x] Fixtures: `ci-cd-hub-fixtures` repo with passing/failing examples
 - [x] CLI: `cihub` detect/init/update/validate/setup-secrets/new/config
+- [ ] CLI docs: CLI_CONFIG, CLI_WIZARD, CLI_COMMANDS (per architecture plan)
 - [ ] Fixtures: expand repo subdirs to match new matrix
 - [ ] CLI: validate `setup-secrets` token trim/verify with a real dispatch run
 - [ ] Dashboard: GitHub Pages site (HTML exists, needs deployment)
@@ -78,6 +79,28 @@ All P0 items complete. See `docs/development/specs/P0.md` for details.
 - [ ] Composite actions: Reduce java-ci.yml + python-ci.yml duplication
 - [ ] CODEOWNERS: Protect workflows/config/schema/templates
 - [ ] Integration tests: `act` or similar for workflow testing
+
+---
+
+## NEW_PLAN Progress (CLI to PyQt6)
+
+Plan source: `docs/development/architecture/ARCHITECTURE_PLAN.md` (no `NEW_PLAN.md` found in repo).
+
+### CLI Modularization (Phases 1-5)
+
+| Phase | Status | Notes |
+|------|--------|-------|
+| 1. ADR-0025 + deps | **DONE** | ADR-0025 exists; `cihub[wizard]` deps in `pyproject.toml` |
+| 2. Config module | **DONE** | `cihub/config` extracted; `use_central_runner` added to defaults + schema |
+| 3. Wizard module | **DONE** | `cihub/wizard` implemented; `init/new/config` wizard hooks in place |
+| 4. Commands extracted | **DONE** | `cihub/commands/*` wired into `cihub/cli.py` |
+| 5. New commands + CLI update | **PARTIAL** | `new` + `config` done; `add`/`apply` missing; CLI guides not written |
+
+### PyQt6 GUI Readiness (Phase 9 prerequisites)
+
+- JSON output is wired for current commands via `--json`, but payloads are minimal for some handlers (default summary, missing artifacts/problems).
+- Required commands in the plan are missing: `add`, `apply`, `verify`.
+- GUI not started (Phase 9 pending).
 
 ---
 
@@ -218,3 +241,17 @@ Run: `pytest tests/`
 - Keep checkboxes honest - only mark `[x]` after verification
 - AGENTS.md should reflect current focus from this plan
 - Run smoke test after significant workflow changes
+
+---
+
+## Stop Log
+
+2025-12-26: Audited CLI progress against plan.  
+CLI modularization phases 1-4 done, phase 5 partial.  
+Next up: implement `add`/`apply`/`verify`, write CLI guides, normalize JSON output contract, then start PyQt6 GUI wrapper.  
+
+2025-12-26: Unified workflow summaries in progress.  
+Added `scripts/render_summary.py` for a single summary format (Tools Enabled, Thresholds, Environment, QA Metrics, Dependency Severity, Quality Gates).  
+Refactored `java-ci.yml` to split CodeQL and report generation into dedicated jobs, with tool run/success flags driven by real outputs (no hardcoding).  
+Updated `hub-run-all.yml` report.json fields (thresholds, environment, coverage lines, mutation details, low vulns) and switched summary rendering to `render_summary.py`.  
+Next up: verify summary output consistency in python/java/hub-run-all and run smoke checks.  

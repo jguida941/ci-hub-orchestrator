@@ -1,8 +1,8 @@
 # CI-CD Hub - Complete Architecture Plan
 
-> **Status:** Proposed
-> **Date:** 2025-12-24
-> **Author:** Architecture Review
+> **Status:** Proposed  
+> **Date:** 2025-12-24  
+> **Author:** Justin Guida  
 
 ## Product Intent
 
@@ -507,11 +507,11 @@ This document outlines a comprehensive **Self-Validating CLI + Central Hub** arc
 
 > **Fix these before proceeding with later phases.**
 
-| Workflow | Status | Notes |
-|----------|--------|-------|
-| `hub-orchestrator.yml` | ❌ FAILING | Needs investigation |
-| `hub-security.yml` | ❌ FAILING | Needs investigation |
-| `hub-run-all.yml` | ✅ PASSING | Central mode works |
+| Workflow               | Status  | Notes               |
+|------------------------|---------|---------------------|
+| `hub-orchestrator.yml` | FAILING | Needs investigation |
+| `hub-security.yml`     | FAILING | Needs investigation |
+| `hub-run-all.yml`      | PASSING | Central mode works  |
 
 See `_quarantine/` and `docs/development/status/INTEGRATION_STATUS.md` for file graduation tracking.
 
@@ -645,22 +645,22 @@ Every generated file is tracked with a SHA-256 hash:
 
 ### Command Separation: new vs init
 
-| Command | Use Case | What It Does |
-|---------|----------|--------------|
-| `cihub new` | New project from scratch | Full scaffolding: parent/child POMs, folder structure, all configs |
-| `cihub init` | Existing project | Patches owned blocks in existing pom.xml, adds workflow + .ci-hub.yml |
-| `cihub add` | Add tool to project | Updates .ci-hub.yml, then regenerates outputs (never hand-edits random files) |
+| Command      | Use Case                 | What It Does                                                                  |
+|--------------|--------------------------|-------------------------------------------------------------------------------|
+| `cihub new`  | New project from scratch | Full scaffolding: parent/child POMs, folder structure, all configs            |
+| `cihub init` | Existing project         | Patches owned blocks in existing pom.xml, adds workflow + .ci-hub.yml         |
+| `cihub add`  | Add tool to project      | Updates .ci-hub.yml, then regenerates outputs (never hand-edits random files) |
 
 ### Design Decisions (Locked)
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| POM owned block | `<profile id="cihub">` | Clean separation, easy to replace, no collision |
-| Auto-validate timing | After generation only | No file watchers, explicit `cihub validate` for on-demand |
-| User overlays | Limited in v1 | `*-custom.xml` files imported by generated, user-owned |
-| Manifest write | Refuse if validate fails | Hard safety - no dirty states |
-| Editor integration | VS Code first | `code -g file:line:col`, fallback to `open`/`xdg-open` |
-| Java full validation | `mvn validate` only | `mvn test` requires explicit `--full --test` |
+| Decision             | Choice                   | Rationale                                                 |
+|----------------------|--------------------------|-----------------------------------------------------------|
+| POM owned block      | `<profile id="cihub">`   | Clean separation, easy to replace, no collision           |
+| Auto-validate timing | After generation only    | No file watchers, explicit `cihub validate` for on-demand |
+| User overlays        | Limited in v1            | `*-custom.xml` files imported by generated, user-owned    |
+| Manifest write       | Refuse if validate fails | Hard safety - no dirty states                             |
+| Editor integration   | VS Code first            | `code -g file:line:col`, fallback to `open`/`xdg-open`    |
+| Java full validation | `mvn validate` only      | `mvn test` requires explicit `--full --test`              |
 
 ---
 
@@ -689,7 +689,7 @@ class Diagnostic:
 ```
 $ cihub validate
 
-❌ 2 errors, 1 warning
+  2 errors, 1 warning
 
 ERROR [CIHUB-SCHEMA-001] .ci-hub.yml:15:3
   Missing required field 'language'
@@ -822,11 +822,11 @@ cihub ui                    # Launch terminal UI
 ```
 ┌─ Diagnostics ─────────────────────┬─ Preview ──────────────────────────┐
 │                                   │                                    │
-│ ❌ CIHUB-SCHEMA-001               │  14 │ java:                        │
+│ ERROR CIHUB-SCHEMA-001            │  14 │ java:                        │
 │    .ci-hub.yml:15:3               │  15 │   tools:                     │
 │    Missing 'language' field       │     │   ^                          │
 │                                   │  16 │     jacoco:                  │
-│ ❌ CIHUB-POM-002                  │                                    │
+│ ERRPR CIHUB-POM-002                  │                                 │
 │    pom.xml:87:12                  │  + language: java                  │
 │    Version mismatch               │                                    │
 │                                   │                                    │
@@ -856,11 +856,11 @@ cihub apply --build            # --fast + compile
 cihub apply --test             # --fast + compile + tests
 ```
 
-| Tier | What Runs | Time | Network |
-|------|-----------|------|---------|
-| `--fast` (default) | Schema, actionlint, yamllint, xmllint, manifest verify | ~2s | No |
-| `--build` | + `mvn compile` / `pip install` / `npm install` | ~30s | Yes |
-| `--test` | + `mvn test` / `pytest` / `npm test` | ~2min | Yes |
+| Tier               | What Runs                                              | Time  | Network |
+|--------------------|--------------------------------------------------------|-------|---------|
+| `--fast` (default) | Schema, actionlint, yamllint, xmllint, manifest verify | ~2s   | No      |
+| `--build`          | + `mvn compile` / `pip install` / `npm install`        | ~30s  | Yes     |
+| `--test`           | + `mvn test` / `pytest` / `npm test`                   | ~2min | Yes     |
 
 **Rules:**
 - `cihub apply` NEVER silently escalates tiers
@@ -875,7 +875,7 @@ Before doing anything, validate the environment:
 ```
 $ cihub apply
 
-🔍 Pre-flight check...
+   Pre-flight check...
    ✓ Java 21.0.1 (required: 17+)
    ✓ Maven 3.9.6 (required: 3.8+)
    ✓ actionlint 1.6.26 (required: 1.6+)
@@ -897,7 +897,7 @@ Continue? [Y/n]
 ```
 $ cihub apply
 
-❌ Missing required tools:
+ERROR Missing required tools:
 
   Tool         Required    Found      Install Command
   ────────────────────────────────────────────────────────
@@ -1004,13 +1004,13 @@ fi
 
 For scripting and CI integration:
 
-| Code | Meaning | Action |
-|------|---------|--------|
-| 0 | All green | Continue |
-| 1 | Validation failed (fixable) | Run `cihub fix` or manual fix |
-| 2 | Missing required tools | Install tools, retry |
-| 3 | User cancelled | N/A |
-| 4 | Internal error / crash | Report bug |
+| Code | Meaning                     | Action                        |
+|------|-----------------------------|-------------------------------|
+| 0    | All green                   | Continue                      |
+| 1    | Validation failed (fixable) | Run `cihub fix` or manual fix |
+| 2    | Missing required tools      | Install tools, retry          |
+| 3    | User cancelled              | N/A                           |
+| 4    | Internal error / crash      | Report bug                    |
 
 **Rules:**
 - Exit 1 = fixable config/validation issues
@@ -1217,13 +1217,13 @@ cihub sync-templates --all             # Update all enabled repos
 
 ### Design Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Update strategy | Tiny caller pinned to hub version | Simpler, less drift, scales best |
-| Auth mechanism | `gh` CLI | Reliable, reduces code, already installed |
-| Execution location | Both local + GitHub Action | Local for dev, Action for production |
-| Default tier | `--fast` only | Let CI prove full build after PR opened |
-| PR creation | Always (not direct push) | Safe, reviewable, rollback-friendly |
+| Decision           | Choice                            | Rationale                                 |
+|--------------------|-----------------------------------|-------------------------------------------|
+| Update strategy    | Tiny caller pinned to hub version | Simpler, less drift, scales best          |
+| Auth mechanism     | `gh` CLI                          | Reliable, reduces code, already installed |
+| Execution location | Both local + GitHub Action        | Local for dev, Action for production      |
+| Default tier       | `--fast` only                     | Let CI prove full build after PR opened   |
+| PR creation        | Always (not direct push)          | Safe, reviewable, rollback-friendly       |
 
 ### How Bulk Update Works
 
@@ -1426,44 +1426,44 @@ jobs:
 ### Security Profile
 All security tools enabled with strict thresholds.
 
-| Tool | Setting |
-|------|---------|
-| JaCoCo | 80% coverage |
-| PITest | 80% mutation |
-| Checkstyle | 0 errors |
-| PMD | 0 violations |
-| SpotBugs | 0 bugs |
-| OWASP | fail on CVSS >= 5 |
-| Semgrep | enabled |
-| Trivy | enabled |
-| CodeQL | enabled |
+| Tool       | Setting           |
+|------------|-------------------|
+| JaCoCo     | 80% coverage      |
+| PITest     | 80% mutation      |
+| Checkstyle | 0 errors          |
+| PMD        | 0 violations      |
+| SpotBugs   | 0 bugs            |
+| OWASP      | fail on CVSS >= 5 |
+| Semgrep    | enabled           |
+| Trivy      | enabled           |
+| CodeQL     | enabled           |
 
 ### Standard Profile
 Balanced configuration for most projects.
 
-| Tool | Setting |
-|------|---------|
-| JaCoCo | 70% coverage |
-| PITest | 70% mutation |
-| Checkstyle | 0 errors |
-| PMD | 0 violations |
-| SpotBugs | 0 bugs |
-| OWASP | fail on CVSS >= 7 |
-| Semgrep | disabled |
-| Trivy | disabled |
+| Tool       | Setting           |
+|------------|-------------------|
+| JaCoCo     | 70% coverage      |
+| PITest     | 70% mutation      |
+| Checkstyle | 0 errors          |
+| PMD        | 0 violations      |
+| SpotBugs   | 0 bugs            |
+| OWASP      | fail on CVSS >= 7 |
+| Semgrep    | disabled          |
+| Trivy      | disabled          |
 
 ### Fast Profile
 Quick feedback with minimal tools.
 
-| Tool | Setting |
-|------|---------|
-| JaCoCo | 50% coverage |
-| PITest | disabled |
-| Checkstyle | enabled |
-| PMD | disabled |
-| SpotBugs | disabled |
-| OWASP | disabled |
-| Semgrep | disabled |
+| Tool       | Setting      |
+|------------|--------------|
+| JaCoCo     | 50% coverage |
+| PITest     | disabled     |
+| Checkstyle | enabled      |
+| PMD        | disabled     |
+| SpotBugs   | disabled     |
+| OWASP      | disabled     |
+| Semgrep    | disabled     |
 
 ### Custom Profile
 Interactive mode where user picks each tool.
@@ -1678,18 +1678,18 @@ After ANY generation (`cihub new`, `cihub add`, `cihub update`), the CLI automat
 ```
 $ cihub init
 
-🔍 Detecting repository structure...
+   Detecting repository structure...
    Found: pom.xml (Maven)
    Found: Dockerfile
    Found: docker-compose.yml
-
-📋 Detected configuration:
+  
+   Detected configuration:
    Language: Java
    Build tool: Maven
    Java version: 21 (from pom.xml)
    Has Docker: Yes
 
-🛠️ Tool Configuration:
+ ️ Tool Configuration:
    ✓ JaCoCo (coverage) - detected in pom.xml
    ✓ Checkstyle - detected in pom.xml
    ? PITest (mutation testing) - Enable? [Y/n]
@@ -1698,17 +1698,17 @@ $ cihub init
    ? Semgrep - Enable? [y/N]
    ? Trivy (container scan) - Enable? [Y/n]
 
-📁 Will create:
+    Will create:
    .ci-hub.yml                    (config)
    .github/workflows/ci.yml       (caller workflow)
 
 Proceed? [Y/n]
 
-✅ Created .ci-hub.yml
-✅ Created .github/workflows/ci.yml
-✅ Added to hub registry: config/repos/my-java-app.yaml
+   Created .ci-hub.yml
+   Created .github/workflows/ci.yml
+   Added to hub registry: config/repos/my-java-app.yaml
 
-🔍 Running validation...
+    Running validation...
    ✓ YAML lint passed
    ✓ Schema validation passed
    ✓ Workflow syntax valid
@@ -1726,11 +1726,11 @@ Next steps:
 ```
 $ cihub new contact-suite --profile standard
 
-📁 Project Setup:
+   Project Setup:
    ? Base package: com.example.contact
    ? Modules (comma-separated): api, core, web, common
 
-📂 Creating project structure...
+   Creating project structure...
 
 contact-suite/
 ├── pom.xml                          ← Parent POM (all plugins configured)
@@ -1753,7 +1753,7 @@ contact-suite/
 ├── .ci-hub.yml                      ← CI config
 └── .github/workflows/ci.yml         ← Workflow
 
-✅ All POMs configured with:
+   All POMs configured with:
    - JaCoCo (70% coverage threshold)
    - PITest (70% mutation threshold)
    - Checkstyle (Google style)
@@ -1761,14 +1761,14 @@ contact-suite/
    - SpotBugs (high confidence)
    - OWASP (fail on CVSS >= 7)
 
-🔍 Running validation...
+   Running validation...
    ✓ YAML lint passed
    ✓ XML lint passed
    ✓ Schema validation passed
    ✓ POM validation passed (mvn validate)
    ✓ Workflow syntax valid
 
-✅ Project created successfully!
+   Project created successfully!
 ```
 
 ---
@@ -1803,17 +1803,17 @@ contact-suite/
 
 ## Implementation Phases
 
-| Phase | What | Delivers |
-|-------|------|----------|
+| Phase | What                        | Delivers                                                      |
+|-------|-----------------------------|---------------------------------------------------------------|
 | **1** | Scripts + Composite Actions | `generate_report.py`, `validate_report.py`, composite actions |
-| **2** | Validators | `yaml_validator.py`, `xml_validator.py`, `pom_validator.py` |
-| **3** | Generators | `pom.py`, `workflow.py` - template rendering |
-| **4** | Profiles | `security.yaml`, `standard.yaml`, `fast.yaml` |
-| **5** | CLI Commands | `cihub new`, `cihub init`, `cihub add`, `cihub validate` |
-| **6** | Self-Validation | Auto-validate after every generation |
-| **7** | Tests | Unit, snapshot, integration, contract, e2e |
-| **8** | Update Flow | `cihub update` like Copier - updates existing projects |
-| **9** | PyQt6 GUI | Optional desktop app wrapping CLI (see Phase 9 section below) |
+| **2** | Validators                  | `yaml_validator.py`, `xml_validator.py`, `pom_validator.py`   |
+| **3** | Generators                  | `pom.py`, `workflow.py` - template rendering                  |
+| **4** | Profiles                    | `security.yaml`, `standard.yaml`, `fast.yaml`                 |
+| **5** | CLI Commands                | `cihub new`, `cihub init`, `cihub add`, `cihub validate`      |
+| **6** | Self-Validation             | Auto-validate after every generation                          |
+| **7** | Tests                       | Unit, snapshot, integration, contract, e2e                    |
+| **8** | Update Flow                 | `cihub update` like Copier - updates existing projects        |
+| **9** | PyQt6 GUI                   | Optional desktop app wrapping CLI (see Phase 9 section below) |
 
 ---
 
@@ -1829,26 +1829,26 @@ The GUI NEVER implements logic. It is a thin wrapper that:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ GUI ARCHITECTURE                                                             │
+│ GUI ARCHITECTURE                                                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  ┌─────────────────┐                      ┌─────────────────────────────┐  │
-│  │   PyQt6 GUI     │                      │   CLI (cihub)               │  │
-│  │                 │                      │                             │  │
-│  │  ┌───────────┐  │    QProcess          │  ┌───────────────────────┐  │  │
-│  │  │ Repo List │  │ ─────────────────────│  │ All business logic    │  │  │
-│  │  └───────────┘  │                      │  │ - Validation          │  │  │
-│  │                 │    --json output     │  │ - Generation          │  │  │
-│  │  ┌───────────┐  │ ◄────────────────────│  │ - Drift detection     │  │  │
-│  │  │ Problems  │  │                      │  │ - Git operations      │  │  │
-│  │  │ Table     │  │    streaming logs    │  └───────────────────────┘  │  │
-│  │  └───────────┘  │ ◄────────────────────│                             │  │
-│  │                 │                      │                             │  │
-│  │  ┌───────────┐  │                      │                             │  │
-│  │  │ Console   │  │                      │                             │  │
-│  │  └───────────┘  │                      │                             │  │
-│  │                 │                      │                             │  │
-│  └─────────────────┘                      └─────────────────────────────┘  │
+│  ┌─────────────────┐                      ┌─────────────────────────────┐   │
+│  │   PyQt6 GUI     │                      │   CLI (cihub)               │   │
+│  │                 │                      │                             │   │
+│  │  ┌───────────┐  │    QProcess          │  ┌───────────────────────┐  │   │
+│  │  │ Repo List │  │ ─────────────────────│  │ All business logic    │  │   │
+│  │  └───────────┘  │                      │  │ - Validation          │  │   │
+│  │                 │    --json output     │  │ - Generation          │  │   │
+│  │  ┌───────────┐  │ ◄────────────────────│  │ - Drift detection     │  │   │
+│  │  │ Problems  │  │                      │  │ - Git operations      │  │   │
+│  │  │ Table     │  │    streaming logs    │  └───────────────────────┘  │   │
+│  │  └───────────┘  │ ◄────────────────────│                             │   │
+│  │                 │                      │                             │   │ 
+│  │  ┌───────────┐  │                      │                             │   │
+│  │  │ Console   │  │                      │                             │   │
+│  │  └───────────┘  │                      │                             │   │
+│  │                 │                      │                             │   │
+│  └─────────────────┘                      └─────────────────────────────┘   │
 │                                                                             │
 │  KEY RULE: GUI calls CLI. GUI never reimplements CLI logic.                 │
 │                                                                             │
@@ -1906,18 +1906,18 @@ cihub sync-templates --json
 
 ### GUI Scope (Minimal Viable)
 
-| Feature | Included | NOT Included |
-|---------|----------|--------------|
-| Repo list with status badges | ✅ | Repo settings editing |
-| Profile dropdown | ✅ | Profile creation/editing |
-| Tier buttons (Fast/Build/Test) | ✅ | Custom tier creation |
-| Run/Stop buttons | ✅ | Parallel execution |
-| Problems table | ✅ | In-app code editing |
-| Console log (streaming) | ✅ | Log filtering/search |
-| Click-to-open file at line | ✅ | In-app file editor |
-| Git stage/commit/push | ✅ | Merge conflict resolution |
-| Open PR via `gh` | ✅ | PR review/merge |
-| Summary dashboard | ✅ | Historical trends |
+| Feature                        | Included | NOT Included              |
+|--------------------------------|----------|---------------------------|
+| Repo list with status badges   | ✅        | Repo settings editing     |
+| Profile dropdown               | ✅        | Profile creation/editing  |
+| Tier buttons (Fast/Build/Test) | ✅        | Custom tier creation      |
+| Run/Stop buttons               | ✅        | Parallel execution        |
+| Problems table                 | ✅        | In-app code editing       |
+| Console log (streaming)        | ✅        | Log filtering/search      |
+| Click-to-open file at line     | ✅        | In-app file editor        |
+| Git stage/commit/push          | ✅        | Merge conflict resolution |
+| Open PR via `gh`               | ✅        | PR review/merge           |
+| Summary dashboard              | ✅        | Historical trends         |
 
 ### Screen Layout
 
@@ -1940,9 +1940,9 @@ cihub sync-templates --json
 │                          │                                               │  │
 │                          │  Severity │ Code           │ File      │ Line │  │
 │                          │  ─────────┼────────────────┼───────────┼──────│  │
-│                          │  ❌ error │ CIHUB-POM-001  │ pom.xml   │ 87   │  │
-│                          │  ❌ error │ CIHUB-SCHEMA-3 │ .ci-hub.. │ 15   │  │
-│                          │  ⚠️ warn  │ CIHUB-MANIF-1  │ manifest  │ -    │  │
+│                          │     error │ CIHUB-POM-001  │ pom.xml   │ 87   │  │
+│                          │     error │ CIHUB-SCHEMA-3 │ .ci-hub.. │ 15   │  │
+│                          │     warn  │ CIHUB-MANIF-1  │ manifest  │ -    │  │
 │                          │                                               │  │
 │                          │  Double-click to open in editor               │  │
 │                          │                                               │  │
@@ -1959,14 +1959,14 @@ cihub sync-templates --json
 
 ### Implementation Sub-Phases
 
-| Sub-Phase | What | Delivers |
-|-----------|------|----------|
-| **9.1** | CLI `--json` output | All commands support `--json` flag |
-| **9.2** | Core GUI shell | QProcess runner, repo list, console tab |
-| **9.3** | Problems table | Click-to-open with `code -g file:line:col` |
-| **9.4** | Git integration | Stage/commit/push buttons |
-| **9.5** | PR integration | Open PR via `gh pr create` |
-| **9.6** | Polish | Status badges, progress indicators, error handling |
+| Sub-Phase | What                | Delivers                                           |
+|-----------|---------------------|----------------------------------------------------|
+| **9.1**   | CLI `--json` output | All commands support `--json` flag                 |
+| **9.2**   | Core GUI shell      | QProcess runner, repo list, console tab            |
+| **9.3**   | Problems table      | Click-to-open with `code -g file:line:col`         |
+| **9.4**   | Git integration     | Stage/commit/push buttons                          |
+| **9.5**   | PR integration      | Open PR via `gh pr create`                         |
+| **9.6**   | Polish              | Status badges, progress indicators, error handling |
 
 ### Technical Implementation Notes
 
@@ -2032,14 +2032,14 @@ def open_in_editor(file: str, line: int, col: int):
 
 ### Why This Architecture Works
 
-| Concern | Solution |
-|---------|----------|
-| Logic duplication | Zero - GUI calls CLI |
-| Testing | CLI is fully testable, GUI is thin |
-| Headless CI | Works perfectly - same CLI |
-| Maintenance | One codebase for logic |
-| Debugging | CLI works alone, isolate GUI issues |
-| Onboarding | Users can click before learning commands |
+| Concern           | Solution                                 |
+|-------------------|------------------------------------------|
+| Logic duplication | Zero - GUI calls CLI                     |
+| Testing           | CLI is fully testable, GUI is thin       |
+| Headless CI       | Works perfectly - same CLI               |
+| Maintenance       | One codebase for logic                   |
+| Debugging         | CLI works alone, isolate GUI issues      |
+| Onboarding        | Users can click before learning commands |
 
 ---
 
@@ -2053,13 +2053,13 @@ The desktop app is what makes this feel "product-y" instead of "another scaffold
 
 This gives you "I can see CI status without leaving my desktop" which feels like a real tool.
 
-| Action | How |
-|--------|-----|
-| Select repo | Show latest workflow runs (queued/running/success/fail) |
-| Click a run | Show jobs/steps + live log tail |
-| Re-run failed jobs | Button: `gh run rerun --failed` |
-| Re-run all jobs | Button: `gh run rerun` |
-| Cancel run | Button: `gh run cancel` |
+| Action             | How                                                     |
+|--------------------|---------------------------------------------------------|
+| Select repo        | Show latest workflow runs (queued/running/success/fail) |
+| Click a run        | Show jobs/steps + live log tail                         |
+| Re-run failed jobs | Button: `gh run rerun --failed`                         |
+| Re-run all jobs    | Button: `gh run rerun`                                  |
+| Cancel run         | Button: `gh run cancel`                                 |
 
 **Implementation:** GitHub CLI (`gh`) as backend initially.
 
@@ -2078,11 +2078,11 @@ gh run cancel <id>
 
 For a selected repo:
 
-| Button | Action |
-|--------|--------|
-| Stage | Default: only managed files from manifest |
-| Commit | Message auto-generated: profile/tools/template versions |
-| Push | Push to remote |
+| Button  | Action                                                    |
+|---------|-----------------------------------------------------------|
+| Stage   | Default: only managed files from manifest                 |
+| Commit  | Message auto-generated: profile/tools/template versions   |
+| Push    | Push to remote                                            |
 | Open PR | Via `gh pr create`, auto-creates branch `cihub/update-vX` |
 
 **Key differentiator:** The GUI understands ownership.
@@ -2098,11 +2098,11 @@ A dedicated page that answers:
 
 **Example Problems Table:**
 
-| Problem | Fix Button |
-|---------|------------|
-| actionlint missing | Copy install command |
-| Schema mismatch | Open `.ci-hub.yml` location + docs snippet |
-| Checkstyle failures | Open report HTML/XML output folder |
+| Problem             | Fix Button                                 |
+|---------------------|--------------------------------------------|
+| actionlint missing  | Copy install command                       |
+| Schema mismatch     | Open `.ci-hub.yml` location + docs snippet |
+| Checkstyle failures | Open report HTML/XML output folder         |
 
 This turns structured diagnostics (`fix_id`) into clickable remediation. Each problem from `cihub validate --json` becomes an actionable row.
 
@@ -2158,13 +2158,13 @@ This reduces user error and makes onboarding easy. No YAML knowledge required.
 
 #### What NOT to Build (Keeps Scope Sane)
 
-| Avoid | Reason |
-|-------|--------|
-| Embedded code editor | Use VS Code/IntelliJ |
-| YAML IDE features | Out of scope |
-| "Autofix code style" | Not a linter IDE |
-| Filesystem watchers (v1) | Complexity, add later |
-| Auto-install tools | Security risk, env-dependent |
+| Avoid                    | Reason                       |
+|--------------------------|------------------------------|
+| Embedded code editor     | Use VS Code/IntelliJ         |
+| YAML IDE features        | Out of scope                 |
+| "Autofix code style"     | Not a linter IDE             |
+| Filesystem watchers (v1) | Complexity, add later        |
+| Auto-install tools       | Security risk, env-dependent |
 
 **Rule:** If VS Code does it better, don't build it.
 
@@ -2172,11 +2172,11 @@ This reduces user error and makes onboarding easy. No YAML knowledge required.
 
 If you only build 3 things, build these:
 
-| Priority | Feature | Why It Matters |
-|----------|---------|----------------|
-| 1 | Fleet view (multi-repo) + drift badges | The "hub" in CI-CD Hub |
-| 2 | GitHub runs page (live status, rerun/cancel) | Feels like a real CI tool |
-| 3 | Safe Git buttons (stage managed only, commit/push/PR) | Reduces friction to zero |
+| Priority | Feature                                               | Why It Matters            |
+|----------|-------------------------------------------------------|---------------------------|
+| 1        | Fleet view (multi-repo) + drift badges                | The "hub" in CI-CD Hub    |
+| 2        | GitHub runs page (live status, rerun/cancel)          | Feels like a real CI tool |
+| 3        | Safe Git buttons (stage managed only, commit/push/PR) | Reduces friction to zero  |
 
 Those three alone make it feel like a **real CI/CD desktop console**.
 
@@ -2189,11 +2189,11 @@ Those three alone make it feel like a **real CI/CD desktop console**.
 │                                                                             │
 │  ┌─ Repos ────────────┐  ┌─ GitHub Runs ─────────────────────────────────┐  │
 │  │                    │  │                                               │  │
-│  │  🟢 contact-suite  │  │  Run #1234  main  ✅ success  2m ago          │  │
-│  │  🔴 bst-demo       │  │  Run #1233  main  ❌ failed   15m ago         │  │
-│  │  🟡 legacy-app     │  │  Run #1232  feat  🟡 running  now             │  │
-│  │  ⚫ archived       │  │                                               │  │
-│  │                    │  │  [▶ Re-run Failed] [🔄 Re-run All] [⏹ Cancel] │  │
+│  │     contact-suite  │  │  Run #1234  main     success  2m ago          │  │
+│  │     bst-demo       │  │  Run #1233  main     failed   15m ago         │  │
+│  │     legacy-app     │  │  Run #1232  feat     running  now             │  │
+│  │     archived       │  │                                               │  │
+│  │                    │  │  [ Re-run Failed] [ Re-run All] [ Cancel]  │  │
 │  │  [+ Add] [- Remove]│  │                                               │  │
 │  │                    │  └───────────────────────────────────────────────┘  │
 │  └────────────────────┘                                                     │
@@ -2203,9 +2203,9 @@ Those three alone make it feel like a **real CI/CD desktop console**.
 │  │  Repos: 12         │  │                                               │  │
 │  │  Drifting: 2       │  │  Severity │ Code           │ File      │ Fix  │  │
 │  │  Needs update: 4   │  │  ─────────┼────────────────┼───────────┼──────│  │
-│  │  All green: 6      │  │  ❌ error │ CIHUB-POM-001  │ pom.xml   │ [🔧] │  │
-│  │                    │  │  ❌ error │ CIHUB-SCHEMA-3 │ .ci-hub.. │ [🔧] │  │
-│  │  [Apply to All]    │  │  ⚠️ warn  │ CIHUB-MANIF-1  │ manifest  │ [🔧] │  │
+│  │  All green: 6      │  │     error │ CIHUB-POM-001  │ pom.xml   │ [🔧] │  │
+│  │                    │  │     error │ CIHUB-SCHEMA-3 │ .ci-hub.. │ [🔧] │  │
+│  │  [Apply to All]    │  │     warn  │ CIHUB-MANIF-1  │ manifest  │ [🔧] │  │
 │  │  [Update Fleet]    │  │                                               │  │
 │  │                    │  │  Double-click to open │ Click 🔧 to fix       │  │
 │  └────────────────────┘  │                                               │  │
@@ -2227,28 +2227,28 @@ These decisions should be made before implementation begins:
 
 **Q1: GitHub Integration Backend**
 
-| Option | Pros | Cons |
-|--------|------|------|
-| `gh` CLI only (Recommended) | Fastest to implement, auth handled, battle-tested | GitHub only |
-| Abstract backend (GitLab later) | Multi-platform support | More code, delayed delivery |
+| Option                          | Pros                                              | Cons                        |
+|---------------------------------|---------------------------------------------------|-----------------------------|
+| `gh` CLI only (Recommended)     | Fastest to implement, auth handled, battle-tested | GitHub only                 |
+| Abstract backend (GitLab later) | Multi-platform support                            | More code, delayed delivery |
 
 **Q2: Default Staging Behavior**
 
-| Option | Behavior |
-|--------|----------|
+| Option                      | Behavior                                   |
+|-----------------------------|--------------------------------------------|
 | Manifest-only (Recommended) | Stage only files in `.cihub/manifest.json` |
-| All files | Stage everything, opt-out for exclusions |
+| All files                   | Stage everything, opt-out for exclusions   |
 
 **Q3: Fleet Apply Strategy**
 
-| Option | Behavior |
-|--------|----------|
-| Queued one-by-one (Recommended) | Reliable, easier debugging |
-| Parallel execution | Faster, but harder to track failures |
+| Option                          | Behavior                             |
+|---------------------------------|--------------------------------------|
+| Queued one-by-one (Recommended) | Reliable, easier debugging           |
+| Parallel execution              | Faster, but harder to track failures |
 
 ---
 
-## Phase 10: Enterprise Features (Paid Product Path)
+## Phase 10: Enterprise Features
 
 ### Product Positioning
 
@@ -2259,11 +2259,11 @@ The goal is to make this something companies **pay for because it reduces risk a
 
 ### Target Buyers
 
-| Buyer | What They Pay For | Key Features |
-|-------|-------------------|--------------|
-| **Platform Engineering** | "Manage 200 repos from one place" | Fleet dashboard, bulk operations, drift detection |
-| **Security/Compliance** | "Prove we're compliant to auditors" | Attestations, policy enforcement, audit trails |
-| **Dev Productivity** | "Reduce CI friction and time" | One-click onboarding, auto-remediation |
+| Buyer                    | What They Pay For                   | Key Features                                      |
+|--------------------------|-------------------------------------|---------------------------------------------------|
+| **Platform Engineering** | "Manage 200 repos from one place"   | Fleet dashboard, bulk operations, drift detection |
+| **Security/Compliance**  | "Prove we're compliant to auditors" | Attestations, policy enforcement, audit trails    |
+| **Dev Productivity**     | "Reduce CI friction and time"       | One-click onboarding, auto-remediation            |
 
 **Primary buyer:** Platform Engineering + Security together. They sign the checks.
 
@@ -2281,7 +2281,7 @@ Config (.ci-hub.yml)
   → Drift detection (template-guard)
 ```
 
-**No one else has this full loop.** Backstage does catalog. Sigstore does attestation. Copier does templating. CI-CD Hub does **all of it with deterministic drift detection**.
+Backstage does catalog. Sigstore does attestation. Copier does templating. CI-CD Hub does **all of it with deterministic drift detection**.
 
 ### Enterprise Feature 1: Fleet Dashboard UI
 
@@ -2297,24 +2297,24 @@ Config (.ci-hub.yml)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│  Fleet Overview                                                 [Export CSV] │
+│  Fleet Overview                                                 [Export CSV]│
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  ┌─ Summary ────────────────────────────────────────────────────────────┐  │
-│  │  Total Repos: 47  │  Compliant: 38  │  Drifting: 6  │  Failing: 3   │  │
-│  │  Avg Coverage: 74.2%  │  Avg Mutation: 71.8%  │  Critical CVEs: 2   │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
+│  ┌─ Summary ────────────────────────────────────────────────────────────┐   │
+│  │  Total Repos: 47  │  Compliant: 38  │  Drifting: 6  │  Failing: 3   │    │
+│  │  Avg Coverage: 74.2%  │  Avg Mutation: 71.8%  │  Critical CVEs: 2   │    │
+│  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│  ┌─ Fleet Table ────────────────────────────────────────────────────────┐  │
-│  │ Repo              │ Profile  │ Template │ Coverage │ Drift │ Status  │  │
-│  │───────────────────┼──────────┼──────────┼──────────┼───────┼─────────│  │
-│  │ contact-suite     │ security │ v1.3.0   │ 82%      │ ✓     │ 🟢      │  │
-│  │ payment-api       │ security │ v1.3.0   │ 78%      │ ✓     │ 🟢      │  │
-│  │ legacy-billing    │ standard │ v1.2.0   │ 65%      │ ⚠️    │ 🟡      │  │
-│  │ user-service      │ fast     │ v1.1.0   │ 45%      │ ❌    │ 🔴      │  │
-│  └──────────────────────────────────────────────────────────────────────┘  │
+│  ┌─ Fleet Table ────────────────────────────────────────────────────────┐   │
+│  │ Repo              │ Profile  │ Template │ Coverage │ Drift │ Status  │   │
+│  │───────────────────┼──────────┼──────────┼──────────┼───────┼─────────│   │
+│  │ contact-suite     │ security │ v1.3.0   │ 82%      │ ✓     │ 🟢      │   │
+│  │ payment-api       │ security │ v1.3.0   │ 78%      │ ✓     │ 🟢      │   │
+│  │ legacy-billing    │ standard │ v1.2.0   │ 65%      │ ⚠️    │ 🟡      │   │
+│  │ user-service      │ fast     │ v1.1.0   │ 45%      │ ❌    │ 🔴      │   │
+│  └──────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
-│  [Select All Drifting] [Apply Updates] [Generate Compliance Report]        │
+│  [Select All Drifting] [Apply Updates] [Generate Compliance Report]         │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -2496,24 +2496,24 @@ def get_effective_threshold(repo_config, exceptions):
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  1. Developer creates PR adding exception to .cihub/exceptions.yaml         │
-│     └── Must include: rule, values, reason, expiry, jira_ticket            │
+│     └── Must include: rule, values, reason, expiry, jira_ticket             │
 │                                                                             │
 │  2. Required approver reviews PR                                            │
-│     └── Approver defined in org policy (e.g., security-lead, tech-lead)    │
+│     └── Approver defined in org policy (e.g., security-lead, tech-lead)     │
 │                                                                             │
 │  3. On merge, exception becomes active                                      │
-│     └── CLI validates: expiry <= max_exception_days (default 30)           │
+│     └── CLI validates: expiry <= max_exception_days (default 30)            │
 │                                                                             │
 │  4. Every CI run logs exception usage                                       │
-│     └── Audit trail in report.json: "exception_applied": "EXC-2025-001"    │
+│     └── Audit trail in report.json: "exception_applied": "EXC-2025-001"     │
 │                                                                             │
 │  5. On expiry:                                                              │
-│     ├── Status auto-changes to "expired"                                   │
-│     ├── Next CI run uses original threshold                                │
-│     └── Optional: auto-create PR to remove expired exceptions              │
+│     ├── Status auto-changes to "expired"                                    │
+│     ├── Next CI run uses original threshold                                 │
+│     └── Optional: auto-create PR to remove expired exceptions               │
 │                                                                             │
 │  6. Fleet dashboard shows:                                                  │
-│     └── "3 repos have active exceptions, 2 expiring this week"             │
+│     └── "3 repos have active exceptions, 2 expiring this week"              │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -2551,7 +2551,7 @@ cihub policy exception revoke EXC-2025-001
 **Auto-PR Contents:**
 
 ```markdown
-## 🔄 CI-CD Hub Auto-Remediation
+## CI-CD Hub Auto-Remediation
 
 This PR was automatically generated by CI-CD Hub to fix detected drift.
 
@@ -2629,53 +2629,53 @@ jobs:
           gh pr merge --auto --squash
 ```
 
-### What NOT to Build (Phase 10 Scope Control)
+### What We Are Not Building: Phase 10 Scope Control
 
-| Feature | Defer Until | Reason |
-|---------|-------------|--------|
-| Jira integration | Phase 11 | Integration tax, not differentiation |
-| Slack integration | Phase 11 | Can use GitHub notifications initially |
-| SSO/RBAC | Phase 11 | Use GitHub teams for now |
-| CI time optimizer | Phase 12 | Complex, needs data collection first |
-| GitLab/Azure DevOps | Phase 12 | Get 10 paying GitHub customers first |
-| SaaS hosting | Phase 13 | Enterprises want self-hosted initially |
+| Feature             | Defer Until | Reason                                 |
+|---------------------|-------------|----------------------------------------|
+| Jira integration    | Phase 11    | Integration tax, not differentiation   |
+| Slack integration   | Phase 11    | Can use GitHub notifications initially |
+| SSO/RBAC            | Phase 11    | Use GitHub teams for now               |
+| CI time optimizer   | Phase 12    | Complex, needs data collection first   |
+| GitLab/Azure DevOps | Phase 12    | Get 10 paying GitHub customers first   |
+| SaaS hosting        | Phase 13    | Enterprises want self-hosted initially |
 
 ### Phase 10 Implementation Sub-Phases
 
-| Sub-Phase | Deliverable | Depends On |
-|-----------|-------------|------------|
-| **10.1** | Fleet dashboard data API (`cihub fleet status --json`) | Phase 9 CLI |
-| **10.2** | Fleet dashboard UI (PyQt table + summary) | 10.1 + Phase 9 GUI |
-| **10.3** | Attestation bundle command (`cihub attestation bundle`) | Existing cosign/Rekor |
-| **10.4** | Exception schema + validation | Schema work |
-| **10.5** | Exception enforcement in workflows | 10.4 |
-| **10.6** | Auto-remediation workflow | Drift detection |
-| **10.7** | GUI integration (exception request, bundle download) | 10.3 + 10.5 |
+| Sub-Phase | Deliverable                                             | Depends On            |
+|-----------|---------------------------------------------------------|-----------------------|
+| **10.1**  | Fleet dashboard data API (`cihub fleet status --json`)  | Phase 9 CLI           |
+| **10.2**  | Fleet dashboard UI (PyQt table + summary)               | 10.1 + Phase 9 GUI    |
+| **10.3**  | Attestation bundle command (`cihub attestation bundle`) | Existing cosign/Rekor |
+| **10.4**  | Exception schema + validation                           | Schema work           |
+| **10.5**  | Exception enforcement in workflows                      | 10.4                  |
+| **10.6**  | Auto-remediation workflow                               | Drift detection       |
+| **10.7**  | GUI integration (exception request, bundle download)    | 10.3 + 10.5           |
 
 ### Decision Points (Phase 10)
 
 **Q1: Exception Approval Method**
 
-| Option | Pros | Cons |
-|--------|------|------|
+| Option                         | Pros                            | Cons                            |
+|--------------------------------|---------------------------------|---------------------------------|
 | GitHub PR review (Recommended) | Built-in, audit trail, familiar | Requires PR for every exception |
-| Separate approval API | Faster, more flexible | Custom auth, more code |
+| Separate approval API          | Faster, more flexible           | Custom auth, more code          |
 
 **Q2: Auto-Remediation Merge Strategy**
 
-| Option | Behavior |
-|--------|----------|
+| Option                              | Behavior                                  |
+|-------------------------------------|-------------------------------------------|
 | Auto-merge when green (Recommended) | Hands-off, but requires branch protection |
-| Require manual merge | Safer, but defeats "self-healing" goal |
-| Auto-merge with delay (24h) | Balance: time to review, still automatic |
+| Require manual merge                | Safer, but defeats "self-healing" goal    |
+| Auto-merge with delay (24h)         | Balance: time to review, still automatic  |
 
 **Q3: Attestation Bundle Signing**
 
-| Option | Pros | Cons |
-|--------|------|------|
-| Cosign keyless (Recommended) | No key management, GitHub OIDC | Requires Actions environment |
-| GPG signing | Works anywhere | Key management burden |
-| Unsigned (metadata only) | Simplest | Less trust, auditors may push back |
+| Option                       | Pros                           | Cons                               |
+|------------------------------|--------------------------------|------------------------------------|
+| Cosign keyless (Recommended) | No key management, GitHub OIDC | Requires Actions environment       |
+| GPG signing                  | Works anywhere                 | Key management burden              |
+| Unsigned (metadata only)     | Simplest                       | Less trust, auditors may push back |
 
 ---
 
@@ -2687,7 +2687,7 @@ These workflows run in the **hub repo itself**, not target repos. They are advan
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ ARCHITECTURE: Root Repo vs Hub-Release                                       │
+│ ARCHITECTURE: Root Repo vs Hub-Release                                      │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  ci-cd-hub/ (root)                      hub-release/                        │
@@ -2737,8 +2737,8 @@ These workflows run in the **hub repo itself**, not target repos. They are advan
 │     └── Run identical build                                                 │
 │                                                                             │
 │  3. Compare checksums                                                       │
-│     ├── If match: "Build IS deterministic" ✅                               │
-│     └── If differ: Auto-create CRITICAL issue, block releases 🚨           │
+│     ├── If match: "Build IS deterministic"                                  │
+│     └── If differ: Auto-create CRITICAL issue, block releases               │
 │                                                                             │
 │  4. Evidence bundle                                                         │
 │     ├── Both checksum files                                                 │
@@ -2833,7 +2833,7 @@ These workflows run in the **hub repo itself**, not target repos. They are advan
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ KYVERNO E2E FLOW                                                             │
+│ KYVERNO E2E FLOW                                                            │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  1. Spin up Kind cluster (ephemeral Kubernetes)                             │
@@ -2915,176 +2915,178 @@ uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4
 
 ### Phase 11 Summary
 
-| Workflow | Schedule | Value |
-|----------|----------|-------|
-| cross-time-determinism | On-demand | SLSA Level 4 proof |
-| chaos.yml | Daily + PR opt-in | Resilience metrics |
-| dr-drill.yml | Weekly (Monday 3 AM) | DR compliance evidence |
-| kyverno-e2e.yml | On policy changes | Runtime policy enforcement |
-| tools-ci.yml | On-demand | Dogfooding / self-test |
-| update-action-pins.yml | Daily (5 AM) | Supply chain automation |
-| hub-pipeline.yml | Push/PR | Fleet CI orchestration |
+| Workflow               | Schedule             | Value                      |
+|------------------------|----------------------|----------------------------|
+| cross-time-determinism | On-demand            | SLSA Level 4 proof         |
+| chaos.yml              | Daily + PR opt-in    | Resilience metrics         |
+| dr-drill.yml           | Weekly (Monday 3 AM) | DR compliance evidence     |
+| kyverno-e2e.yml        | On policy changes    | Runtime policy enforcement |
+| tools-ci.yml           | On-demand            | Dogfooding / self-test     |
+| update-action-pins.yml | Daily (5 AM)         | Supply chain automation    |
+| hub-pipeline.yml       | Push/PR              | Fleet CI orchestration     |
 
 ### 11.8 Integration Plan: Consolidate Root Repo Into Hub-Release
 
-All code currently in the root `ci-cd-hub/` repo should be integrated into `hub-release/` to create a single, self-contained distribution.
+All code currently in the root `ci-cd-hub/` repo should be integrated into `hub-release/` to create a single, self-contained distribution.  
+Some of this may be in the _quarantine directory right now. We will have to get it from that Repo.
 
 #### Files to Integrate
 
 **1. Core Tools (tools/) → hub-release/cihub/tools/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `tools/provenance_io.py` | `cihub/tools/provenance_io.py` | DSSE envelope parsing |
-| `tools/verify_provenance.py` | `cihub/tools/verify_provenance.py` | Provenance verification |
-| `tools/generate_vex.py` | `cihub/tools/generate_vex.py` | VEX document generation |
-| `tools/run_chaos.py` | `cihub/tools/chaos/runner.py` | Chaos test execution |
-| `tools/run_dr_drill.py` | `cihub/tools/dr/runner.py` | DR drill execution |
-| `tools/dr_drill/*.py` | `cihub/tools/dr/` | DR drill module |
-| `tools/mutation_observatory.py` | `cihub/tools/mutation/observatory.py` | Mutation report processing |
-| `tools/kyverno_policy_checker.py` | `cihub/tools/policy/kyverno.py` | Policy validation |
-| `tools/predictive_scheduler.py` | `cihub/tools/scheduler/predictor.py` | CI optimization |
-| `tools/update_action_pins.py` | `cihub/tools/supply_chain/action_pins.py` | SHA pinning |
-| `tools/cache_sentinel.py` | `cihub/tools/cache/sentinel.py` | Cache management |
-| `tools/build_vuln_input.py` | `cihub/tools/policy/vuln_input.py` | Vulnerability input |
-| `tools/build_issuer_subject_input.py` | `cihub/tools/policy/issuer_subject.py` | OIDC validation |
-| `tools/verify_rekor_proof.py` | `cihub/tools/supply_chain/rekor.py` | Rekor verification |
-| `tools/safe_subprocess.py` | `cihub/tools/util/subprocess.py` | Safe command execution |
-| `tools/ephemeral_data_lab.py` | `cihub/tools/testing/ephemeral_lab.py` | Ephemeral test environments |
-| `tools/scripts/pitest_to_json.py` | `cihub/tools/mutation/pitest.py` | PIT report conversion |
-| `tools/scripts/generate_mutation_reports.py` | `cihub/tools/mutation/reports.py` | Mutation report generation |
+| Source                                       | Target                                    | Purpose                     |
+|----------------------------------------------|-------------------------------------------|-----------------------------|
+| `tools/provenance_io.py`                     | `cihub/tools/provenance_io.py`            | DSSE envelope parsing       |
+| `tools/verify_provenance.py`                 | `cihub/tools/verify_provenance.py`        | Provenance verification     |
+| `tools/generate_vex.py`                      | `cihub/tools/generate_vex.py`             | VEX document generation     |
+| `tools/run_chaos.py`                         | `cihub/tools/chaos/runner.py`             | Chaos test execution        |
+| `tools/run_dr_drill.py`                      | `cihub/tools/dr/runner.py`                | DR drill execution          |
+| `tools/dr_drill/*.py`                        | `cihub/tools/dr/`                         | DR drill module             |
+| `tools/mutation_observatory.py`              | `cihub/tools/mutation/observatory.py`     | Mutation report processing  |
+| `tools/kyverno_policy_checker.py`            | `cihub/tools/policy/kyverno.py`           | Policy validation           |
+| `tools/predictive_scheduler.py`              | `cihub/tools/scheduler/predictor.py`      | CI optimization             |
+| `tools/update_action_pins.py`                | `cihub/tools/supply_chain/action_pins.py` | SHA pinning                 |
+| `tools/cache_sentinel.py`                    | `cihub/tools/cache/sentinel.py`           | Cache management            |
+| `tools/build_vuln_input.py`                  | `cihub/tools/policy/vuln_input.py`        | Vulnerability input         |
+| `tools/build_issuer_subject_input.py`        | `cihub/tools/policy/issuer_subject.py`    | OIDC validation             |
+| `tools/verify_rekor_proof.py`                | `cihub/tools/supply_chain/rekor.py`       | Rekor verification          |
+| `tools/safe_subprocess.py`                   | `cihub/tools/util/subprocess.py`          | Safe command execution      |
+| `tools/ephemeral_data_lab.py`                | `cihub/tools/testing/ephemeral_lab.py`    | Ephemeral test environments |
+| `tools/scripts/pitest_to_json.py`            | `cihub/tools/mutation/pitest.py`          | PIT report conversion       |
+| `tools/scripts/generate_mutation_reports.py` | `cihub/tools/mutation/reports.py`         | Mutation report generation  |
 
 **2. Shell Scripts → hub-release/cihub/tools/scripts/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `tools/rekor_monitor.sh` | `cihub/tools/scripts/rekor_monitor.sh` | Rekor monitoring |
-| `tools/publish_referrers.sh` | `cihub/tools/scripts/publish_referrers.sh` | OCI referrer publishing |
-| `tools/determinism_check.sh` | `cihub/tools/scripts/determinism_check.sh` | Build determinism |
-| `scripts/install_tools.sh` | `cihub/tools/scripts/install_tools.sh` | Tool installation |
-| `scripts/deploy_kyverno.sh` | `cihub/tools/scripts/deploy_kyverno.sh` | Kyverno deployment |
-| `scripts/verify_kyverno_enforcement.sh` | `cihub/tools/scripts/verify_kyverno.sh` | Kyverno verification |
-| `scripts/sign_evidence_bundle.sh` | `cihub/tools/scripts/sign_bundle.sh` | Bundle signing |
+| Source                                  | Target                                     | Purpose                 |
+|-----------------------------------------|--------------------------------------------|-------------------------|
+| `tools/rekor_monitor.sh`                | `cihub/tools/scripts/rekor_monitor.sh`     | Rekor monitoring        |
+| `tools/publish_referrers.sh`            | `cihub/tools/scripts/publish_referrers.sh` | OCI referrer publishing |
+| `tools/determinism_check.sh`            | `cihub/tools/scripts/determinism_check.sh` | Build determinism       |
+| `scripts/install_tools.sh`              | `cihub/tools/scripts/install_tools.sh`     | Tool installation       |
+| `scripts/deploy_kyverno.sh`             | `cihub/tools/scripts/deploy_kyverno.sh`    | Kyverno deployment      |
+| `scripts/verify_kyverno_enforcement.sh` | `cihub/tools/scripts/verify_kyverno.sh`    | Kyverno verification    |
+| `scripts/sign_evidence_bundle.sh`       | `cihub/tools/scripts/sign_bundle.sh`       | Bundle signing          |
 
 **3. Validation Scripts → hub-release/cihub/validators/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `scripts/check_workflow_integrity.py` | `cihub/validators/workflow_integrity.py` | Workflow pin/secret checks |
-| `scripts/check_runner_isolation.py` | `cihub/validators/runner_isolation.py` | Runner budget validation |
-| `scripts/enforce_concurrency_budget.py` | `cihub/validators/concurrency.py` | Concurrency limits |
-| `scripts/check_schema_registry.py` | `cihub/validators/schema_registry.py` | Schema validation |
-| `scripts/validate_schema.py` | `cihub/validators/schema.py` | JSON Schema validation |
+| Source                                  | Target                                   | Purpose                    |
+|-----------------------------------------|------------------------------------------|----------------------------|
+| `scripts/check_workflow_integrity.py`   | `cihub/validators/workflow_integrity.py` | Workflow pin/secret checks |
+| `scripts/check_runner_isolation.py`     | `cihub/validators/runner_isolation.py`   | Runner budget validation   |
+| `scripts/enforce_concurrency_budget.py` | `cihub/validators/concurrency.py`        | Concurrency limits         |
+| `scripts/check_schema_registry.py`      | `cihub/validators/schema_registry.py`    | Schema validation          |
+| `scripts/validate_schema.py`            | `cihub/validators/schema.py`             | JSON Schema validation     |
 
 **4. Pipeline Scripts → hub-release/cihub/runners/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `scripts/load_repository_matrix.py` | `cihub/runners/matrix_loader.py` | Matrix configuration |
-| `scripts/emit_pipeline_run.py` | `cihub/runners/pipeline_emit.py` | Pipeline event emission |
-| `scripts/build_project_ci_summary.py` | `cihub/runners/summary_builder.py` | Summary generation |
-| `scripts/record_job_telemetry.py` | `cihub/runners/telemetry.py` | Job telemetry |
-| `scripts/consolidate_telemetry.py` | `cihub/runners/telemetry_consolidate.py` | Telemetry aggregation |
-| `scripts/generate_scheduler_reports.py` | `cihub/runners/scheduler_reports.py` | Scheduler analysis |
-| `scripts/capture_canary_decision.py` | `cihub/runners/canary.py` | Canary decisions |
+| Source                                  | Target                                   | Purpose                 |
+|-----------------------------------------|------------------------------------------|-------------------------|
+| `scripts/load_repository_matrix.py`     | `cihub/runners/matrix_loader.py`         | Matrix configuration    |
+| `scripts/emit_pipeline_run.py`          | `cihub/runners/pipeline_emit.py`         | Pipeline event emission |
+| `scripts/build_project_ci_summary.py`   | `cihub/runners/summary_builder.py`       | Summary generation      |
+| `scripts/record_job_telemetry.py`       | `cihub/runners/telemetry.py`             | Job telemetry           |
+| `scripts/consolidate_telemetry.py`      | `cihub/runners/telemetry_consolidate.py` | Telemetry aggregation   |
+| `scripts/generate_scheduler_reports.py` | `cihub/runners/scheduler_reports.py`     | Scheduler analysis      |
+| `scripts/capture_canary_decision.py`    | `cihub/runners/canary.py`                | Canary decisions        |
 
 **5. Ingestion Layer → hub-release/cihub/ingestion/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `ingest/chaos_dr_ingest.py` | `cihub/ingestion/bigquery.py` | BigQuery loader |
-| `ingest/event_loader.py` | `cihub/ingestion/warehouse.py` | Local warehouse |
+| Source                      | Target                         | Purpose         |
+|-----------------------------|--------------------------------|-----------------|
+| `ingest/chaos_dr_ingest.py` | `cihub/ingestion/bigquery.py`  | BigQuery loader |
+| `ingest/event_loader.py`    | `cihub/ingestion/warehouse.py` | Local warehouse |
 
 **6. Policies → hub-release/policies/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `policies/*.rego` | `policies/rego/` | OPA/Rego policies |
-| `policies/tests/*.rego` | `policies/rego/tests/` | Policy tests |
-| `policies/kyverno/*.yaml` | `policies/kyverno/` | Kyverno policies |
+| Source                    | Target                 | Purpose           |
+|---------------------------|------------------------|-------------------|
+| `policies/*.rego`         | `policies/rego/`       | OPA/Rego policies |
+| `policies/tests/*.rego`   | `policies/rego/tests/` | Policy tests      |
+| `policies/kyverno/*.yaml` | `policies/kyverno/`    | Kyverno policies  |
 
 **7. Schemas → hub-release/schema/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `schema/pipeline_run.v1.2.json` | `schema/pipeline_run.v1.2.json` | Pipeline event schema |
-| `schema/dr_drill.event.v1.json` | `schema/dr_drill.event.v1.json` | DR event schema |
-| `schema/registry.json` | `schema/registry.json` | Tool registry schema |
-| `schema/cyclonedx-vex-1.5.schema.json` | `schema/cyclonedx-vex.json` | VEX schema |
+| Source                                 | Target                          | Purpose               |
+|----------------------------------------|---------------------------------|-----------------------|
+| `schema/pipeline_run.v1.2.json`        | `schema/pipeline_run.v1.2.json` | Pipeline event schema |
+| `schema/dr_drill.event.v1.json`        | `schema/dr_drill.event.v1.json` | DR event schema       |
+| `schema/registry.json`                 | `schema/registry.json`          | Tool registry schema  |
+| `schema/cyclonedx-vex-1.5.schema.json` | `schema/cyclonedx-vex.json`     | VEX schema            |
 
 **8. Configuration → hub-release/config/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `config/repositories.yaml` | `config/repositories.yaml` | Managed repos |
-| `config/runner-isolation.yaml` | `config/runner-isolation.yaml` | Runner limits |
-| `config/mutation-observatory.ci.yaml` | `config/mutation-observatory.yaml` | Mutation config |
-| `config/projects.yaml` | `config/projects.yaml` | Project registry |
+| Source                                | Target                             | Purpose          |
+|---------------------------------------|------------------------------------|------------------|
+| `config/repositories.yaml`            | `config/repositories.yaml`         | Managed repos    |
+| `config/runner-isolation.yaml`        | `config/runner-isolation.yaml`     | Runner limits    |
+| `config/mutation-observatory.ci.yaml` | `config/mutation-observatory.yaml` | Mutation config  |
+| `config/projects.yaml`                | `config/projects.yaml`             | Project registry |
 
 **9. Autopsy (Failure Analysis) → hub-release/cihub/autopsy/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `autopsy/analyzer.py` | `cihub/autopsy/analyzer.py` | Failure root cause analysis |
-| `autopsy/rules/default_rules.yml` | `cihub/autopsy/rules/default.yml` | Analysis rules |
-| `autopsy/tests/` | `cihub/autopsy/tests/` | Analyzer tests |
+| Source                            | Target                            | Purpose                     |
+|-----------------------------------|-----------------------------------|-----------------------------|
+| `autopsy/analyzer.py`             | `cihub/autopsy/analyzer.py`       | Failure root cause analysis |
+| `autopsy/rules/default_rules.yml` | `cihub/autopsy/rules/default.yml` | Analysis rules              |
+| `autopsy/tests/`                  | `cihub/autopsy/tests/`            | Analyzer tests              |
 
 **10. Dashboards → hub-release/dashboards/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `dashboards/run_health.json` | `dashboards/run_health.json` | Pipeline health |
-| `dashboards/mutation_effectiveness.json` | `dashboards/mutation.json` | Mutation metrics |
+| Source                                   | Target                       | Purpose          |
+|------------------------------------------|------------------------------|------------------|
+| `dashboards/run_health.json`             | `dashboards/run_health.json` | Pipeline health  |
+| `dashboards/mutation_effectiveness.json` | `dashboards/mutation.json`   | Mutation metrics |
 
 **11. Fixtures → hub-release/tests/fixtures/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `fixtures/mutation/` | `tests/fixtures/mutation/` | Mutation test data |
+| Source                   | Target                         | Purpose                |
+|--------------------------|--------------------------------|------------------------|
+| `fixtures/mutation/`     | `tests/fixtures/mutation/`     | Mutation test data     |
 | `fixtures/supply_chain/` | `tests/fixtures/supply_chain/` | Supply chain test data |
-| `fixtures/kyverno/` | `tests/fixtures/kyverno/` | Kyverno test manifests |
-| `fixtures/ephemeral/` | `tests/fixtures/ephemeral/` | Ephemeral lab configs |
-| `tools/tests/fixtures/` | `tests/fixtures/tools/` | Tool test fixtures |
+| `fixtures/kyverno/`      | `tests/fixtures/kyverno/`      | Kyverno test manifests |
+| `fixtures/ephemeral/`    | `tests/fixtures/ephemeral/`    | Ephemeral lab configs  |
+| `tools/tests/fixtures/`  | `tests/fixtures/tools/`        | Tool test fixtures     |
 
 **12. DR Data → hub-release/data/dr/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `data/dr/manifest.json` | `data/dr/manifest.json` | DR baseline |
-| `data/dr/backup.json` | `data/dr/backup.json` | Backup snapshot |
+| Source                    | Target                    | Purpose         |
+|---------------------------|---------------------------|-----------------|
+| `data/dr/manifest.json`   | `data/dr/manifest.json`   | DR baseline     |
+| `data/dr/backup.json`     | `data/dr/backup.json`     | Backup snapshot |
 | `data/dr/provenance.json` | `data/dr/provenance.json` | Provenance data |
-| `data/dr/sbom.json` | `data/dr/sbom.json` | SBOM data |
+| `data/dr/sbom.json`       | `data/dr/sbom.json`       | SBOM data       |
 
 **13. Tests → hub-release/tests/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `tools/tests/test_*.py` | `tests/tools/test_*.py` | Tool unit tests |
-| `autopsy/tests/test_*.py` | `tests/autopsy/test_*.py` | Autopsy tests |
-| `scripts/test_*.py` | `tests/scripts/test_*.py` | Script tests |
+| Source                    | Target                    | Purpose         |
+|---------------------------|---------------------------|-----------------|
+| `tools/tests/test_*.py`   | `tests/tools/test_*.py`   | Tool unit tests |
+| `autopsy/tests/test_*.py` | `tests/autopsy/test_*.py` | Autopsy tests   |
+| `scripts/test_*.py`       | `tests/scripts/test_*.py` | Script tests    |
 
 **14. Workflows → hub-release/.github/workflows/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `chaos.yml` | `workflows/chaos.yml` | Chaos testing |
-| `dr-drill.yml` | `workflows/dr-drill.yml` | DR drills |
-| `cross-time-determinism.yml` | `workflows/cross-time-determinism.yml` | SLSA L4 |
-| `kyverno-e2e.yml` | `workflows/kyverno-e2e.yml` | Policy E2E |
-| `hub-pipeline.yml` | `workflows/hub-pipeline.yml` | Fleet CI |
-| `update-action-pins.yml` | `workflows/update-action-pins.yml` | Pin automation |
-| `tools-ci.yml` | `workflows/tools-ci.yml` | Self-test |
-| `sign-digest.yml` | `workflows/sign-digest.yml` | Signing |
-| `mutation.yml` | `workflows/mutation.yml` | Mutation testing |
-| `unit.yml` | `workflows/unit.yml` | Unit tests |
-| `schema-ci.yml` | `workflows/schema-ci.yml` | Schema validation |
-| `security-lint.yml` | `workflows/security-lint.yml` | Security linting |
-| `rekor-monitor.yml` | `workflows/rekor-monitor.yml` | Rekor monitoring |
-| `codeql.yml` | `workflows/codeql.yml` | CodeQL analysis |
+| Source                       | Target                                 | Purpose           |
+|------------------------------|----------------------------------------|-------------------|
+| `chaos.yml`                  | `workflows/chaos.yml`                  | Chaos testing     |
+| `dr-drill.yml`               | `workflows/dr-drill.yml`               | DR drills         |
+| `cross-time-determinism.yml` | `workflows/cross-time-determinism.yml` | SLSA L4           |
+| `kyverno-e2e.yml`            | `workflows/kyverno-e2e.yml`            | Policy E2E        |
+| `hub-pipeline.yml`           | `workflows/hub-pipeline.yml`           | Fleet CI          |
+| `update-action-pins.yml`     | `workflows/update-action-pins.yml`     | Pin automation    |
+| `tools-ci.yml`               | `workflows/tools-ci.yml`               | Self-test         |
+| `sign-digest.yml`            | `workflows/sign-digest.yml`            | Signing           |
+| `mutation.yml`               | `workflows/mutation.yml`               | Mutation testing  |
+| `unit.yml`                   | `workflows/unit.yml`                   | Unit tests        |
+| `schema-ci.yml`              | `workflows/schema-ci.yml`              | Schema validation |
+| `security-lint.yml`          | `workflows/security-lint.yml`          | Security linting  |
+| `rekor-monitor.yml`          | `workflows/rekor-monitor.yml`          | Rekor monitoring  |
+| `codeql.yml`                 | `workflows/codeql.yml`                 | CodeQL analysis   |
 
 #### Consolidated Directory Structure
 
-After integration, `hub-release/` becomes:
+After integration, `hub-release/` becomes:  
+(This needs to be updated to reflect current repo state)
 
 ```
 hub-release/
@@ -3246,18 +3248,18 @@ hub-release/
 
 #### Integration Phases
 
-| Phase | Files | Effort | Priority |
-|-------|-------|--------|----------|
-| **I-1** | `tools/*.py` → `cihub/tools/` | Medium | High |
-| **I-2** | `scripts/check_*.py` → `cihub/validators/` | Low | High |
-| **I-3** | `ingest/*.py` → `cihub/ingestion/` | Low | High |
-| **I-4** | `policies/` → `policies/` | Low | Medium |
-| **I-5** | `schema/*.json` → `schema/` | Low | Medium |
-| **I-6** | `autopsy/` → `cihub/autopsy/` | Medium | Medium |
-| **I-7** | `.github/workflows/*.yml` → consolidated | Medium | High |
-| **I-8** | `tests/` consolidation | Medium | Medium |
-| **I-9** | `config/`, `dashboards/`, `data/` | Low | Low |
-| **I-10** | Update all imports, fix paths | High | Critical |
+| Phase    | Files                                      | Effort | Priority |
+|----------|--------------------------------------------|--------|----------|
+| **I-1**  | `tools/*.py` → `cihub/tools/`              | Medium | High     |
+| **I-2**  | `scripts/check_*.py` → `cihub/validators/` | Low    | High     |
+| **I-3**  | `ingest/*.py` → `cihub/ingestion/`         | Low    | High     |
+| **I-4**  | `policies/` → `policies/`                  | Low    | Medium   |
+| **I-5**  | `schema/*.json` → `schema/`                | Low    | Medium   |
+| **I-6**  | `autopsy/` → `cihub/autopsy/`              | Medium | Medium   |
+| **I-7**  | `.github/workflows/*.yml` → consolidated   | Medium | High     |
+| **I-8**  | `tests/` consolidation                     | Medium | Medium   |
+| **I-9**  | `config/`, `dashboards/`, `data/`          | Low    | Low      |
+| **I-10** | Update all imports, fix paths              | High   | Critical |
 
 #### Files to DELETE After Integration
 
@@ -3265,6 +3267,10 @@ These become redundant after consolidation:
 
 ```
 # Root repo files that move to hub-release:
+# Some of these are in _quarantine currently
+# We are currently in new hub-release repo
+# We will have to copy these from quarntee or other CI-CD-HUB repo
+
 ci-cd-hub/tools/                    # → hub-release/cihub/tools/
 ci-cd-hub/scripts/                  # → hub-release/cihub/ (various)
 ci-cd-hub/ingest/                   # → hub-release/cihub/ingestion/
@@ -3280,101 +3286,82 @@ ci-cd-hub/.github/workflows/        # → hub-release/.github/workflows/
 # Redundant workflow:
 ci-cd-hub/.github/workflows/project-ci.yml  # Duplicates hub-pipeline.yml
 ```
-
-#### What Stays in Root Repo
-
-Only minimal bootstrap files:
-
-```
-ci-cd-hub/
-├── README.md                        # Points to hub-release
-├── CLAUDE.md                        # AI context
-├── AGENTS.md                        # AI context
-├── Makefile                         # Build commands
-├── requirements/                    # Dependencies
-│   ├── requirements.txt             # Core dependencies
-│   └── requirements-dev.txt         # Test dependencies
-├── pyproject.toml                   # Package config
-├── hub-release/                     # ← THE PRODUCT
-└── hub-fixtures/                    # Test fixture repos (if needed)
-```
-
 #### Additional Files NOT in Original List (MISSED)
 
 **15. Chaos Configuration → hub-release/config/chaos/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
+| Source                     | Target                      | Purpose              |
+|----------------------------|-----------------------------|----------------------|
 | `chaos/chaos-fixture.json` | `config/chaos/fixture.json` | Chaos test scenarios |
 
 **16. dbt Models → hub-release/models/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `models/dbt_project.yml` | `models/dbt_project.yml` | dbt project config |
-| `models/profiles.yml` | `models/profiles.yml` | dbt profiles |
-| `models/packages.yml` | `models/packages.yml` | dbt packages |
+| Source                          | Target                          | Purpose            |
+|---------------------------------|---------------------------------|--------------------|
+| `models/dbt_project.yml`        | `models/dbt_project.yml`        | dbt project config |
+| `models/profiles.yml`           | `models/profiles.yml`           | dbt profiles       |
+| `models/packages.yml`           | `models/packages.yml`           | dbt packages       |
 | `models/tests/data_quality.yml` | `models/tests/data_quality.yml` | Data quality tests |
 
 **17. Kyverno Deployment → hub-release/deploy/kyverno/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `deploy/kyverno/install.yaml` | `deploy/kyverno/install.yaml` | Kyverno installation |
-| `deploy/kyverno/kustomization.yaml` | `deploy/kyverno/kustomization.yaml` | Kustomize config |
-| `supply-chain-enforce/kyverno/` | `deploy/kyverno/` | Merge duplicate |
+| Source                              | Target                              | Purpose              |
+|-------------------------------------|-------------------------------------|----------------------|
+| `deploy/kyverno/install.yaml`       | `deploy/kyverno/install.yaml`       | Kyverno installation |
+| `deploy/kyverno/kustomization.yaml` | `deploy/kyverno/kustomization.yaml` | Kustomize config     |
+| `supply-chain-enforce/kyverno/`     | `deploy/kyverno/`                   | Merge duplicate      |
 
 **18. Additional Scripts → hub-release/cihub/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `scripts/run_dbt.py` | `cihub/runners/dbt.py` | dbt execution |
-| `scripts/load_projects.py` | `cihub/runners/projects.py` | Project loading |
-| `scripts/summarize_codeql.py` | `cihub/runners/codeql.py` | CodeQL summarization |
-| `scripts/summarize_junit.py` | `cihub/runners/junit.py` | JUnit summarization |
-| `scripts/scan_runtime_secrets.sh` | `cihub/tools/scripts/scan_secrets.sh` | Secret scanning |
-| `scripts/cache_provenance.sh` | `cihub/tools/scripts/cache_provenance.sh` | Provenance caching |
-| `scripts/emit_cache_quarantine_event.py` | `cihub/runners/cache_quarantine.py` | Cache quarantine |
-| `scripts/prepare_policy_inputs.py` | `cihub/tools/policy/prepare_inputs.py` | Policy input prep |
-| `scripts/github_actions_egress_wrapper.sh` | `cihub/tools/scripts/egress_wrapper.sh` | Egress control |
-| `scripts/enforce_egress_control.sh` | `cihub/tools/scripts/egress_enforce.sh` | Egress enforcement |
-| `scripts/test_egress_allowlist.sh` | `cihub/tools/scripts/egress_test.sh` | Egress testing |
-| `data-quality-and-dr/dr_recall.sh` | `cihub/tools/scripts/dr_recall.sh` | DR recall |
+| Source                                     | Target                                    | Purpose              |
+|--------------------------------------------|-------------------------------------------|----------------------|
+| `scripts/run_dbt.py`                       | `cihub/runners/dbt.py`                    | dbt execution        |
+| `scripts/load_projects.py`                 | `cihub/runners/projects.py`               | Project loading      |
+| `scripts/summarize_codeql.py`              | `cihub/runners/codeql.py`                 | CodeQL summarization |
+| `scripts/summarize_junit.py`               | `cihub/runners/junit.py`                  | JUnit summarization  |
+| `scripts/scan_runtime_secrets.sh`          | `cihub/tools/scripts/scan_secrets.sh`     | Secret scanning      |
+| `scripts/cache_provenance.sh`              | `cihub/tools/scripts/cache_provenance.sh` | Provenance caching   |
+| `scripts/emit_cache_quarantine_event.py`   | `cihub/runners/cache_quarantine.py`       | Cache quarantine     |
+| `scripts/prepare_policy_inputs.py`         | `cihub/tools/policy/prepare_inputs.py`    | Policy input prep    |
+| `scripts/github_actions_egress_wrapper.sh` | `cihub/tools/scripts/egress_wrapper.sh`   | Egress control       |
+| `scripts/enforce_egress_control.sh`        | `cihub/tools/scripts/egress_enforce.sh`   | Egress enforcement   |
+| `scripts/test_egress_allowlist.sh`         | `cihub/tools/scripts/egress_test.sh`      | Egress testing       |
+| `data-quality-and-dr/dr_recall.sh`         | `cihub/tools/scripts/dr_recall.sh`        | DR recall            |
 
 **19. Documentation Scripts → hub-release/scripts/docs/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `scripts/docs/check_orphan_docs.py` | `scripts/docs/check_orphan.py` | Orphan doc detection |
+| Source                                 | Target                                 | Purpose                |
+|----------------------------------------|----------------------------------------|------------------------|
+| `scripts/docs/check_orphan_docs.py`    | `scripts/docs/check_orphan.py`         | Orphan doc detection   |
 | `scripts/docs/validate_frontmatter.py` | `scripts/docs/validate_frontmatter.py` | Frontmatter validation |
-| `scripts/docs/generate_index.sh` | `scripts/docs/generate_index.sh` | Index generation |
-| `scripts/docs/generate_structure.sh` | `scripts/docs/generate_structure.sh` | Structure generation |
-| `scripts/docs/update_doc_links.sh` | `scripts/docs/update_links.sh` | Link updates |
+| `scripts/docs/generate_index.sh`       | `scripts/docs/generate_index.sh`       | Index generation       |
+| `scripts/docs/generate_structure.sh`   | `scripts/docs/generate_structure.sh`   | Structure generation   |
+| `scripts/docs/update_doc_links.sh`     | `scripts/docs/update_links.sh`         | Link updates           |
 
 **20. Linting Configuration → hub-release/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `.bandit.yaml` | `.bandit.yaml` | Bandit config |
-| `.bandit.full.yaml` | `.bandit.full.yaml` | Full bandit config |
-| `.markdownlint-cli2.yaml` | `.markdownlint-cli2.yaml` | Markdown linting |
-| `.markdownlint.json` | `.markdownlint.json` | Markdown rules |
+| Source                    | Target                    | Purpose            |
+|---------------------------|---------------------------|--------------------|
+| `.bandit.yaml`            | `.bandit.yaml`            | Bandit config      |
+| `.bandit.full.yaml`       | `.bandit.full.yaml`       | Full bandit config |
+| `.markdownlint-cli2.yaml` | `.markdownlint-cli2.yaml` | Markdown linting   |
+| `.markdownlint.json`      | `.markdownlint.json`      | Markdown rules     |
 
 **21. Documentation → hub-release/docs/**
 
-| Source | Target | Purpose |
-|--------|--------|---------|
-| `docs/SUPPLY_CHAIN.md` | `docs/guides/supply-chain.md` | Supply chain guide |
-| `docs/DR_RUNBOOK.md` | `docs/guides/dr-runbook.md` | DR runbook |
-| `docs/RUNNER_ISOLATION.md` | `docs/guides/runner-isolation.md` | Runner isolation |
-| `.github/SECURITY.md` | `docs/guides/security.md` | Security guide |
-| `docs/CANARY_SETUP.md` | `docs/guides/canary.md` | Canary setup |
-| `docs/TESTING.md` | `docs/guides/testing.md` | Testing guide |
-| `.github/CONTRIBUTING.md` | `.github/CONTRIBUTING.md` | Contribution guide |
-| `docs/adr/*.md` | `docs/adr/` | Architecture decisions |
-| `docs/modules/*.md` | `docs/modules/` | Module documentation |
-| `docs/ops/*.md` | `docs/ops/` | Operations docs |
-| `docs/analysis/*.md` | `docs/analysis/` | Analysis docs |
+| Source                     | Target                            | Purpose                |
+|----------------------------|-----------------------------------|------------------------|
+| `docs/SUPPLY_CHAIN.md`     | `docs/guides/supply-chain.md`     | Supply chain guide     |
+| `docs/DR_RUNBOOK.md`       | `docs/guides/dr-runbook.md`       | DR runbook             |
+| `docs/RUNNER_ISOLATION.md` | `docs/guides/runner-isolation.md` | Runner isolation       |
+| `.github/SECURITY.md`      | `docs/guides/security.md`         | Security guide         |
+| `docs/CANARY_SETUP.md`     | `docs/guides/canary.md`           | Canary setup           |
+| `docs/TESTING.md`          | `docs/guides/testing.md`          | Testing guide          |
+| `.github/CONTRIBUTING.md`  | `.github/CONTRIBUTING.md`         | Contribution guide     |
+| `docs/adr/*.md`            | `docs/adr/`                       | Architecture decisions |
+| `docs/modules/*.md`        | `docs/modules/`                   | Module documentation   |
+| `docs/ops/*.md`            | `docs/ops/`                       | Operations docs        |
+| `docs/analysis/*.md`       | `docs/analysis/`                  | Analysis docs          |
 
 **22. Additional Workflows**
 
