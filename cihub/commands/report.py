@@ -5,11 +5,17 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
 from cihub.ci_config import load_ci_config
-from cihub.ci_report import RunContext, build_python_report, resolve_thresholds
+from cihub.ci_report import (
+    RunContext,
+    build_java_report,
+    build_python_report,
+    resolve_thresholds,
+)
 from cihub.cli import (
     CommandResult,
     get_git_branch,
@@ -20,8 +26,8 @@ from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE
 from cihub.reporting import render_summary_from_path
 
 
-def _tool_enabled(config: dict[str, Any], tool: str) -> bool:
-    tools = config.get("python", {}).get("tools", {}) or {}
+def _tool_enabled(config: dict[str, Any], tool: str, language: str) -> bool:
+    tools = config.get(language, {}).get("tools", {}) or {}
     entry = tools.get(tool, {}) if isinstance(tools, dict) else {}
     if isinstance(entry, bool):
         return entry
@@ -52,6 +58,10 @@ def _build_context(
     config: dict[str, Any],
     workdir: str,
     correlation_id: str | None,
+    build_tool: str | None = None,
+    project_type: str | None = None,
+    docker_compose_file: str | None = None,
+    docker_health_endpoint: str | None = None,
 ) -> RunContext:
     repo_info = config.get("repo", {}) if isinstance(config.get("repo"), dict) else {}
     branch = os.environ.get("GITHUB_REF_NAME") or repo_info.get("default_branch")
@@ -65,12 +75,33 @@ def _build_context(
         correlation_id=correlation_id,
         workflow_ref=os.environ.get("GITHUB_WORKFLOW_REF"),
         workdir=workdir,
-        build_tool=None,
+        build_tool=build_tool,
         retention_days=config.get("reports", {}).get("retention_days"),
-        project_type=None,
-        docker_compose_file=None,
-        docker_health_endpoint=None,
+        project_type=project_type,
+        docker_compose_file=docker_compose_file,
+        docker_health_endpoint=docker_health_endpoint,
     )
+
+
+def _detect_java_project_type(workdir: Path) -> str:
+    pom = workdir / "pom.xml"
+    if pom.exists():
+        try:
+            content = pom.read_text(encoding="utf-8")
+        except OSError:
+            content = ""
+        if "<modules>" in content:
+            modules = len(re.findall(r"<module>.*?</module>", content))
+            return f"Multi-module ({modules} modules)" if modules else "Multi-module"
+        return "Single module"
+
+    settings_gradle = workdir / "settings.gradle"
+    settings_kts = workdir / "settings.gradle.kts"
+    if settings_gradle.exists() or settings_kts.exists():
+        return "Multi-module"
+    if (workdir / "build.gradle").exists() or (workdir / "build.gradle.kts").exists():
+        return "Single module"
+    return "Unknown"
 
 
 def _load_tool_outputs(tool_dir: Path) -> dict[str, dict[str, Any]]:
@@ -99,12 +130,10 @@ def cmd_report(args: argparse.Namespace) -> int | CommandResult:
             return EXIT_FAILURE
 
         results = report.get("results", {}) or {}
-        tools = report.get("tools_configured", {}) or {}
-        tests_failed = int(results.get("tests_failed", 0))
-        if tools.get("pytest") or tools.get("jacoco"):
-            status = "success" if tests_failed == 0 else "failure"
-        else:
-            status = "skipped"
+        status = results.get("build") or results.get("test")
+        if status not in {"success", "failure", "skipped"}:
+            tests_failed = int(results.get("tests_failed", 0))
+            status = "failure" if tests_failed > 0 else "success"
 
         output_path = Path(args.output) if args.output else None
         if output_path is None:
