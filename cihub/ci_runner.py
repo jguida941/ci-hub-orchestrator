@@ -132,6 +132,139 @@ def _parse_json(path: Path) -> dict[str, Any] | list[Any] | None:
         return None
 
 
+def _find_files(workdir: Path, patterns: list[str]) -> list[Path]:
+    files: list[Path] = []
+    for pattern in patterns:
+        files.extend(workdir.rglob(pattern))
+    unique = {path.resolve() for path in files}
+    return sorted(unique, key=lambda path: str(path))
+
+
+def _parse_junit_files(paths: list[Path]) -> dict[str, Any]:
+    totals = {
+        "tests_passed": 0,
+        "tests_failed": 0,
+        "tests_skipped": 0,
+        "tests_runtime_seconds": 0.0,
+    }
+    for path in paths:
+        parsed = _parse_junit(path)
+        totals["tests_passed"] += int(parsed.get("tests_passed", 0))
+        totals["tests_failed"] += int(parsed.get("tests_failed", 0))
+        totals["tests_skipped"] += int(parsed.get("tests_skipped", 0))
+        totals["tests_runtime_seconds"] += float(
+            parsed.get("tests_runtime_seconds", 0.0) or 0.0
+        )
+    return totals
+
+
+def _parse_jacoco_files(paths: list[Path]) -> dict[str, Any]:
+    covered = 0
+    missed = 0
+    for path in paths:
+        try:
+            root = ET.parse(path).getroot()
+        except ET.ParseError:
+            continue
+        for counter in root.iter("counter"):
+            if counter.attrib.get("type") != "LINE":
+                continue
+            covered += int(counter.attrib.get("covered", 0))
+            missed += int(counter.attrib.get("missed", 0))
+    total = covered + missed
+    coverage = int(round((covered / total) * 100)) if total else 0
+    return {
+        "coverage": coverage,
+        "coverage_lines_covered": covered,
+        "coverage_lines_total": total,
+    }
+
+
+def _parse_pitest_files(paths: list[Path]) -> dict[str, Any]:
+    killed = 0
+    survived = 0
+    no_coverage = 0
+    for path in paths:
+        try:
+            root = ET.parse(path).getroot()
+        except ET.ParseError:
+            continue
+        for mutation in root.iter("mutation"):
+            status = mutation.attrib.get("status")
+            if status == "KILLED":
+                killed += 1
+            elif status == "SURVIVED":
+                survived += 1
+            elif status == "NO_COVERAGE":
+                no_coverage += 1
+    total = killed + survived + no_coverage
+    score = int(round((killed / total) * 100)) if total else 0
+    return {
+        "mutation_score": score,
+        "mutation_killed": killed,
+        "mutation_survived": survived,
+    }
+
+
+def _parse_checkstyle_files(paths: list[Path]) -> dict[str, Any]:
+    violations = 0
+    for path in paths:
+        try:
+            root = ET.parse(path).getroot()
+        except ET.ParseError:
+            continue
+        violations += len(list(root.iter("error")))
+    return {"checkstyle_issues": violations}
+
+
+def _parse_spotbugs_files(paths: list[Path]) -> dict[str, Any]:
+    issues = 0
+    for path in paths:
+        try:
+            root = ET.parse(path).getroot()
+        except ET.ParseError:
+            continue
+        issues += len(list(root.iter("BugInstance")))
+    return {"spotbugs_issues": issues}
+
+
+def _parse_pmd_files(paths: list[Path]) -> dict[str, Any]:
+    violations = 0
+    for path in paths:
+        try:
+            root = ET.parse(path).getroot()
+        except ET.ParseError:
+            continue
+        violations += len(list(root.iter("violation")))
+    return {"pmd_violations": violations}
+
+
+def _parse_dependency_check(path: Path) -> dict[str, Any]:
+    data = _parse_json(path)
+    critical = 0
+    high = 0
+    medium = 0
+    low = 0
+    if isinstance(data, dict):
+        for dep in data.get("dependencies", []) or []:
+            for vuln in dep.get("vulnerabilities", []) or []:
+                severity = str(vuln.get("severity", "")).upper()
+                if severity == "CRITICAL":
+                    critical += 1
+                elif severity == "HIGH":
+                    high += 1
+                elif severity == "MEDIUM":
+                    medium += 1
+                elif severity == "LOW":
+                    low += 1
+    return {
+        "owasp_critical": critical,
+        "owasp_high": high,
+        "owasp_medium": medium,
+        "owasp_low": low,
+    }
+
+
 def run_pytest(workdir: Path, output_dir: Path) -> ToolResult:
     junit_path = output_dir / "pytest-junit.xml"
     coverage_path = output_dir / "coverage.xml"
@@ -427,6 +560,253 @@ def run_trivy(workdir: Path, output_dir: Path) -> ToolResult:
             "parse_error": not parse_ok,
         },
         artifacts={"report": str(report_path)},
+        stdout=proc.stdout,
+        stderr=proc.stderr,
+    )
+
+
+def _maven_cmd(workdir: Path) -> list[str]:
+    mvnw = workdir / "mvnw"
+    if mvnw.exists():
+        mvnw.chmod(mvnw.stat().st_mode | 0o111)
+        return ["./mvnw"]
+    return ["mvn"]
+
+
+def _gradle_cmd(workdir: Path) -> list[str]:
+    gradlew = workdir / "gradlew"
+    if gradlew.exists():
+        gradlew.chmod(gradlew.stat().st_mode | 0o111)
+        return ["./gradlew"]
+    return ["gradle"]
+
+
+def run_java_build(
+    workdir: Path,
+    output_dir: Path,
+    build_tool: str,
+    jacoco_enabled: bool,
+) -> ToolResult:
+    log_path = output_dir / "java-build.log"
+    if build_tool == "gradle":
+        cmd = _gradle_cmd(workdir) + ["test", "--continue"]
+        if jacoco_enabled:
+            cmd.append("jacocoTestReport")
+    else:
+        cmd = _maven_cmd(workdir) + [
+            "-B",
+            "-ntp",
+            "-Dmaven.test.failure.ignore=true",
+            "verify",
+        ]
+    proc = _run_command(cmd, workdir)
+    log_path.write_text(proc.stdout + proc.stderr, encoding="utf-8")
+
+    junit_paths = _find_files(
+        workdir,
+        [
+            "target/surefire-reports/*.xml",
+            "target/failsafe-reports/*.xml",
+            "build/test-results/test/*.xml",
+        ],
+    )
+    metrics = _parse_junit_files(junit_paths)
+    if jacoco_enabled:
+        jacoco_paths = _find_files(
+            workdir,
+            [
+                "target/site/jacoco/jacoco.xml",
+                "build/reports/jacoco/test/jacocoTestReport.xml",
+            ],
+        )
+        metrics.update(_parse_jacoco_files(jacoco_paths))
+
+    return ToolResult(
+        tool="build",
+        ran=True,
+        success=proc.returncode == 0,
+        metrics=metrics,
+        artifacts={"log": str(log_path)},
+        stdout=proc.stdout,
+        stderr=proc.stderr,
+    )
+
+
+def run_jacoco(workdir: Path, output_dir: Path) -> ToolResult:
+    report_paths = _find_files(
+        workdir,
+        [
+            "target/site/jacoco/jacoco.xml",
+            "build/reports/jacoco/test/jacocoTestReport.xml",
+        ],
+    )
+    metrics = _parse_jacoco_files(report_paths)
+    ran = bool(report_paths)
+    return ToolResult(
+        tool="jacoco",
+        ran=ran,
+        success=ran,
+        metrics=metrics,
+        artifacts={"report": str(report_paths[0])} if report_paths else {},
+    )
+
+
+def run_pitest(workdir: Path, output_dir: Path, build_tool: str) -> ToolResult:
+    log_path = output_dir / "pitest-output.txt"
+    if build_tool == "gradle":
+        cmd = _gradle_cmd(workdir) + ["pitest", "--continue"]
+    else:
+        cmd = _maven_cmd(workdir) + [
+            "-B",
+            "-ntp",
+            "org.pitest:pitest-maven:mutationCoverage",
+        ]
+    proc = _run_command(cmd, workdir)
+    log_path.write_text(proc.stdout + proc.stderr, encoding="utf-8")
+
+    report_paths = _find_files(
+        workdir,
+        [
+            "target/pit-reports/**/mutations.xml",
+            "build/reports/pitest/mutations.xml",
+        ],
+    )
+    metrics = _parse_pitest_files(report_paths)
+    ran = bool(report_paths)
+    return ToolResult(
+        tool="pitest",
+        ran=ran,
+        success=proc.returncode == 0 and ran,
+        metrics=metrics,
+        artifacts={"report": str(report_paths[0])} if report_paths else {},
+        stdout=proc.stdout,
+        stderr=proc.stderr,
+    )
+
+
+def run_checkstyle(workdir: Path, output_dir: Path, build_tool: str) -> ToolResult:
+    log_path = output_dir / "checkstyle-output.txt"
+    if build_tool == "gradle":
+        cmd = _gradle_cmd(workdir) + ["checkstyleMain", "--continue"]
+    else:
+        cmd = _maven_cmd(workdir) + [
+            "-B",
+            "-ntp",
+            "-DskipTests",
+            "checkstyle:checkstyle",
+        ]
+    proc = _run_command(cmd, workdir)
+    log_path.write_text(proc.stdout + proc.stderr, encoding="utf-8")
+
+    report_paths = _find_files(workdir, ["checkstyle-result.xml"])
+    metrics = _parse_checkstyle_files(report_paths)
+    ran = bool(report_paths)
+    return ToolResult(
+        tool="checkstyle",
+        ran=ran,
+        success=proc.returncode == 0 and ran,
+        metrics=metrics,
+        artifacts={"report": str(report_paths[0])} if report_paths else {},
+        stdout=proc.stdout,
+        stderr=proc.stderr,
+    )
+
+
+def run_spotbugs(workdir: Path, output_dir: Path, build_tool: str) -> ToolResult:
+    log_path = output_dir / "spotbugs-output.txt"
+    if build_tool == "gradle":
+        cmd = _gradle_cmd(workdir) + ["spotbugsMain", "--continue"]
+    else:
+        cmd = _maven_cmd(workdir) + ["-B", "-ntp", "spotbugs:spotbugs"]
+    proc = _run_command(cmd, workdir)
+    log_path.write_text(proc.stdout + proc.stderr, encoding="utf-8")
+
+    report_paths = _find_files(workdir, ["spotbugsXml.xml"])
+    metrics = _parse_spotbugs_files(report_paths)
+    ran = bool(report_paths)
+    return ToolResult(
+        tool="spotbugs",
+        ran=ran,
+        success=proc.returncode == 0 and ran,
+        metrics=metrics,
+        artifacts={"report": str(report_paths[0])} if report_paths else {},
+        stdout=proc.stdout,
+        stderr=proc.stderr,
+    )
+
+
+def run_pmd(workdir: Path, output_dir: Path, build_tool: str) -> ToolResult:
+    log_path = output_dir / "pmd-output.txt"
+    if build_tool == "gradle":
+        cmd = _gradle_cmd(workdir) + ["pmdMain", "--continue"]
+    else:
+        cmd = _maven_cmd(workdir) + ["-B", "-ntp", "pmd:check"]
+    proc = _run_command(cmd, workdir)
+    log_path.write_text(proc.stdout + proc.stderr, encoding="utf-8")
+
+    report_paths = _find_files(workdir, ["pmd.xml"])
+    metrics = _parse_pmd_files(report_paths)
+    ran = bool(report_paths)
+    return ToolResult(
+        tool="pmd",
+        ran=ran,
+        success=proc.returncode == 0 and ran,
+        metrics=metrics,
+        artifacts={"report": str(report_paths[0])} if report_paths else {},
+        stdout=proc.stdout,
+        stderr=proc.stderr,
+    )
+
+
+def run_owasp(
+    workdir: Path,
+    output_dir: Path,
+    build_tool: str,
+    use_nvd_api_key: bool,
+) -> ToolResult:
+    log_path = output_dir / "owasp-output.txt"
+    env = os.environ.copy()
+    nvd_key = env.get("NVD_API_KEY")
+    nvd_flags: list[str] = []
+    if use_nvd_api_key and nvd_key:
+        nvd_flags.append(f"-DnvdApiKey={nvd_key}")
+    if build_tool == "gradle":
+        cmd = _gradle_cmd(workdir) + ["dependencyCheckAnalyze", "--continue"]
+    else:
+        cmd = _maven_cmd(workdir) + [
+            "-B",
+            "-ntp",
+            "org.owasp:dependency-check-maven:check",
+            "-DfailBuildOnCVSS=11",
+            "-DnvdApiDelay=2500",
+            "-DnvdMaxRetryCount=10",
+            "-Ddependencycheck.failOnError=false",
+            *nvd_flags,
+        ]
+    proc = _run_command(cmd, workdir, env=env)
+    log_path.write_text(proc.stdout + proc.stderr, encoding="utf-8")
+
+    report_paths = _find_files(
+        workdir,
+        [
+            "dependency-check-report.json",
+            "target/dependency-check-report.json",
+            "build/reports/dependency-check-report.json",
+        ],
+    )
+    metrics = _parse_dependency_check(report_paths[0]) if report_paths else {
+        "owasp_critical": 0,
+        "owasp_high": 0,
+        "owasp_medium": 0,
+        "owasp_low": 0,
+    }
+    ran = bool(report_paths)
+    return ToolResult(
+        tool="owasp",
+        ran=ran,
+        success=proc.returncode == 0 and ran,
+        metrics=metrics,
+        artifacts={"report": str(report_paths[0])} if report_paths else {},
         stdout=proc.stdout,
         stderr=proc.stderr,
     )

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shlex
 import shutil
 import subprocess
@@ -13,18 +14,30 @@ from pathlib import Path
 from typing import Any
 
 from cihub.ci_config import load_ci_config
-from cihub.ci_report import RunContext, build_python_report, resolve_thresholds
+from cihub.ci_report import (
+    RunContext,
+    build_java_report,
+    build_python_report,
+    resolve_thresholds,
+)
 from cihub.ci_runner import (
     ToolResult,
     run_bandit,
     run_black,
+    run_checkstyle,
     run_isort,
+    run_jacoco,
+    run_java_build,
     run_mutmut,
     run_mypy,
+    run_owasp,
     run_pip_audit,
+    run_pitest,
+    run_pmd,
     run_pytest,
     run_ruff,
     run_semgrep,
+    run_spotbugs,
     run_trivy,
 )
 from cihub.cli import (
@@ -54,6 +67,20 @@ PYTHON_TOOLS = [
     "mutmut",
 ]
 
+JAVA_TOOLS = [
+    "jacoco",
+    "pitest",
+    "jqwik",
+    "checkstyle",
+    "spotbugs",
+    "pmd",
+    "owasp",
+    "semgrep",
+    "trivy",
+    "codeql",
+    "docker",
+]
+
 PYTHON_RUNNERS = {
     "pytest": run_pytest,
     "ruff": run_ruff,
@@ -63,6 +90,17 @@ PYTHON_RUNNERS = {
     "bandit": run_bandit,
     "pip_audit": run_pip_audit,
     "mutmut": run_mutmut,
+    "semgrep": run_semgrep,
+    "trivy": run_trivy,
+}
+
+JAVA_RUNNERS = {
+    "jacoco": run_jacoco,
+    "pitest": run_pitest,
+    "checkstyle": run_checkstyle,
+    "spotbugs": run_spotbugs,
+    "pmd": run_pmd,
+    "owasp": run_owasp,
     "semgrep": run_semgrep,
     "trivy": run_trivy,
 }
@@ -114,8 +152,29 @@ def _resolve_workdir(
     return "."
 
 
-def _tool_enabled(config: dict[str, Any], tool: str) -> bool:
-    tools = config.get("python", {}).get("tools", {}) or {}
+def _detect_java_project_type(workdir: Path) -> str:
+    pom = workdir / "pom.xml"
+    if pom.exists():
+        try:
+            content = pom.read_text(encoding="utf-8")
+        except OSError:
+            content = ""
+        if "<modules>" in content:
+            modules = len(re.findall(r"<module>.*?</module>", content))
+            return f"Multi-module ({modules} modules)" if modules else "Multi-module"
+        return "Single module"
+
+    settings_gradle = workdir / "settings.gradle"
+    settings_kts = workdir / "settings.gradle.kts"
+    if settings_gradle.exists() or settings_kts.exists():
+        return "Multi-module"
+    if (workdir / "build.gradle").exists() or (workdir / "build.gradle.kts").exists():
+        return "Single module"
+    return "Unknown"
+
+
+def _tool_enabled(config: dict[str, Any], tool: str, language: str) -> bool:
+    tools = config.get(language, {}).get("tools", {}) or {}
     entry = tools.get(tool, {}) if isinstance(tools, dict) else {}
     if isinstance(entry, bool):
         return entry
@@ -244,7 +303,7 @@ def _run_python_tools(
     for tool in PYTHON_TOOLS:
         if tool == "hypothesis":
             continue
-        enabled = _tool_enabled(config, tool)
+        enabled = _tool_enabled(config, tool, "python")
         if not enabled:
             continue
         runner = PYTHON_RUNNERS.get(tool)
@@ -288,9 +347,98 @@ def _run_python_tools(
         tools_success[tool] = result.success
         result.write_json(tool_output_dir / f"{tool}.json")
 
-    if _tool_enabled(config, "hypothesis"):
+    if _tool_enabled(config, "hypothesis", "python"):
         tools_ran["hypothesis"] = tools_ran.get("pytest", False)
         tools_success["hypothesis"] = tools_success.get("pytest", False)
+
+    return tool_outputs, tools_ran, tools_success
+
+
+def _run_java_tools(
+    config: dict[str, Any],
+    repo_path: Path,
+    workdir: str,
+    output_dir: Path,
+    build_tool: str,
+    problems: list[dict[str, Any]],
+) -> tuple[dict[str, dict[str, Any]], dict[str, bool], dict[str, bool]]:
+    workdir_path = repo_path / workdir
+    if not workdir_path.exists():
+        raise FileNotFoundError(f"Workdir not found: {workdir_path}")
+
+    tool_outputs: dict[str, dict[str, Any]] = {}
+    tools_ran: dict[str, bool] = {tool: False for tool in JAVA_TOOLS}
+    tools_success: dict[str, bool] = {tool: False for tool in JAVA_TOOLS}
+
+    tool_output_dir = output_dir / "tool-outputs"
+    tool_output_dir.mkdir(parents=True, exist_ok=True)
+
+    jacoco_enabled = _tool_enabled(config, "jacoco", "java")
+    build_result = run_java_build(workdir_path, output_dir, build_tool, jacoco_enabled)
+    tool_outputs["build"] = build_result.to_payload()
+    build_result.write_json(tool_output_dir / "build.json")
+
+    use_nvd_api_key = bool(
+        config.get("java", {})
+        .get("tools", {})
+        .get("owasp", {})
+        .get("use_nvd_api_key", True)
+    )
+
+    for tool in JAVA_TOOLS:
+        if tool == "jqwik":
+            continue
+        enabled = _tool_enabled(config, tool, "java")
+        if not enabled:
+            continue
+        runner = JAVA_RUNNERS.get(tool)
+        if runner is None:
+            problems.append(
+                {
+                    "severity": "warning",
+                    "message": (
+                        f"Tool '{tool}' is enabled but is not supported by cihub; "
+                        "run it via a workflow step."
+                    ),
+                    "code": "CIHUB-CI-UNSUPPORTED",
+                }
+            )
+            ToolResult(tool=tool, ran=False, success=False).write_json(
+                tool_output_dir / f"{tool}.json"
+            )
+            continue
+        try:
+            if tool == "pitest":
+                result = runner(workdir_path, output_dir, build_tool)
+            elif tool == "checkstyle":
+                result = runner(workdir_path, output_dir, build_tool)
+            elif tool == "spotbugs":
+                result = runner(workdir_path, output_dir, build_tool)
+            elif tool == "pmd":
+                result = runner(workdir_path, output_dir, build_tool)
+            elif tool == "owasp":
+                result = runner(workdir_path, output_dir, build_tool, use_nvd_api_key)
+            else:
+                result = runner(workdir_path, output_dir)
+        except FileNotFoundError as exc:
+            problems.append(
+                {
+                    "severity": "error",
+                    "message": f"Tool '{tool}' not found: {exc}",
+                    "code": "CIHUB-CI-MISSING-TOOL",
+                }
+            )
+            result = ToolResult(tool=tool, ran=False, success=False)
+
+        tool_outputs[tool] = result.to_payload()
+        tools_ran[tool] = result.ran
+        tools_success[tool] = result.success
+        result.write_json(tool_output_dir / f"{tool}.json")
+
+    if _tool_enabled(config, "jqwik", "java"):
+        tests_failed = int(build_result.metrics.get("tests_failed", 0))
+        tools_ran["jqwik"] = True
+        tools_success["jqwik"] = build_result.success and tests_failed == 0
 
     return tool_outputs, tools_ran, tools_success
 
@@ -300,6 +448,10 @@ def _build_context(
     config: dict[str, Any],
     workdir: str,
     correlation_id: str | None,
+    build_tool: str | None = None,
+    project_type: str | None = None,
+    docker_compose_file: str | None = None,
+    docker_health_endpoint: str | None = None,
 ) -> RunContext:
     repo_info = config.get("repo", {}) if isinstance(config.get("repo"), dict) else {}
     branch = os.environ.get("GITHUB_REF_NAME") or repo_info.get("default_branch")
@@ -313,11 +465,11 @@ def _build_context(
         correlation_id=correlation_id,
         workflow_ref=os.environ.get("GITHUB_WORKFLOW_REF"),
         workdir=workdir,
-        build_tool=None,
+        build_tool=build_tool,
         retention_days=config.get("reports", {}).get("retention_days"),
-        project_type=None,
-        docker_compose_file=None,
-        docker_health_endpoint=None,
+        project_type=project_type,
+        docker_compose_file=docker_compose_file,
+        docker_health_endpoint=docker_health_endpoint,
     )
 
 
@@ -390,6 +542,75 @@ def _evaluate_python_gates(
     return failures
 
 
+def _evaluate_java_gates(
+    report: dict[str, Any],
+    thresholds: dict[str, Any],
+    tools_configured: dict[str, bool],
+) -> list[str]:
+    failures: list[str] = []
+    results = report.get("results", {}) or {}
+    metrics = report.get("tool_metrics", {}) or {}
+
+    tests_failed = int(results.get("tests_failed", 0))
+    if tests_failed > 0:
+        failures.append("test failures detected")
+
+    coverage_min = int(thresholds.get("coverage_min", 0) or 0)
+    coverage = int(results.get("coverage", 0))
+    if tools_configured.get("jacoco") and coverage < coverage_min:
+        failures.append(f"coverage {coverage}% < {coverage_min}%")
+
+    mut_min = int(thresholds.get("mutation_score_min", 0) or 0)
+    mut_score = int(results.get("mutation_score", 0))
+    if tools_configured.get("pitest") and mut_score < mut_min:
+        failures.append(f"mutation score {mut_score}% < {mut_min}%")
+
+    max_checkstyle = int(thresholds.get("max_checkstyle_errors", 0) or 0)
+    checkstyle_issues = int(metrics.get("checkstyle_issues", 0))
+    if tools_configured.get("checkstyle") and checkstyle_issues > max_checkstyle:
+        failures.append(f"checkstyle issues {checkstyle_issues} > {max_checkstyle}")
+
+    max_spotbugs = int(thresholds.get("max_spotbugs_bugs", 0) or 0)
+    spotbugs_issues = int(metrics.get("spotbugs_issues", 0))
+    if tools_configured.get("spotbugs") and spotbugs_issues > max_spotbugs:
+        failures.append(f"spotbugs issues {spotbugs_issues} > {max_spotbugs}")
+
+    max_pmd = int(thresholds.get("max_pmd_violations", 0) or 0)
+    pmd_issues = int(metrics.get("pmd_violations", 0))
+    if tools_configured.get("pmd") and pmd_issues > max_pmd:
+        failures.append(f"pmd violations {pmd_issues} > {max_pmd}")
+
+    max_critical = int(thresholds.get("max_critical_vulns", 0) or 0)
+    max_high = int(thresholds.get("max_high_vulns", 0) or 0)
+
+    owasp_critical = int(metrics.get("owasp_critical", 0))
+    owasp_high = int(metrics.get("owasp_high", 0))
+    if tools_configured.get("owasp") and (
+        owasp_critical > max_critical or owasp_high > max_high
+    ):
+        failures.append(
+            "owasp critical/high "
+            f"{owasp_critical}/{owasp_high} > {max_critical}/{max_high}"
+        )
+
+    trivy_critical = int(metrics.get("trivy_critical", 0))
+    trivy_high = int(metrics.get("trivy_high", 0))
+    if tools_configured.get("trivy") and (
+        trivy_critical > max_critical or trivy_high > max_high
+    ):
+        failures.append(
+            "trivy critical/high "
+            f"{trivy_critical}/{trivy_high} > {max_critical}/{max_high}"
+        )
+
+    max_semgrep = int(thresholds.get("max_semgrep_findings", 0) or 0)
+    semgrep_findings = int(metrics.get("semgrep_findings", 0))
+    if tools_configured.get("semgrep") and semgrep_findings > max_semgrep:
+        failures.append(f"semgrep findings {semgrep_findings} > {max_semgrep}")
+
+    return failures
+
+
 def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
     repo_path = Path(args.repo or ".").resolve()
     json_mode = getattr(args, "json", False)
@@ -413,8 +634,99 @@ def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
         return EXIT_FAILURE
 
     language = config.get("language") or ""
-    if language != "python":
-        message = f"cihub ci currently supports python only (got '{language}')"
+    workdir = _resolve_workdir(repo_path, config, args.workdir)
+    problems: list[dict[str, Any]] = []
+
+    if language == "python":
+        if args.install_deps:
+            _install_python_dependencies(config, repo_path / workdir, problems)
+        try:
+            tool_outputs, tools_ran, tools_success = _run_python_tools(
+                config, repo_path, workdir, output_dir, problems
+            )
+        except Exception as exc:
+            message = f"Tool execution failed: {exc}"
+            if json_mode:
+                return CommandResult(
+                    exit_code=EXIT_INTERNAL_ERROR,
+                    summary=message,
+                    problems=[{"severity": "error", "message": message}],
+                )
+            print(message)
+            return EXIT_INTERNAL_ERROR
+
+        tools_configured = {
+            tool: _tool_enabled(config, tool, "python") for tool in PYTHON_TOOLS
+        }
+        thresholds = resolve_thresholds(config, "python")
+        context = _build_context(repo_path, config, workdir, args.correlation_id)
+        report = build_python_report(
+            config,
+            tool_outputs,
+            tools_configured,
+            tools_ran,
+            tools_success,
+            thresholds,
+            context,
+        )
+        gate_failures = _evaluate_python_gates(report, thresholds, tools_configured)
+
+    elif language == "java":
+        build_tool = (
+            config.get("java", {}).get("build_tool", "maven").strip().lower()
+            or "maven"
+        )
+        if build_tool not in {"maven", "gradle"}:
+            build_tool = "maven"
+        project_type = _detect_java_project_type(repo_path / workdir)
+        docker_cfg = (
+            config.get("java", {}).get("tools", {}).get("docker", {}) or {}
+        )
+        docker_compose = docker_cfg.get("compose_file")
+        docker_health = docker_cfg.get("health_endpoint")
+
+        try:
+            tool_outputs, tools_ran, tools_success = _run_java_tools(
+                config, repo_path, workdir, output_dir, build_tool, problems
+            )
+        except Exception as exc:
+            message = f"Tool execution failed: {exc}"
+            if json_mode:
+                return CommandResult(
+                    exit_code=EXIT_INTERNAL_ERROR,
+                    summary=message,
+                    problems=[{"severity": "error", "message": message}],
+                )
+            print(message)
+            return EXIT_INTERNAL_ERROR
+
+        tools_configured = {
+            tool: _tool_enabled(config, tool, "java") for tool in JAVA_TOOLS
+        }
+        thresholds = resolve_thresholds(config, "java")
+        context = _build_context(
+            repo_path,
+            config,
+            workdir,
+            args.correlation_id,
+            build_tool=build_tool,
+            project_type=project_type,
+            docker_compose_file=docker_compose,
+            docker_health_endpoint=docker_health,
+        )
+        report = build_java_report(
+            config,
+            tool_outputs,
+            tools_configured,
+            tools_ran,
+            tools_success,
+            thresholds,
+            context,
+        )
+        gate_failures = _evaluate_java_gates(report, thresholds, tools_configured)
+
+    else:
+        message = f"cihub ci supports python or java (got '{language}')"
         if json_mode:
             return CommandResult(
                 exit_code=EXIT_FAILURE,
@@ -423,38 +735,6 @@ def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
             )
         print(message)
         return EXIT_FAILURE
-
-    workdir = _resolve_workdir(repo_path, config, args.workdir)
-    problems: list[dict[str, Any]] = []
-    if args.install_deps:
-        _install_python_dependencies(config, repo_path / workdir, problems)
-    try:
-        tool_outputs, tools_ran, tools_success = _run_python_tools(
-            config, repo_path, workdir, output_dir, problems
-        )
-    except Exception as exc:
-        message = f"Tool execution failed: {exc}"
-        if json_mode:
-            return CommandResult(
-                exit_code=EXIT_INTERNAL_ERROR,
-                summary=message,
-                problems=[{"severity": "error", "message": message}],
-            )
-        print(message)
-        return EXIT_INTERNAL_ERROR
-
-    tools_configured = {tool: _tool_enabled(config, tool) for tool in PYTHON_TOOLS}
-    thresholds = resolve_thresholds(config, "python")
-    context = _build_context(repo_path, config, workdir, args.correlation_id)
-    report = build_python_report(
-        config,
-        tool_outputs,
-        tools_configured,
-        tools_ran,
-        tools_success,
-        thresholds,
-        context,
-    )
 
     report_path = Path(args.report) if args.report else output_dir / "report.json"
     if not report_path.is_absolute():
@@ -471,7 +751,6 @@ def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
     if github_summary:
         Path(github_summary).write_text(summary_text, encoding="utf-8")
 
-    gate_failures = _evaluate_python_gates(report, thresholds, tools_configured)
     if gate_failures:
         problems.extend(
             [
