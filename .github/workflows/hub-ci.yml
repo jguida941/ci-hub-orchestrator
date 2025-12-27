@@ -42,8 +42,6 @@ on:
 
 permissions:
   contents: read
-  security-events: write  # For CodeQL
-  actions: read
 
 jobs:
   # ============================================================================
