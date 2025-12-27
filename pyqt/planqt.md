@@ -1,6 +1,4 @@
-Plan is now complete with all implementation details:
-
-• This plan is good and complete. Only small additions I’d keep (already reflected in your text):
+## Plan for Simplified Workflow + PyQt6 GUI
 
   - Wrapper uses embedded defaults and fromJson() when passing values (so booleans/numbers behave correctly).
   - Update tests/docs so CI doesn’t fail.
