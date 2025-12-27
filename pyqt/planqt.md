@@ -69,6 +69,16 @@ Dependency strategy:
   (e.g., pytest/pytest-cov, ruff, black, isort, mypy, bandit, pip-audit,
   mutmut, hypothesis).
 
+Versioning strategy (dev workflow):
+- Use `v0-dev` tag for development testing. Fixtures point to `@v0-dev`.
+- After each push to `simplify-workflows`, update the tag:
+  ```bash
+  git tag -f v0-dev && git push origin v0-dev --force
+  ```
+- This avoids updating SHA in every fixture workflow on each commit.
+- For production: use semantic version tags (v1.0.0, v1.1.0, etc.)
+- Release workflow creates immutable tags; `v0-dev` is mutable for dev only.
+
 Research additions (explicit requirements):
 - CLI distribution: PyPI publish + scoped tokens + automated release workflow.
 - Custom command parsing modes: exit_code, json, regex.
