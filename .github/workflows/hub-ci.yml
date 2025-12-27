@@ -75,10 +75,7 @@ jobs:
       run_pmd: ${{ steps.parse.outputs.run_pmd }}
       run_pitest: ${{ steps.parse.outputs.run_pitest }}
       run_jqwik: ${{ steps.parse.outputs.run_jqwik }}
-      run_semgrep: ${{ steps.parse.outputs.run_semgrep }}
-      run_trivy: ${{ steps.parse.outputs.run_trivy }}
-      run_codeql: ${{ steps.parse.outputs.run_codeql }}
-      run_docker: ${{ steps.parse.outputs.run_docker }}
+      # Shared tool toggles are defined above (run_semgrep/run_trivy/run_codeql/run_docker)
 
       # Common settings
       workdir: ${{ steps.parse.outputs.workdir }}
@@ -212,11 +209,19 @@ jobs:
               mutation_score_min = get_tool_threshold(config, "python", "mutmut", "min_mutation_score", 70)
               max_semgrep_findings = get_tool_threshold(config, "python", "semgrep", "max_findings", 0)
               owasp_cvss_fail = get_tool_threshold(config, "python", "trivy", "fail_on_cvss", 7)
+              run_semgrep = get_tool_enabled(config, "python", "semgrep", False)
+              run_trivy = get_tool_enabled(config, "python", "trivy", False)
+              run_codeql = get_tool_enabled(config, "python", "codeql", False)
+              run_docker = get_tool_enabled(config, "python", "docker", False)
           else:
               coverage_min = get_tool_threshold(config, "java", "jacoco", "min_coverage", 70)
               mutation_score_min = get_tool_threshold(config, "java", "pitest", "min_mutation_score", 70)
               max_semgrep_findings = get_tool_threshold(config, "java", "semgrep", "max_findings", 0)
               owasp_cvss_fail = get_tool_threshold(config, "java", "owasp", "fail_on_cvss", 7)
+              run_semgrep = get_tool_enabled(config, "java", "semgrep", False)
+              run_trivy = get_tool_enabled(config, "java", "trivy", False)
+              run_codeql = get_tool_enabled(config, "java", "codeql", False)
+              run_docker = get_tool_enabled(config, "java", "docker", False)
 
           coverage_min = get_threshold(config, "coverage_min", coverage_min)
           mutation_score_min = get_threshold(config, "mutation_score_min", mutation_score_min)
@@ -244,10 +249,10 @@ jobs:
               out.write(f"run_isort={json.dumps(get_tool_enabled(config, 'python', 'isort', True))}\n")
               out.write(f"run_mutmut={json.dumps(get_tool_enabled(config, 'python', 'mutmut', True))}\n")
               out.write(f"run_hypothesis={json.dumps(get_tool_enabled(config, 'python', 'hypothesis', True))}\n")
-              out.write(f"run_semgrep={json.dumps(get_tool_enabled(config, 'python', 'semgrep', False))}\n")
-              out.write(f"run_trivy={json.dumps(get_tool_enabled(config, 'python', 'trivy', False))}\n")
-              out.write(f"run_codeql={json.dumps(get_tool_enabled(config, 'python', 'codeql', False))}\n")
-              out.write(f"run_docker={json.dumps(get_tool_enabled(config, 'python', 'docker', False))}\n")
+              out.write(f"run_semgrep={json.dumps(run_semgrep)}\n")
+              out.write(f"run_trivy={json.dumps(run_trivy)}\n")
+              out.write(f"run_codeql={json.dumps(run_codeql)}\n")
+              out.write(f"run_docker={json.dumps(run_docker)}\n")
 
               # Java settings
               java_defaults = DEFAULTS["java"]
@@ -263,10 +268,6 @@ jobs:
               out.write(f"run_pmd={json.dumps(get_tool_enabled(config, 'java', 'pmd', True))}\n")
               out.write(f"run_pitest={json.dumps(get_tool_enabled(config, 'java', 'pitest', True))}\n")
               out.write(f"run_jqwik={json.dumps(get_tool_enabled(config, 'java', 'jqwik', False))}\n")
-              out.write(f"run_semgrep={json.dumps(get_tool_enabled(config, 'java', 'semgrep', False))}\n")
-              out.write(f"run_trivy={json.dumps(get_tool_enabled(config, 'java', 'trivy', False))}\n")
-              out.write(f"run_codeql={json.dumps(get_tool_enabled(config, 'java', 'codeql', False))}\n")
-              out.write(f"run_docker={json.dumps(get_tool_enabled(config, 'java', 'docker', False))}\n")
 
               # Thresholds (shared)
               out.write(f"coverage_min={coverage_min}\n")
