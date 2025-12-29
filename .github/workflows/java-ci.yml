@@ -204,7 +204,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -301,14 +301,14 @@ jobs:
           echo "  max_high_vulns: $MAX_HIGH_VULNS"
 
       - name: Set up JDK ${{ inputs.java_version }}
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v4
         with:
           java-version: ${{ inputs.java_version }}
           distribution: 'temurin'
           cache: ${{ inputs.build_tool }}
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5
         with:
           python-version: '3.12'
 
@@ -753,7 +753,7 @@ jobs:
       # ---- Upload Artifacts ----
       - name: Upload Test Reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: ${{ inputs.artifact_prefix }}test-reports
           path: |
@@ -764,7 +764,7 @@ jobs:
 
       - name: Upload JaCoCo Reports
         if: always() && inputs.run_jacoco
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: ${{ inputs.artifact_prefix }}jacoco-reports
           path: '**/target/site/jacoco/'
@@ -773,7 +773,7 @@ jobs:
 
       - name: Upload Checkstyle Reports
         if: always() && inputs.run_checkstyle
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: ${{ inputs.artifact_prefix }}checkstyle-reports
           path: '**/target/checkstyle-result.xml'
@@ -782,7 +782,7 @@ jobs:
 
       - name: Upload SpotBugs Reports
         if: always() && inputs.run_spotbugs
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: ${{ inputs.artifact_prefix }}spotbugs-reports
           path: |
@@ -793,7 +793,7 @@ jobs:
 
       - name: Upload OWASP Reports
         if: always() && inputs.run_owasp
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: ${{ inputs.artifact_prefix }}owasp-reports
           path: |
@@ -845,7 +845,7 @@ jobs:
 
       - name: Upload to Codecov
         if: inputs.run_jacoco
-        uses: codecov/codecov-action@b9fd7d16f6d7d1b5d2bec1a2887e65ceed900238 # v4
+        uses: codecov/codecov-action@671740ac38dd9b0130fbe1cec585b89eea48d3de # v4
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: '**/target/site/jacoco/jacoco.xml'
@@ -868,12 +868,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
       - name: Set up JDK ${{ inputs.java_version }}
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v4
         with:
           java-version: ${{ inputs.java_version }}
           distribution: 'temurin'
@@ -954,7 +954,7 @@ jobs:
 
       - name: Upload PMD Reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: ${{ inputs.artifact_prefix }}pmd-reports
           path: '**/target/pmd.xml'
@@ -986,7 +986,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -994,7 +994,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Set up Python 3.12
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v5
         with:
           python-version: '3.12'
 
@@ -1067,7 +1067,7 @@ jobs:
 
       - name: Upload Semgrep Report
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: ${{ inputs.artifact_prefix }}semgrep-report
           path: semgrep-report.json
@@ -1100,7 +1100,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -1120,7 +1120,7 @@ jobs:
       - name: Run Trivy Scan
         if: steps.check-dockerfile.outputs.exists == 'true'
         id: trivy
-        uses: aquasecurity/trivy-action@915b19bbe73b92a6cf82a1bc12b087c9a19a5fe2 # 0.28.0
+        uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
         with:
           scan-type: 'fs'
           scan-ref: ${{ inputs.workdir }}
@@ -1204,7 +1204,7 @@ jobs:
 
       - name: Upload Trivy Report
         if: always() && steps.check-dockerfile.outputs.exists == 'true'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: ${{ inputs.artifact_prefix }}trivy-report
           path: ${{ github.workspace }}/trivy-report.json
@@ -1261,12 +1261,12 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
       - name: Set up JDK ${{ inputs.java_version }}
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v4
         with:
           java-version: ${{ inputs.java_version }}
           distribution: 'temurin'
@@ -1417,7 +1417,7 @@ jobs:
 
       - name: Upload PITest Reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         with:
           name: ${{ inputs.artifact_prefix }}pitest-reports
           path: '**/target/pit-reports/'
@@ -1438,7 +1438,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -1553,7 +1553,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           persist-credentials: false
 
@@ -1565,7 +1565,7 @@ jobs:
           source-root: ${{ inputs.workdir }}
 
       - name: Set up JDK ${{ inputs.java_version }}
-        uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9 # v4
+        uses: actions/setup-java@f2beeb24e141e01a676f977032f5a29d81c9e27e # v4
         with:
           java-version: ${{ inputs.java_version }}
           distribution: 'temurin'
@@ -1653,7 +1653,7 @@ jobs:
 
     steps:
       - name: Download All Artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v4
         if: always()
         continue-on-error: true
         with:
@@ -1796,7 +1796,7 @@ jobs:
           cat report.json
 
       - name: Upload Combined Report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v4
         if: always()
         with:
           name: ${{ inputs.artifact_prefix }}ci-report
