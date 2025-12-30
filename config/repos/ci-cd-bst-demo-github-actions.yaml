@@ -27,7 +27,7 @@ python:
     # mutmut mutation testing
     mutmut:
       enabled: true
-      min_score: 80
+      min_mutation_score: 80
 
     ruff:
       enabled: true

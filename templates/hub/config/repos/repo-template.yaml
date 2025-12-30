@@ -10,11 +10,12 @@ repo:
   name: your-repo-name           # REQUIRED
   language: java                 # java | python
   default_branch: main
-
-# Central vs distributed execution
-mode:
-  distributed: false             # false = hub runs workflows centrally
-  workflow: java-ci.yml          # java-ci.yml | python-ci.yml when distributed
+  # subdir: path/to/app          # optional for monorepos
+  # run_group: full              # full | fixtures | smoke | security | compliance
+  dispatch_enabled: true         # false = hub skips dispatch for this repo
+  dispatch_workflow: hub-ci.yml  # hub-ci.yml | hub-java-ci.yml | hub-python-ci.yml
+  use_central_runner: true       # true = hub runs centrally; false = dispatch
+  repo_side_execution: false     # allow cihub to write workflows into target repos
 
 java:
   version: "21"

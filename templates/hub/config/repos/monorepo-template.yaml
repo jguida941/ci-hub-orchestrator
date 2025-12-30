@@ -11,6 +11,10 @@ repo:
   language: java          # java | python
   default_branch: main
   subdir: services/service-a  # REQUIRED: path to project root inside the repo
+  dispatch_enabled: true         # false = hub skips dispatch for this repo
+  dispatch_workflow: hub-ci.yml  # hub-ci.yml | hub-java-ci.yml | hub-python-ci.yml
+  use_central_runner: true       # true = hub runs centrally; false = dispatch
+  repo_side_execution: false     # allow cihub to write workflows into target repos
 
 # Language-specific settings (example: Java)
 java:

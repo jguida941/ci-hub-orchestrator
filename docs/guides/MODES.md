@@ -273,12 +273,13 @@ You can use both modes:
 1. **Central for most repos** - simple, reliable, all tools
 2. **Distributed for specific repos** - only those that truly need repo-local CI
 
-Configure which mode each repo uses in `config/repos/<repo>.yaml`:
+Configure which mode each repo uses in `config/repos/<repo>.yaml` with `repo.use_central_runner`:
 
 ```yaml
 repo:
+  owner: your-org
   name: special-repo
-  mode: distributed  # or "central" (default)
+  use_central_runner: false  # false = distributed, true = central (default)
 ```
 
 > **Note:** Hybrid mode configuration is planned but not yet implemented.

@@ -80,7 +80,7 @@ def test_render_dispatch_workflow_hub_ci_requires_language():
 
 def test_render_dispatch_workflow_java_template():
     content = render_dispatch_workflow("java", "hub-java-ci.yml")
-    assert "uses: jguida941/ci-cd-hub/.github/workflows/java-ci.yml@v1" in content
+    assert "uses: jguida941/ci-cd-hub/.github/workflows/hub-ci.yml@main" in content
     assert "secrets: inherit" in content
 
 
