@@ -4,12 +4,234 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any, Iterable
 
 from cihub.cli import CommandResult, build_parser, hub_root
 from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS
+
+# Regex to match markdown links: [text](path) or [text](path#anchor)
+MARKDOWN_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
+FENCED_BLOCK_RE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
+REFERENCE_DEF_RE = re.compile(r"^\s*\[([^\]]+)\]:\s*(\S+)", re.MULTILINE)
+
+
+def _strip_fenced_blocks(content: str) -> str:
+    return FENCED_BLOCK_RE.sub("", content)
+
+
+def _link_is_external(link_target: str) -> bool:
+    return link_target.startswith(("http://", "https://", "mailto:", "tel:"))
+
+
+def _resolve_link(
+    md_file: Path, repo_root: Path, link_target: str
+) -> Path:
+    if link_target.startswith("/"):
+        return (repo_root / link_target.lstrip("/")).resolve()
+    return (md_file.parent / link_target).resolve()
+
+
+def _format_doc_path(md_file: Path, docs_dir: Path, repo_root: Path) -> str:
+    try:
+        return str(md_file.relative_to(docs_dir))
+    except ValueError:
+        try:
+            return str(md_file.relative_to(repo_root))
+        except ValueError:
+            return str(md_file)
+
+
+def _normalize_link_target(link_target: str) -> str:
+    cleaned = link_target.split("#", 1)[0]
+    return cleaned.split("?", 1)[0]
+
+
+def _check_internal_links(docs_dir: Path) -> list[dict[str, Any]]:
+    """Check internal markdown links without external tools.
+
+    Scans all .md files for relative links and verifies targets exist.
+    """
+    problems: list[dict[str, Any]] = []
+    repo_root = docs_dir.parent
+    md_files = list(docs_dir.rglob("*.md"))
+    root_readme = repo_root / "README.md"
+    if docs_dir.name == "docs" and root_readme.exists():
+        md_files.append(root_readme)
+
+    for md_file in md_files:
+        content = md_file.read_text(encoding="utf-8")
+        content = _strip_fenced_blocks(content)
+
+        for match in REFERENCE_DEF_RE.finditer(content):
+            ref_id, link_target = match.groups()
+            if link_target.startswith("#") or _link_is_external(link_target):
+                continue
+            target_path = _normalize_link_target(link_target)
+            if not target_path:
+                continue
+            resolved = _resolve_link(md_file, repo_root, target_path)
+            if not resolved.exists():
+                problems.append(
+                    {
+                        "severity": "error",
+                        "message": (
+                            f"Broken reference link in "
+                            f"{_format_doc_path(md_file, docs_dir, repo_root)}: "
+                            f"[{ref_id}]: {link_target}"
+                        ),
+                        "code": "CIHUB-DOCS-BROKEN-LINK",
+                        "file": str(md_file),
+                        "target": link_target,
+                    }
+                )
+        for match in MARKDOWN_LINK_RE.finditer(content):
+            link_text, link_target = match.groups()
+
+            # Skip external links, anchors-only, and mailto
+            if link_target.startswith("#") or _link_is_external(link_target):
+                continue
+
+            # Handle anchor in link
+            target_path = _normalize_link_target(link_target)
+            if not target_path:
+                continue
+
+            # Resolve relative to the markdown file's directory
+            resolved = _resolve_link(md_file, repo_root, target_path)
+
+            if not resolved.exists():
+                problems.append(
+                    {
+                        "severity": "error",
+                        "message": (
+                            f"Broken link in "
+                            f"{_format_doc_path(md_file, docs_dir, repo_root)}: "
+                            f"[{link_text}]({link_target})"
+                        ),
+                        "code": "CIHUB-DOCS-BROKEN-LINK",
+                        "file": str(md_file),
+                        "target": link_target,
+                    }
+                )
+
+    return problems
+
+
+def _run_lychee(docs_dir: Path, external: bool) -> tuple[int, list[dict[str, Any]]]:
+    """Run lychee link checker.
+
+    Args:
+        docs_dir: Directory to check.
+        external: If True, check external links too. If False, offline mode.
+
+    Returns:
+        Tuple of (exit_code, problems).
+    """
+    cmd = ["lychee", str(docs_dir)]
+    if not external:
+        cmd.append("--offline")
+
+    try:
+        result = subprocess.run(  # noqa: S603
+            cmd,
+            capture_output=True,
+            text=True,
+        )
+    except FileNotFoundError:
+        return -1, []  # lychee not found
+
+    problems: list[dict[str, Any]] = []
+    if result.returncode != 0:
+        # Parse lychee output for broken links
+        for line in result.stdout.splitlines():
+            line = line.strip()
+            if line and not line.startswith(("[", "✓", "→")):
+                problems.append(
+                    {
+                        "severity": "error",
+                        "message": line,
+                        "code": "CIHUB-DOCS-LYCHEE",
+                    }
+                )
+        # Also include stderr if present
+        if result.stderr:
+            for line in result.stderr.splitlines():
+                if "error" in line.lower() or "fail" in line.lower():
+                    problems.append(
+                        {
+                            "severity": "error",
+                            "message": line.strip(),
+                            "code": "CIHUB-DOCS-LYCHEE",
+                        }
+                    )
+        if not problems:
+            problems.append(
+                {
+                    "severity": "error",
+                    "message": f"lychee failed with exit {result.returncode}",
+                    "code": "CIHUB-DOCS-LYCHEE",
+                }
+            )
+
+    return result.returncode, problems
+
+
+def cmd_docs_links(args: argparse.Namespace) -> int | CommandResult:
+    """Check documentation for broken links."""
+    json_mode = getattr(args, "json", False)
+    external = getattr(args, "external", False)
+    docs_dir = hub_root() / "docs"
+
+    # Try lychee first
+    has_lychee = shutil.which("lychee") is not None
+
+    if has_lychee:
+        exit_code, problems = _run_lychee(docs_dir, external)
+        if exit_code < 0:
+            has_lychee = False
+        else:
+            tool_used = "lychee"
+
+    if not has_lychee:
+        # Fallback to internal checker (always offline)
+        if external:
+            if not json_mode:
+                print(
+                    "Warning: --external requires lychee. Install with: brew install lychee",
+                    file=sys.stderr,
+                )
+        problems = _check_internal_links(docs_dir)
+        exit_code = EXIT_FAILURE if problems else EXIT_SUCCESS
+        tool_used = "internal"
+
+    failed = exit_code != EXIT_SUCCESS
+    summary = (
+        f"Link check ({tool_used}): {len(problems)} issues"
+        if failed
+        else f"Link check ({tool_used}): OK"
+    )
+
+    if json_mode:
+        return CommandResult(
+            exit_code=EXIT_FAILURE if failed else EXIT_SUCCESS,
+            summary=summary,
+            problems=problems,
+            data={"tool": tool_used, "external": external},
+        )
+
+    if failed:
+        print(f"{summary}")
+        for problem in problems:
+            print(f"  {problem['message']}")
+        return EXIT_FAILURE
+
+    print(summary)
+    return EXIT_SUCCESS
 
 
 def _subparsers(parser: argparse.ArgumentParser) -> dict[str, argparse.ArgumentParser]:

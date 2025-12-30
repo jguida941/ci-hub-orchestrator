@@ -52,6 +52,10 @@ preflight: ## Check environment readiness
 docs-check: ## Check docs drift against code
 	python -m cihub docs check
 
+.PHONY: links
+links: ## Check docs for broken internal links
+	python -m cihub docs links
+
 .PHONY: smoke
 smoke: ## Run smoke test on a scaffolded repo
 	python -m cihub smoke --full $$(mktemp -d)/smoke-test

@@ -225,6 +225,7 @@ make typecheck    # mypy
 make test         # pytest
 make actionlint   # workflow syntax
 make docs-check   # docs drift
+make links        # broken link check
 make smoke        # full smoke test on scaffold
 ```
 
@@ -256,21 +257,85 @@ repo .ci-hub.yml  →  hub config/repos/<repo>.yaml  →  hub config/defaults.ya
 
 ### Key Commands
 
+**Setup & Validation**
 | Command | Purpose |
 |---------|---------|
-| `cihub preflight` | Check environment readiness |
-| `cihub scaffold` | Generate a minimal test repo |
-| `cihub smoke` | Run a local CLI smoke test |
-| `cihub init` | Generate `.ci-hub.yml` + `hub-ci.yml` in a repo |
-| `cihub validate` | Check config against schema |
-| `cihub ci` | Run all enabled tools locally |
-| `cihub run <tool>` | Run a single tool (Python only) |
-| `cihub fix-pom` | Add missing Maven plugins (Java only) |
-| `cihub config` | Manage hub-side repo configs |
-| `cihub check` | Run the full local validation suite |
-| `cihub docs generate` | Generate CLI and config reference docs |
+| `cihub preflight` | Check environment readiness (Python, gh CLI, etc.) |
+| `cihub check` | Run full local validation suite (lint, test, docs, smoke) |
+| `cihub validate --repo .` | Validate repo's `.ci-hub.yml` against schema |
 
-Run `python -m cihub --help` for the full command list.
+**Project Initialization**
+| Command | Purpose |
+|---------|---------|
+| `cihub detect --repo .` | Detect language and build tool |
+| `cihub scaffold <type> <path>` | Generate a minimal test repo |
+| `cihub init --repo . --apply` | Generate `.ci-hub.yml` + `hub-ci.yml` in a repo |
+| `cihub new <name>` | Create hub-side config (`config/repos/<name>.yaml`) |
+
+**CI Execution**
+| Command | Purpose |
+|---------|---------|
+| `cihub ci --repo .` | Run all enabled tools locally |
+| `cihub run <tool> --repo .` | Run a single tool (Python only) |
+| `cihub smoke <path>` | Run a local CLI smoke test |
+| `cihub smoke --full <path>` | Smoke test with full CI run |
+
+**Java-Specific**
+| Command | Purpose |
+|---------|---------|
+| `cihub fix-pom --repo .` | Add missing Maven plugins |
+| `cihub fix-deps --repo .` | Add missing Maven dependencies |
+
+**Config Management**
+| Command | Purpose |
+|---------|---------|
+| `cihub config --repo <name> show` | Display hub config |
+| `cihub config --repo <name> set <path> <value>` | Update a config value |
+| `cihub config --repo <name> enable <tool>` | Enable a tool |
+| `cihub config --repo <name> disable <tool>` | Disable a tool |
+
+**Documentation & ADRs**
+| Command | Purpose |
+|---------|---------|
+| `cihub docs generate` | Generate CLI and config reference docs |
+| `cihub docs check` | Verify generated docs are up to date |
+| `cihub docs links` | Check docs for broken internal links |
+| `cihub adr list` | List all Architecture Decision Records |
+| `cihub adr new "<title>"` | Create a new ADR from template |
+| `cihub adr check` | Validate ADRs for broken links |
+
+**Reports**
+| Command | Purpose |
+|---------|---------|
+| `cihub report build --repo .` | Build report.json from tool outputs |
+| `cihub report summary --report .cihub/report.json` | Display summary from report |
+
+**Secrets & Templates**
+| Command | Purpose |
+|---------|---------|
+| `cihub setup-secrets` | Set HUB_DISPATCH_TOKEN on repos |
+| `cihub setup-nvd` | Set NVD_API_KEY for OWASP scans |
+| `cihub sync-templates` | Sync workflow templates to repos |
+
+Run `python -m cihub --help` for the full command list, or `cihub <command> --help` for command-specific options.
+
+### Make Shortcuts
+
+The Makefile provides convenient wrappers for common commands:
+
+| Make Target | CLI Equivalent |
+|-------------|----------------|
+| `make check` | `cihub check` (full validation suite) |
+| `make preflight` | `cihub preflight` |
+| `make docs-check` | `cihub docs check` |
+| `make links` | `cihub docs links` |
+| `make smoke` | `cihub smoke --full <tmpdir>` |
+| `make test` | `pytest tests/` |
+| `make lint` | `ruff check .` |
+| `make typecheck` | `mypy cihub/ scripts/` |
+| `make actionlint` | `actionlint .github/workflows/*.yml` |
+
+Run `make help` to see all available targets.
 
 ---
 

@@ -90,13 +90,14 @@ These are references, not competing plans.
 
 - [x] Add pre-commit hooks: actionlint, zizmor, lychee
 - [x] Fix stale doc links (TOOLS.md, TEMPLATES.md, TROUBLESHOOTING.md, DEVELOPMENT.md pointed to archived guides)
-- [ ] `cihub docs links` — Check internal doc links (offline by default, `--external` for web)
-- [ ] `cihub adr new <title>` — Create ADR from template with auto-number
-- [ ] `cihub adr list` — List all ADRs with status
-- [ ] `cihub adr check` — Validate ADRs reference valid files
+- [x] `cihub docs links` — Check internal doc links (offline by default, `--external` for web)
+- [x] `cihub adr new <title>` — Create ADR from template with auto-number
+- [x] `cihub adr list` — List all ADRs with status
+- [x] `cihub adr check` — Validate ADRs reference valid files
 - [ ] `cihub config validate` (or `cihub validate --hub`) — Validate hub configs (resolves validate ambiguity)
 - [ ] `cihub audit` — Umbrella: docs check + links + adr check + config validate
-- [ ] Add `make links` and `make audit` targets
+- [x] Add `make links` target
+- [ ] Add `make audit` target
 
 ---
 
@@ -135,4 +136,6 @@ These are references, not competing plans.
 - [ ] Smoke test and targeted pytest results recorded.
 - [x] Local validation checklist documented and used before push (`make check` + GETTING_STARTED.md).
 - [x] Pre-commit hooks: actionlint, zizmor, lychee.
-- [ ] CLI automation: `docs links`, `adr` commands, `config validate`, `audit`.
+- [x] CLI automation: `docs links` (with `--external` flag, fallback to Python).
+- [x] CLI automation: `adr new/list/check` commands.
+- [ ] CLI automation: `config validate`, `audit` (remaining).

@@ -755,6 +755,18 @@ def cmd_docs(args: argparse.Namespace) -> int | CommandResult:
     return handler(args)
 
 
+def cmd_docs_links(args: argparse.Namespace) -> int | CommandResult:
+    from cihub.commands.docs import cmd_docs_links as handler
+
+    return handler(args)
+
+
+def cmd_adr(args: argparse.Namespace) -> int | CommandResult:
+    from cihub.commands.adr import cmd_adr as handler
+
+    return handler(args)
+
+
 def cmd_init(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.init import cmd_init as handler
 
@@ -1358,6 +1370,52 @@ def build_parser() -> argparse.ArgumentParser:
         help="Output directory (default: docs/reference)",
     )
     docs_check.set_defaults(func=cmd_docs)
+
+    docs_links = docs_sub.add_parser(
+        "links", help="Check documentation for broken links"
+    )
+    add_json_flag(docs_links)
+    docs_links.add_argument(
+        "--external",
+        action="store_true",
+        help="Also check external (http/https) links (requires lychee)",
+    )
+    docs_links.set_defaults(func=cmd_docs_links)
+
+    # ADR (Architecture Decision Records) commands
+    adr = subparsers.add_parser(
+        "adr", help="Manage Architecture Decision Records"
+    )
+    adr_sub = adr.add_subparsers(dest="subcommand")
+    adr.set_defaults(func=cmd_adr)
+
+    adr_new = adr_sub.add_parser(
+        "new", help="Create a new ADR from template"
+    )
+    add_json_flag(adr_new)
+    adr_new.add_argument("title", help="Title for the new ADR")
+    adr_new.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Show what would be created without writing",
+    )
+    adr_new.set_defaults(func=cmd_adr)
+
+    adr_list = adr_sub.add_parser(
+        "list", help="List all ADRs with status"
+    )
+    add_json_flag(adr_list)
+    adr_list.add_argument(
+        "--status",
+        help="Filter by status (e.g., accepted, proposed, deprecated)",
+    )
+    adr_list.set_defaults(func=cmd_adr)
+
+    adr_check = adr_sub.add_parser(
+        "check", help="Validate ADRs for broken links and missing fields"
+    )
+    add_json_flag(adr_check)
+    adr_check.set_defaults(func=cmd_adr)
 
     config_outputs = subparsers.add_parser(
         "config-outputs",

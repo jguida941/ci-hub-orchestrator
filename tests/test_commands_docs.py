@@ -1,7 +1,7 @@
 import argparse
 from pathlib import Path
 
-from cihub.commands.docs import cmd_docs
+from cihub.commands.docs import _check_internal_links, cmd_docs
 from cihub.cli import CommandResult
 
 
@@ -63,3 +63,72 @@ def test_docs_check_detects_drift(tmp_path: Path) -> None:
     result = cmd_docs(check_args)
     assert isinstance(result, CommandResult)
     assert result.exit_code == 1
+
+
+def test_internal_links_valid(tmp_path: Path) -> None:
+    """Test that valid internal links pass."""
+    (tmp_path / "README.md").write_text(
+        "See [guide](guide.md) for details.", encoding="utf-8"
+    )
+    (tmp_path / "guide.md").write_text("# Guide", encoding="utf-8")
+
+    problems = _check_internal_links(tmp_path)
+    assert problems == []
+
+
+def test_internal_links_broken(tmp_path: Path) -> None:
+    """Test that broken internal links are detected."""
+    (tmp_path / "README.md").write_text(
+        "See [missing](nonexistent.md) for details.", encoding="utf-8"
+    )
+
+    problems = _check_internal_links(tmp_path)
+    assert len(problems) == 1
+    assert "nonexistent.md" in problems[0]["target"]
+    assert problems[0]["code"] == "CIHUB-DOCS-BROKEN-LINK"
+
+
+def test_internal_links_skips_external(tmp_path: Path) -> None:
+    """Test that external links are skipped."""
+    (tmp_path / "README.md").write_text(
+        "See [GitHub](https://github.com) and [anchor](#section).",
+        encoding="utf-8",
+    )
+
+    problems = _check_internal_links(tmp_path)
+    assert problems == []
+
+
+def test_internal_links_skips_code_blocks(tmp_path: Path) -> None:
+    """Links inside fenced code blocks should be ignored."""
+    (tmp_path / "README.md").write_text(
+        "```md\nSee [missing](missing.md)\n```\n",
+        encoding="utf-8",
+    )
+
+    problems = _check_internal_links(tmp_path)
+    assert problems == []
+
+
+def test_internal_links_reference_definitions(tmp_path: Path) -> None:
+    """Reference-style link definitions should be checked."""
+    (tmp_path / "README.md").write_text(
+        "See [Guide][guide].\n\n[guide]: guide.md\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "guide.md").write_text("# Guide", encoding="utf-8")
+
+    problems = _check_internal_links(tmp_path)
+    assert problems == []
+
+
+def test_internal_links_reference_definitions_broken(tmp_path: Path) -> None:
+    """Broken reference-style links should be detected."""
+    (tmp_path / "README.md").write_text(
+        "See [Guide][guide].\n\n[guide]: missing.md\n",
+        encoding="utf-8",
+    )
+
+    problems = _check_internal_links(tmp_path)
+    assert len(problems) == 1
+    assert "missing.md" in problems[0]["target"]
