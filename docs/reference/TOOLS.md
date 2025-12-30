@@ -685,7 +685,7 @@ java:
 
 - [CONFIG.md](CONFIG.md) - Full config schema
 - [WORKFLOWS.md](../guides/WORKFLOWS.md) - Workflow details
-- [MODES.md](../guides/MODES.md) - Central vs Distributed
+- [GETTING_STARTED.md](../guides/GETTING_STARTED.md#choosing-your-execution-mode) - Central vs Distributed
 - [TROUBLESHOOTING.md](../guides/TROUBLESHOOTING.md) - Common issues
 - [RESEARCH_LOG.md](../development/research/RESEARCH_LOG.md) - Deep research on each tool
 

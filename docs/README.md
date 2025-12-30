@@ -18,16 +18,23 @@ This index defines which docs are canonical, which are references, and where to 
 
 User-facing how-tos and setup guides:
 
-- [GETTING_STARTED.md](guides/GETTING_STARTED.md)
-- [ONBOARDING.md](guides/ONBOARDING.md)
-- [WORKFLOWS.md](guides/WORKFLOWS.md)
-- [MODES.md](guides/MODES.md)
-- [TEMPLATES.md](guides/TEMPLATES.md)
-- [TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md)
-- [MONOREPOS.md](guides/MONOREPOS.md)
-- [DISPATCH_SETUP.md](guides/DISPATCH_SETUP.md)
-- [INTEGRATION_SMOKE_TEST.md](guides/INTEGRATION_SMOKE_TEST.md)
-- [KYVERNO.md](guides/KYVERNO.md)
+**Primary Entry Point:**
+- [GETTING_STARTED.md](guides/GETTING_STARTED.md) - Setup, modes, walkthrough, secrets
+
+**Topic Guides:**
+- [WORKFLOWS.md](guides/WORKFLOWS.md) - Hub workflow internals
+- [TEMPLATES.md](guides/TEMPLATES.md) - Available config templates
+- [MONOREPOS.md](guides/MONOREPOS.md) - Multi-project repo setup
+- [TROUBLESHOOTING.md](guides/TROUBLESHOOTING.md) - Common issues and fixes
+- [KYVERNO.md](guides/KYVERNO.md) - Kubernetes admission control
+
+**Maintainer Guides:**
+- [INTEGRATION_SMOKE_TEST.md](guides/INTEGRATION_SMOKE_TEST.md) - CLI validation
+
+**Archived (superseded by GETTING_STARTED.md):**
+- [ONBOARDING.md](guides/ONBOARDING.md) - ⚠️ Merged
+- [MODES.md](guides/MODES.md) - ⚠️ Merged
+- [DISPATCH_SETUP.md](guides/DISPATCH_SETUP.md) - ⚠️ Merged
 
 ---
 
@@ -49,9 +56,10 @@ Internal planning and governance docs:
 - [BACKLOG.md](development/BACKLOG.md)
 - [DEVELOPMENT.md](development/DEVELOPMENT.md)
 - [status/STATUS.md](development/status/STATUS.md)
-- [architecture/ARCHITECTURE_PLAN.md](development/architecture/ARCHITECTURE_PLAN.md)
+- [architecture/ARCH_OVERVIEW.md](development/architecture/ARCH_OVERVIEW.md)
 - [adr/](adr/) - Architecture Decision Records
 - [archive/](development/archive/) - Superseded docs (kept for history)
+- [archive/ARCHITECTURE_PLAN.md](development/archive/ARCHITECTURE_PLAN.md) - Archived deep-dive architecture plan
 
 ---
 

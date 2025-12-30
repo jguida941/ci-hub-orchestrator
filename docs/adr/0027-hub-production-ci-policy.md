@@ -46,5 +46,5 @@ critical check and enforce security/supply-chain standards.
 
 ## References
 
-- `docs/development/architecture/ARCHITECTURE_PLAN.md`
+- `docs/development/archive/ARCHITECTURE_PLAN.md`
 - `.github/workflows/hub-production-ci.yml`

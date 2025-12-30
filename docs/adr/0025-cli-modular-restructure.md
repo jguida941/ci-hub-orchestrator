@@ -127,6 +127,6 @@ All operations write to hub-side config only. No writes to target repos in MVP.
 ## References
 
 - ADR-0026: Repo-Side Execution Guardrails (placeholder for future opt-in)
-- `docs/development/architecture/ARCHITECTURE_PLAN.md` - Full architecture plan
+- `docs/development/archive/ARCHITECTURE_PLAN.md` - Full architecture plan (archived)
 - [questionary PyPI](https://pypi.org/project/questionary/)
 - [Rich library](https://rich.readthedocs.io/)

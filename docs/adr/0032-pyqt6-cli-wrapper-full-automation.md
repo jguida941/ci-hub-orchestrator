@@ -128,5 +128,5 @@ to parse logs for state.
 
 - ADR-0031: CLI-Driven Workflow Execution (Thin Workflows)
 - ADR-0029: CLI Exit Code Registry
-- `docs/development/architecture/ARCHITECTURE_PLAN.md`
+- `docs/development/archive/ARCHITECTURE_PLAN.md`
 - `pyqt/planqt.md`

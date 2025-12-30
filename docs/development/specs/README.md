@@ -16,7 +16,7 @@ This folder contains acceptance criteria checklists for hub-release.
 
 | Document | Purpose |
 |----------|---------|
-| [ARCHITECTURE_PLAN.md](../architecture/ARCHITECTURE_PLAN.md) | Master architecture plan |
+| [ARCH_OVERVIEW.md](../architecture/ARCH_OVERVIEW.md) | Architecture overview |
 | [RESEARCH_LOG.md](../research/RESEARCH_LOG.md) | Research and best practices |
 | [STATUS.md](../status/STATUS.md) | Execution checklist |
 | [AGENTS.md](../../../AGENTS.md) | AI agent context |

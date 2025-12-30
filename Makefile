@@ -44,6 +44,22 @@ apply-profile: ## Apply profile to a repo config (REPO, PROFILE required)
 actionlint: ## Validate workflows (requires actionlint installed)
 	actionlint .github/workflows/*.yml
 
+.PHONY: preflight
+preflight: ## Check environment readiness
+	python -m cihub preflight
+
+.PHONY: docs-check
+docs-check: ## Check docs drift against code
+	python -m cihub docs check
+
+.PHONY: smoke
+smoke: ## Run smoke test on a scaffolded repo
+	python -m cihub smoke --full $$(mktemp -d)/smoke-test
+
+.PHONY: check
+check: ## Run all checks (pre-push)
+	python -m cihub check
+
 .PHONY: sync-templates-check
 sync-templates-check: ## Check caller/template drift
 	python -m cihub sync-templates --check

@@ -475,5 +475,5 @@ reports:
 
 - [CONFIG.md](../reference/CONFIG.md) - Config options
 - [TOOLS.md](../reference/TOOLS.md) - Tool details
-- [MODES.md](MODES.md) - Central vs Distributed
+- [GETTING_STARTED.md](GETTING_STARTED.md#choosing-your-execution-mode) - Central vs Distributed
 - [WORKFLOWS.md](WORKFLOWS.md) - Workflow documentation

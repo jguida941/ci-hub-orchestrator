@@ -1720,7 +1720,7 @@ All major research compiled. Ready to:
 
 ### Documents Created:
 - `docs/RESEARCH_LOG.md` - This file (~1700 lines)
-- `docs/development/architecture/ARCHITECTURE_PLAN.md` - Master architecture plan
+- `docs/development/archive/ARCHITECTURE_PLAN.md` - Master architecture plan (archived)
 
 ### Topics Covered (31 total):
 - ADR/MADR, GitHub Actions, Diátaxis, YAML, Feature Toggles

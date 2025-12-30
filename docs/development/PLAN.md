@@ -19,7 +19,8 @@ Single source of truth for what we are doing now. Other docs can provide depth, 
 ## References (Background Only)
 
 - `pyqt/planqt.md` (PyQt concept scope)
-- `docs/development/architecture/ARCHITECTURE_PLAN.md` (deep architecture notes)
+- `docs/development/architecture/ARCH_OVERVIEW.md` (current architecture overview)
+- `docs/development/archive/ARCHITECTURE_PLAN.md` (archived deep-dive plan)
 
 These are references, not competing plans.
 
@@ -37,42 +38,65 @@ These are references, not competing plans.
 
 ### 1) Plan Consolidation (Immediate)
 
-- Create this file as the canonical plan.
-- Add reference banners to `pyqt/planqt.md` and `docs/development/architecture/ARCHITECTURE_PLAN.md` stating this plan is canonical.
-- Create `AGENTS.md` and ensure `CLAUDE.md` points to it.
+- [x] Create this file as the canonical plan.
+- [x] Add reference banners to `pyqt/planqt.md` and `docs/development/archive/ARCHITECTURE_PLAN.md` stating this plan is canonical.
+- [x] Create `AGENTS.md` and ensure `CLAUDE.md` points to it.
 
 ### 2) CLI as Source of Truth (Core)
 
-- Implement and commit CLI helpers:
+- [x] Implement CLI helpers:
   - `cihub preflight` (doctor alias)
   - `cihub scaffold <type>`
   - `cihub smoke [--full]`
-- Add CLI doc generation commands:
+- [ ] Commit CLI helpers.
+- [x] Add CLI doc generation commands:
   - `cihub docs generate` -> `docs/reference/CLI.md` + `docs/reference/CONFIG.md`
   - `cihub docs check` for CI drift prevention
-- Optional CLI utilities (later): `cihub status`, `cihub adr check`, `cihub adr list`
+- [x] Add `cihub check` command (local validation suite: preflight → lint → typecheck → test → actionlint → docs-check → smoke)
+- [ ] Optional CLI utilities: see **6) CLI Automation** below
 
 ### 3) Documentation Cleanup (Controlled Sweep)
 
-- Create `docs/README.md` as index of canonical vs reference vs archive.
-- Merge overlapping guides into **one** user entry point:
-  - Keep `docs/guides/GETTING_STARTED.md` as canonical.
-  - Fold in DISPATCH_SETUP, MODES, MONOREPOS, TEMPLATES.
-  - Keep `docs/guides/TROUBLESHOOTING.md` separate.
-- Move legacy/duplicate docs to `docs/development/archive/` with a superseded header (no deletion).
-- Make reference docs generated, not hand-written.
+- [x] Create `docs/README.md` as index of canonical vs reference vs archive.
+- [x] Merge overlapping guides into **one** user entry point:
+  - `docs/guides/GETTING_STARTED.md` is canonical user entry point.
+  - Folded in ONBOARDING, MODES, DISPATCH_SETUP (now archived with superseded banners).
+  - MONOREPOS, TEMPLATES, KYVERNO kept as advanced references.
+  - `docs/guides/TROUBLESHOOTING.md` kept separate.
+- [x] Archive `CONFIG_REFERENCE.md` (superseded by generated `CONFIG.md`).
+- [x] Archive `docs/development/architecture/ARCHITECTURE_PLAN.md`.
+- [ ] Move remaining legacy/duplicate docs to `docs/development/archive/` with a superseded header (no deletion).
+- [ ] Make reference docs generated, not hand-written (CLI/CONFIG done; TOOLS still manual).
+  - Execution docs: merge `docs/development/execution/SMOKE_TEST*.md` into `docs/guides/INTEGRATION_SMOKE_TEST.md` or archive.
+  - Status docs: keep `docs/development/status/STATUS.md` canonical; archive snapshots.
+  - Specs docs: keep `docs/development/specs/` as reference (no merge yet).
+  - Research docs: keep `docs/development/research/` as reference.
+  - Architecture docs: keep `docs/development/architecture/ARCH_OVERVIEW.md` + `SUMMARY_CONTRACT.md` as active references.
 
 ### 4) Staleness Audit (Doc + ADR)
 
-- Run a full stale-reference audit (docs/ADRs/scripts/workflows).
-- Record findings in a single audit ledger (`claude_audit.md` or `docs/development/AUDIT.md`).
-- Update ADRs that reference old workflow entrypoints and fixture strategy.
+- [ ] Run a full stale-reference audit (docs/ADRs/scripts/workflows).
+- [x] Record findings in a single audit ledger (`claude_audit.md`).
+- [x] Update ADRs that reference old workflow entrypoints and fixture strategy.
 
 ### 5) Verification
 
-- Run targeted pytest and record results in `docs/development/status/STATUS.md`.
-- Run `cihub smoke --full` on scaffolded fixtures and capture results.
-- Re-run the hub production workflows as needed after CLI changes.
+- [ ] Run targeted pytest and record results in `docs/development/status/STATUS.md`.
+- [ ] Run `cihub smoke --full` on scaffolded fixtures and capture results.
+- [ ] Re-run the hub production workflows as needed after CLI changes.
+- [x] Define and document a local validation checklist that mirrors CI (`cihub check` + `make check` + GETTING_STARTED.md section).
+
+### 6) CLI Automation (Drift Prevention)
+
+- [x] Add pre-commit hooks: actionlint, zizmor, lychee
+- [x] Fix stale doc links (TOOLS.md, TEMPLATES.md, TROUBLESHOOTING.md, DEVELOPMENT.md pointed to archived guides)
+- [ ] `cihub docs links` — Check internal doc links (offline by default, `--external` for web)
+- [ ] `cihub adr new <title>` — Create ADR from template with auto-number
+- [ ] `cihub adr list` — List all ADRs with status
+- [ ] `cihub adr check` — Validate ADRs reference valid files
+- [ ] `cihub config validate` (or `cihub validate --hub`) — Validate hub configs (resolves validate ambiguity)
+- [ ] `cihub audit` — Umbrella: docs check + links + adr check + config validate
+- [ ] Add `make links` and `make audit` targets
 
 ---
 
@@ -103,9 +127,12 @@ These are references, not competing plans.
 
 ## Definition of Done (Near-Term)
 
-- CLI helpers committed and passing tests.
-- `docs/reference/CLI.md` and `docs/reference/CONFIG.md` generated from code.
-- `docs/README.md` exists and clarifies doc hierarchy.
-- Guides consolidated into a single entry point.
-- ADRs updated to reflect `hub-ci.yml` wrapper and CLI-first execution.
-- Smoke test and targeted pytest results recorded.
+- [x] CLI helpers committed and passing tests (`cihub check`, `preflight`, `scaffold`, `smoke`).
+- [x] `docs/reference/CLI.md` and `docs/reference/CONFIG.md` generated from code.
+- [x] `docs/README.md` exists and clarifies doc hierarchy.
+- [x] Guides consolidated into a single entry point (`GETTING_STARTED.md`).
+- [x] ADRs updated to reflect `hub-ci.yml` wrapper and CLI-first execution.
+- [ ] Smoke test and targeted pytest results recorded.
+- [x] Local validation checklist documented and used before push (`make check` + GETTING_STARTED.md).
+- [x] Pre-commit hooks: actionlint, zizmor, lychee.
+- [ ] CLI automation: `docs links`, `adr` commands, `config validate`, `audit`.

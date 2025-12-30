@@ -725,6 +725,12 @@ def cmd_smoke(args: argparse.Namespace) -> int | CommandResult:
     return handler(args)
 
 
+def cmd_check(args: argparse.Namespace) -> int | CommandResult:
+    from cihub.commands.check import cmd_check as handler
+
+    return handler(args)
+
+
 def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.ci import cmd_ci as handler
 
@@ -1205,6 +1211,35 @@ def build_parser() -> argparse.ArgumentParser:
         help="Keep generated fixtures on disk",
     )
     smoke.set_defaults(func=cmd_smoke)
+
+    check = subparsers.add_parser(
+        "check", help="Run local validation checks"
+    )
+    add_json_flag(check)
+    check.add_argument(
+        "--smoke-repo",
+        help="Path to repo for smoke test (omit to scaffold fixtures)",
+    )
+    check.add_argument(
+        "--smoke-subdir",
+        help="Subdirectory for monorepo smoke test",
+    )
+    check.add_argument(
+        "--install-deps",
+        action="store_true",
+        help="Install repo dependencies during smoke test",
+    )
+    check.add_argument(
+        "--relax",
+        action="store_true",
+        help="Relax tool toggles and thresholds during smoke test",
+    )
+    check.add_argument(
+        "--keep",
+        action="store_true",
+        help="Keep generated fixtures on disk",
+    )
+    check.set_defaults(func=cmd_check)
 
     ci = subparsers.add_parser("ci", help="Run CI based on .ci-hub.yml")
     add_json_flag(ci)

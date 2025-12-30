@@ -112,7 +112,7 @@ Lock to specific versions defined in hub's `templates/java/pom-plugins.xml`:
 Lock to specific versions defined in hub's `templates/java/pom-dependencies.xml`:
 - jqwik: 1.8.4
 
-These align with versions in `docs/guides/ONBOARDING.md`.
+These align with versions in `docs/guides/GETTING_STARTED.md`.
 
 ## Consequences
 
@@ -152,4 +152,4 @@ Verification steps:
 
 - ADR-0010: Dispatch Token and Skip
 - ADR-0014: Reusable Workflow Migration
-- `docs/guides/ONBOARDING.md` - User-facing plugin documentation
+- `docs/guides/GETTING_STARTED.md` - User-facing plugin documentation

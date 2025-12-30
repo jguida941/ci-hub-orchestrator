@@ -159,7 +159,7 @@ hub-release/
 │   ├── repos/             # Per-repo configs (24 files)
 │   └── optional/          # Optional features (chaos, canary, etc.)
 ├── docs/
-│   ├── guides/            # User guides (ONBOARDING, WORKFLOWS, etc.)
+│   ├── guides/            # User guides (GETTING_STARTED, WORKFLOWS, etc.)
 │   ├── reference/         # Reference docs (CONFIG, TOOLS)
 │   ├── development/       # Internal docs
 │   │   ├── status/        # STATUS.md - current state
@@ -339,7 +339,7 @@ cihub setup-secrets --all --verify         # Setup dispatch token
 ## See Also
 
 - [Full Docs Index](docs/README.md)
-- [Onboarding Guide](docs/guides/ONBOARDING.md)
+- [Getting Started](docs/guides/GETTING_STARTED.md)
 - [Config Reference](docs/reference/CONFIG.md)
 - [Tools Reference](docs/reference/TOOLS.md)
 - [Troubleshooting](docs/guides/TROUBLESHOOTING.md)

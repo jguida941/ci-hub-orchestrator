@@ -109,7 +109,7 @@ These commands are required for the thin workflow model:
 - ADR-0014: Reusable Workflow Migration
 - ADR-0024: Workflow Dispatch Input Limit
 - ADR-0029: CLI Exit Code Registry
-- `docs/development/architecture/ARCHITECTURE_PLAN.md` (Phase 9 GUI)
+- `docs/development/archive/ARCHITECTURE_PLAN.md` (Phase 9 GUI)
 
 ## Update (2025-12-30)
 

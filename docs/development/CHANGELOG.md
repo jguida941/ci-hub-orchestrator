@@ -7,11 +7,13 @@ All notable changes to this project will be documented in this file.
 ### CLI & Tooling
 - Added `cihub docs generate/check` to auto-generate reference docs from CLI and schema.
 - Added CLI helpers for local verification: `preflight`/`doctor`, `scaffold`, and `smoke`.
-- Added tests for new CLI commands (docs/preflight/scaffold/smoke).
+- Added `cihub check` to run the full local validation suite (lint, typecheck, tests, actionlint, docs drift, smoke).
+- Added tests for new CLI commands (docs/preflight/scaffold/smoke/check).
+- Added pre-commit hooks for actionlint, zizmor, and lychee link checking.
 
 ### Documentation & Governance
 - Added canonical plan: `docs/development/PLAN.md`.
-- Added reference-only banners to `pyqt/planqt.md` and `docs/development/architecture/ARCHITECTURE_PLAN.md`.
+- Added reference-only banners to `pyqt/planqt.md` and archived `docs/development/archive/ARCHITECTURE_PLAN.md`.
 - Added `AGENTS.md` and removed ignore rule so it is tracked in git.
 - Updated ADRs to reflect `hub-ci.yml` wrapper and CLI-first verification.
 - Refreshed `docs/development/status/STATUS.md`.
@@ -47,7 +49,7 @@ All notable changes to this project will be documented in this file.
 
 ### Documentation & Governance
 - Reorganized development docs into status/architecture/execution/research/archive subfolders.
-- Renamed and aligned plan docs to `ARCHITECTURE_PLAN.md` and `STATUS.md`.
+- Renamed and aligned plan docs to `ARCHITECTURE_PLAN.md` (now archived) and `STATUS.md`.
 - Folded fixtures plan into smoke test guide; archived legacy plans and snapshots.
 - Refreshed root README and added .github/CONTRIBUTING.md, .github/SECURITY.md, .github/CODE_OF_CONDUCT.md.
 - Updated doc indexes and references after reorg.
@@ -122,7 +124,7 @@ All notable changes to this project will be documented in this file.
 
 ### Architecture & Governance
 - Added `_quarantine/` with phased graduation, `INTEGRATION_STATUS.md`, and `check_quarantine_imports.py` guardrail to prevent premature imports.
-- Added `docs/development/architecture/ARCHITECTURE_PLAN.md` (proposed self-validating CLI + manifest architecture); noted current blockers in the plan.
+- Added `docs/development/archive/ARCHITECTURE_PLAN.md` (proposed self-validating CLI + manifest architecture); noted current blockers in the plan.
 
 ### CLI & Validation
 - Added `setup-nvd` command; hardened `setup-secrets` token handling and cross-repo verification.

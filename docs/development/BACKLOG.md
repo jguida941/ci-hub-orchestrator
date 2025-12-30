@@ -16,7 +16,7 @@ Single queue for known issues and near-term work.
 |-------------------------------------|----------------|--------------------------------------------------------------------|
 | CLI: dispatch + sync in one command | CLI            | Combine dispatch repo update and workflow sync into single command |
 | PyQt6 GUI ADR + MVP scope           | Planning       | Define ADR and minimal viable scope for GUI tool                   |
-| CLI add/list/lint/apply commands    | CLI            | Partial implementation noted in ARCHITECTURE_PLAN.md               |
+| CLI add/list/lint/apply commands    | CLI            | Partial implementation noted in ARCH_OVERVIEW.md                   |
 | Restore relaxed thresholds          | Fixtures       | ADR-0018 notes some thresholds relaxed due to tool config issues   |
 | Dependabot for Satellite Repos      | Supply Chain   | Extend dependabot.yml to Java/Python satellite repos; see ADR-0030 |
 

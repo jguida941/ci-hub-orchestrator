@@ -202,7 +202,7 @@ PR checklist:
 ### Phase 5: Verify and Prevent Drift
 - Run `validate_summary.py`, `aggregate_reports.py`, and `scripts/validate_report.sh`.
 - Run `python -m cihub sync-templates --check` and fix drift.
-- Update docs: `docs/guides/ONBOARDING.md`, `docs/reference/CONFIG.md`, `docs/guides/WORKFLOWS.md`.
+- Update docs: `docs/guides/GETTING_STARTED.md`, `docs/reference/CONFIG.md`, `docs/guides/WORKFLOWS.md`.
 - Document which job in orchestrator/security owns the consolidated summary and artifact sources.
 
 ---
@@ -1186,7 +1186,7 @@ def generate_tool_aggregate_table(results: list[dict]) -> str:
    - Include Java and Python examples
 
 2. **Update documentation**
-   - `docs/guides/ONBOARDING.md`
+   - `docs/guides/GETTING_STARTED.md`
    - `docs/reference/CONFIG.md`
    - `docs/guides/WORKFLOWS.md`
 
@@ -1251,4 +1251,3 @@ All workflows (reusable, orchestrator, security) MUST emit these sections in ord
 - `-` = Not applicable (tool wasn't configured, so Ran/Success don't apply)
 - `0` = Zero count (tool ran, found zero issues)
 - Empty = Data not available (shouldn't happen in valid reports)
-

@@ -23,7 +23,7 @@ These templates:
 - Accept all inputs the orchestrator sends
 - Generate `ci-report` artifacts for aggregation
 
-See [DISPATCH_SETUP.md](DISPATCH_SETUP.md) for full setup instructions.
+See [GETTING_STARTED.md](GETTING_STARTED.md#central-mode-hub-config-5-minutes) for full setup instructions.
 
 ## Legacy Dispatch Templates (Deprecated)
 

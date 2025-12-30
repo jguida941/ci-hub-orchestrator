@@ -2,7 +2,7 @@
 
 > **Single source of truth** for project status, priorities, and remaining work.
 >
-> **See also:** `docs/development/architecture/ARCHITECTURE_PLAN.md`
+> **See also:** `docs/development/architecture/ARCH_OVERVIEW.md`
 >
 > **Last Updated:** 2025-12-30
 > **Version Target:** v1.0.0
@@ -59,4 +59,3 @@
 2. Run targeted pytest and record results here.
 3. Run `cihub smoke --full` on scaffolded fixtures and record results.
 4. Revisit guide consolidation after ADR alignment and smoke verification.
-

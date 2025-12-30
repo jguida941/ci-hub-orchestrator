@@ -282,7 +282,7 @@ See `docs/development/CURRENT_STATUS.md` for the authoritative status log.
 
 **Full Docs Index:**
 - [Full Docs Index](../../README.md)
-- [Architecture Plan](ARCHITECTURE_PLAN.md)
+- [Architecture Plan (Archived)](../archive/ARCHITECTURE_PLAN.md)
 - [Current Status](../status/STATUS.md)
 - [Troubleshooting](../../guides/TROUBLESHOOTING.md)
 - [Smoke Test Guide](../execution/SMOKE_TEST.md)

@@ -3,6 +3,8 @@
 This guide walks you through setting up and using the CI/CD Hub CLI from scratch.
 By the end, you'll have validated the CLI works end-to-end on your machine.
 
+---
+
 ## Prerequisites
 
 ### 1. Clone the Repository
@@ -83,6 +85,167 @@ Expected:
 
 ---
 
+## Choosing Your Execution Mode
+
+The hub supports two execution modes. **Central mode is the default and recommended** for most users.
+
+### Quick Comparison
+
+| Aspect | Central Mode | Distributed Mode |
+|--------|--------------|------------------|
+| **Default** | Yes | No (opt-in) |
+| **Where CI runs** | In the hub repo | In each target repo |
+| **Repos need workflows** | No | Yes |
+| **Permissions needed** | `contents:read` | `contents:read` + `actions:write` |
+| **Setup complexity** | Low | High |
+
+### Decision Flowchart
+
+```
+Start
+  │
+  ▼
+Do target repos NEED to run CI in their own environment?
+  │
+  ├─ NO ──► Use CENTRAL MODE (recommended)
+  │
+  ▼ YES
+  │
+Do you have actions:write on target repos?
+  │
+  ├─ NO ──► Use CENTRAL MODE (can't dispatch)
+  │
+  ▼ YES
+  │
+Are target repos set up with workflow_dispatch workflows?
+  │
+  ├─ NO ──► Set them up, or use CENTRAL MODE
+  │
+  ▼ YES
+  │
+Use DISTRIBUTED MODE
+```
+
+Control via `repo.use_central_runner`:
+- `true` (default) = Central mode
+- `false` = Distributed mode
+
+---
+
+## Central Mode: Hub Config (5 minutes)
+
+The hub clones your repo and runs all CI tools. You only add a config file to the hub.
+
+### Step 1: Create Hub Config
+
+```bash
+# Copy a profile template
+cp templates/profiles/java-fast.yaml config/repos/my-repo.yaml
+
+# Or for Python
+cp templates/profiles/python-fast.yaml config/repos/my-repo.yaml
+```
+
+### Step 2: Edit Repo Metadata
+
+Edit `config/repos/my-repo.yaml`:
+
+```yaml
+repo:
+  owner: your-github-handle
+  name: your-repo-name
+  language: java  # or python
+  default_branch: main
+
+# Profile settings are already included from the template
+```
+
+### Step 3: Validate and Run
+
+```bash
+# Validate your config
+make validate-config REPO=my-repo
+
+# Run the hub (via GitHub Actions UI or CLI)
+gh workflow run hub-run-all.yml
+```
+
+**Done!** The hub will clone your repo and run all configured tools.
+
+---
+
+## Distributed Mode: Repo-Side Setup
+
+Use this if your repo needs its own runners, secrets, or you prefer repo-controlled CI.
+
+### Step 1: Generate Caller Workflow
+
+```bash
+cd /path/to/your-repo
+python -m cihub init --repo . --apply
+```
+
+This creates:
+- `.ci-hub.yml` - repo-local config
+- `.github/workflows/hub-ci.yml` - caller workflow
+
+### Step 2: Commit and Push
+
+```bash
+git add .ci-hub.yml .github/workflows/hub-ci.yml
+git commit -m "Add hub CI caller"
+git push
+```
+
+### Step 3: Configure Hub (Optional)
+
+If you want the hub to track this repo:
+
+```yaml
+# config/repos/my-repo.yaml
+repo:
+  owner: your-github-handle
+  name: your-repo-name
+  language: java
+  dispatch_enabled: true
+  dispatch_workflow: hub-ci.yml
+```
+
+---
+
+
+## Local Validation Checklist (Pre-Push)
+
+Run this sequence before pushing workflow or CLI changes:
+
+```bash
+make preflight    # Environment checks
+make lint         # Ruff lint
+make typecheck    # mypy
+make test         # pytest
+make actionlint   # workflow syntax
+make docs-check   # docs drift
+make smoke        # full smoke test on scaffold
+```
+
+One-shot command:
+
+```bash
+make check
+```
+
+Or run the CLI wrapper directly:
+
+```bash
+python -m cihub check
+```
+
+Notes:
+- `cihub validate --repo .` validates **repo-local** `.ci-hub.yml`.
+- `make validate-config REPO=<name>` validates **hub configs** in `config/repos/`.
+
+---
+
 ## How the CLI Works
 
 ### Config Precedence (highest wins)
@@ -90,17 +253,6 @@ Expected:
 ```
 repo .ci-hub.yml  →  hub config/repos/<repo>.yaml  →  hub config/defaults.yaml
 ```
-
-### Execution Modes
-
-| Mode | How It Works | When to Use |
-|------|--------------|-------------|
-| **Central** | Hub clones repo, runs tools locally | Default, most repos |
-| **Distributed** | Hub dispatches to repo's own workflow | Repos needing local secrets/runners |
-
-Control via `repo.use_central_runner`:
-- `true` (default) = Central mode
-- `false` = Distributed mode
 
 ### Key Commands
 
@@ -115,6 +267,8 @@ Control via `repo.use_central_runner`:
 | `cihub run <tool>` | Run a single tool (Python only) |
 | `cihub fix-pom` | Add missing Maven plugins (Java only) |
 | `cihub config` | Manage hub-side repo configs |
+| `cihub check` | Run the full local validation suite |
+| `cihub docs generate` | Generate CLI and config reference docs |
 
 Run `python -m cihub --help` for the full command list.
 
@@ -271,9 +425,9 @@ The `.ci-hub.yml` will include `repo.subdir: java`.
 
 ---
 
-## GitHub Setup (Distributed Mode)
+## Secrets Setup (GitHub Actions)
 
-To run CI via GitHub Actions (distributed mode), you need to configure secrets and variables.
+For distributed mode and OWASP scans, configure these secrets:
 
 ### 1. Create a Personal Access Token (PAT)
 
@@ -295,20 +449,14 @@ To run CI via GitHub Actions (distributed mode), you need to configure secrets a
 # Set on hub repo
 gh secret set HUB_DISPATCH_TOKEN --repo your-org/ci-cd-hub
 
-# Or use cihub CLI
-python -m cihub setup-secrets --hub-repo your-org/ci-cd-hub --verify
+# Or use cihub CLI (recommended - also sets on connected repos)
+python -m cihub setup-secrets --hub-repo your-org/ci-cd-hub --all --verify
 ```
 
 ### 3. Set Repo Variables (Target Repos)
 
 In each target repo, set these variables:
 
-1. Go to **Settings → Secrets and variables → Actions → Variables tab**
-2. Add:
-   - `HUB_REPO`: `your-org/ci-cd-hub`
-   - `HUB_REF`: `main` (or a version tag like `v1.0.0`)
-
-Or via CLI:
 ```bash
 gh variable set HUB_REPO --repo your-org/target-repo --body "your-org/ci-cd-hub"
 gh variable set HUB_REF --repo your-org/target-repo --body "main"
@@ -316,7 +464,7 @@ gh variable set HUB_REF --repo your-org/target-repo --body "main"
 
 ### 4. Set NVD API Key (Java Repos Only)
 
-For OWASP dependency scanning:
+For fast OWASP dependency scanning (2-3 min vs 30+ min):
 
 1. Get a free API key at [NVD API Key Request](https://nvd.nist.gov/developers/request-an-api-key)
 2. Set the secret:
@@ -328,33 +476,11 @@ gh secret set NVD_API_KEY --repo your-org/java-repo
 python -m cihub setup-nvd --verify
 ```
 
-### 5. Initialize Target Repo
-
-```bash
-cd /path/to/target-repo
-python -m cihub init --repo . --language python --owner your-org --name target-repo --branch main --apply
-git add .ci-hub.yml .github/workflows/hub-ci.yml
-git commit -m "Add CI/CD Hub integration"
-git push
-```
-
-### 6. Trigger Workflow
-
-- Push to the repo, or
-- Go to **Actions → CI → Run workflow**
-
-Expected:
-- `Parse Config` job succeeds
-- Language-specific job runs
-- Artifacts uploaded (report.json, summary)
-
 ---
 
 ## Troubleshooting
 
 ### `python -m cihub: command not found`
-
-**Cause:** Not in virtual environment or not installed.
 
 **Fix:**
 ```bash
@@ -364,50 +490,30 @@ pip install -e ".[dev]"
 
 ### `Config validation failed`
 
-**Cause:** Invalid `.ci-hub.yml` syntax or missing required fields.
-
 **Fix:**
 ```bash
 python -m cihub validate --repo . --json
 ```
-
-Check `problems` array in output for specific errors.
+Check `problems` array for specific errors.
 
 ### `gh: command not found`
 
-**Cause:** GitHub CLI not installed.
-
 **Fix:**
 ```bash
-# macOS
-brew install gh
-
-# Ubuntu
-sudo apt install gh
-
-# Then authenticate
+brew install gh  # macOS
+# or: sudo apt install gh  # Ubuntu
 gh auth login
 ```
 
 ### `Tool not found: mvn / gradle / pytest`
 
-**Cause:** Tool not in PATH.
-
-**Fix:** Install the tool or ensure it's available:
+**Fix:** Install the tool:
 ```bash
-# Maven
-brew install maven  # or apt install maven
-
-# Gradle
-brew install gradle
-
-# Python tools (installed with cihub[ci])
-pip install -e ".[ci]"
+brew install maven   # or gradle
+pip install -e ".[ci]"  # Python tools
 ```
 
 ### `Permission denied` on GitHub Actions
-
-**Cause:** PAT missing required scopes or not set correctly.
 
 **Fix:**
 1. Verify PAT has `actions: write` permission
@@ -416,12 +522,12 @@ pip install -e ".[ci]"
 
 ### `OWASP scan fails with rate limit`
 
-**Cause:** Missing NVD API key.
-
 **Fix:**
 ```bash
 python -m cihub setup-nvd --verify
 ```
+
+For more issues, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 ---
 
@@ -437,9 +543,18 @@ After completing this guide, verify:
 
 ---
 
-## Next Steps
+## See Also
 
-- **Hub-side config management:** See `python -m cihub config --help`
-- **Template sync:** See `python -m cihub sync-templates --help`
-- **Internal smoke testing:** See `docs/guides/INTEGRATION_SMOKE_TEST.md`
-- **Full config reference:** See `docs/reference/CONFIG.md`
+**Reference Docs:**
+- [CLI Reference](../reference/CLI.md) - All CLI commands (generated)
+- [Config Reference](../reference/CONFIG.md) - All config options (generated)
+- [Tools Reference](../reference/TOOLS.md) - Tool availability and settings
+
+**Advanced Guides:**
+- [Monorepos](MONOREPOS.md) - Multi-project repo configuration
+- [Templates](TEMPLATES.md) - Available config templates and profiles
+- [Kyverno](KYVERNO.md) - Kubernetes admission control policies
+
+**Maintainer Docs:**
+- [Integration Smoke Test](INTEGRATION_SMOKE_TEST.md) - CLI validation guide
+- [Workflows](WORKFLOWS.md) - Hub workflow details

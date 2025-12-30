@@ -1,4 +1,10 @@
-# Execution Modes
+> **⚠️ SUPERSEDED**: This document has been merged into [GETTING_STARTED.md](GETTING_STARTED.md).
+> See the **Choosing Your Execution Mode** section there.
+> This file is kept for historical reference only.
+
+---
+
+# Execution Modes (Archived)
 
 The CI/CD Hub supports two execution modes. **Central mode is the default and recommended** for most users.
 

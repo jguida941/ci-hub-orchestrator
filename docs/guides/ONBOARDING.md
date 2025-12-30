@@ -1,4 +1,10 @@
-# Onboarding a New Repository
+> **⚠️ SUPERSEDED**: This document has been merged into [GETTING_STARTED.md](GETTING_STARTED.md).
+> See the **Central Mode** and **Distributed Mode** sections there.
+> This file is kept for historical reference only.
+
+---
+
+# Onboarding a New Repository (Archived)
 
 This guide shows how to connect your repository to the CI/CD Hub.
 

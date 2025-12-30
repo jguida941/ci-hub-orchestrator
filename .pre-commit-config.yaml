@@ -49,6 +49,29 @@ repos:
         exclude: tests/
 
   # --------------------------------------------------------------------------
+  # Workflow linting (actionlint)
+  # --------------------------------------------------------------------------
+  - repo: https://github.com/rhysd/actionlint
+    rev: v1.7.0
+    hooks:
+      - id: actionlint
+        args: [".github/workflows"]
+        pass_filenames: false
+
+  # --------------------------------------------------------------------------
+  # Workflow security (zizmor)
+  # --------------------------------------------------------------------------
+  - repo: local
+    hooks:
+      - id: zizmor
+        name: zizmor
+        entry: zizmor --persona=pedantic .
+        language: python
+        additional_dependencies: [zizmor]
+        pass_filenames: false
+        files: ^.github/workflows/
+
+  # --------------------------------------------------------------------------
   # YAML linting
   # --------------------------------------------------------------------------
   - repo: https://github.com/adrienverge/yamllint
@@ -66,6 +89,15 @@ repos:
     hooks:
       - id: markdownlint-fix
         args: [--disable, MD013, MD033, MD041, --]
+
+  # --------------------------------------------------------------------------
+  # Link checking (lychee)
+  # --------------------------------------------------------------------------
+  - repo: https://github.com/lycheeverse/lychee
+    rev: v0.15.1
+    hooks:
+      - id: lychee
+        files: '^(docs/|README\.md)'
 
   # --------------------------------------------------------------------------
   # Commit message format

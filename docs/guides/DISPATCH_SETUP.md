@@ -1,4 +1,10 @@
-# Dispatch Setup (Reusable Workflows)
+> **⚠️ SUPERSEDED**: This document has been merged into [GETTING_STARTED.md](GETTING_STARTED.md).
+> See the **Distributed Mode: Repo-Side Setup** and **Secrets Setup** sections there.
+> This file is kept for historical reference only.
+
+---
+
+# Dispatch Setup (Reusable Workflows) (Archived)
 
 Use this guide to enable cross-repo dispatch from the hub orchestrator.
 
