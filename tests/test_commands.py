@@ -243,17 +243,20 @@ class TestDetectEdgeCases:
 class TestValidateEdgeCases:
     """Edge case tests for validate command."""
 
-    def test_validate_malformed_yaml(self, tmp_path: Path, capsys) -> None:
-        """Validate handles malformed YAML gracefully."""
+    def test_validate_malformed_yaml(self, tmp_path: Path) -> None:
+        """Validate raises ParserError for malformed YAML.
+
+        This tests that yaml.ParserError propagates - the CLI layer should
+        catch and convert to a proper exit code.
+        """
+        import yaml
+
         (tmp_path / ".ci-hub.yml").write_text("repo:\n  owner: test\n  - invalid list", encoding="utf-8")
         args = argparse.Namespace(repo=str(tmp_path), strict=False)
-        # Should handle error gracefully - may raise or return error code
-        try:
-            result = cmd_validate(args)
-            # If it returns, should indicate an error
-            assert result != 0
-        except Exception:  # noqa: S110 - parser error is acceptable for malformed YAML
-            assert True  # Exception is expected behavior
+
+        # Malformed YAML should raise ParserError
+        with pytest.raises(yaml.parser.ParserError, match="expected <block end>"):
+            cmd_validate(args)
 
     def test_validate_empty_config(self, tmp_path: Path, capsys) -> None:
         """Validate handles empty config file."""

@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 
 import pytest
 
 from cihub.reporting import (
     build_environment_table,
-    build_python_metrics,
     build_java_metrics,
+    build_python_metrics,
     build_thresholds_table,
     build_tools_table,
     detect_language,

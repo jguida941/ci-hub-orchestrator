@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from cihub.ci_runner import (
     ToolResult,
@@ -171,7 +168,7 @@ class TestParseJson:
 
     def test_parses_list(self, tmp_path: Path) -> None:
         path = tmp_path / "data.json"
-        path.write_text('[1, 2, 3]')
+        path.write_text("[1, 2, 3]")
 
         result = _parse_json(path)
         assert result == [1, 2, 3]
@@ -361,7 +358,7 @@ class TestParseDependencyCheck:
                         {"severity": "MEDIUM"},
                         {"severity": "LOW"},
                     ]
-                }
+                },
             ]
         }
         path = tmp_path / "dependency-check.json"

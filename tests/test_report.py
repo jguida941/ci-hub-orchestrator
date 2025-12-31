@@ -6,8 +6,7 @@ import argparse
 import json
 import os
 from pathlib import Path
-from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -96,9 +95,7 @@ class TestBuildContext:
             "GITHUB_WORKFLOW_REF": "workflow.yml",
         }
         with patch.dict(os.environ, env):
-            context = _build_context(
-                tmp_path, {}, ".", "correlation-id"
-            )
+            context = _build_context(tmp_path, {}, ".", "correlation-id")
         assert context.branch == "feature-branch"
         assert context.run_id == "123"
         assert context.run_number == "42"
@@ -116,7 +113,9 @@ class TestBuildContext:
     def test_includes_java_specific_fields(self, tmp_path: Path) -> None:
         with patch.dict(os.environ, {}, clear=True):
             context = _build_context(
-                tmp_path, {}, ".",
+                tmp_path,
+                {},
+                ".",
                 correlation_id=None,
                 build_tool="gradle",
                 project_type="Multi-module",
@@ -164,7 +163,7 @@ class TestDetectJavaProjectType:
         assert result == "Multi-module"
 
     def test_detects_gradle_kts_multimodule(self, tmp_path: Path) -> None:
-        (tmp_path / "settings.gradle.kts").write_text("include(\":core\")")
+        (tmp_path / "settings.gradle.kts").write_text('include(":core")')
         result = _detect_java_project_type(tmp_path)
         assert result == "Multi-module"
 
@@ -261,7 +260,7 @@ class TestCmdReportOutputs:
             output=str(output_path),
             json=True,
         )
-        result = cmd_report(args)
+        cmd_report(args)
 
         content = output_path.read_text()
         assert "build_status=failure" in content
@@ -315,9 +314,7 @@ class TestCmdReportOutputs:
         assert result.exit_code == EXIT_FAILURE
         assert "Failed to read report" in result.summary
 
-    def test_text_mode_prints_output(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_text_mode_prints_output(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         report_path = tmp_path / "report.json"
         report_path.write_text(json.dumps({"results": {"build": "success"}}))
         output_path = tmp_path / "outputs.txt"
@@ -359,9 +356,7 @@ class TestCmdReportSummary:
         assert result.exit_code == EXIT_SUCCESS
         assert output_path.read_text() == "# Summary\nAll passed!"
 
-    def test_prints_summary_when_no_output(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_prints_summary_when_no_output(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         report_path = tmp_path / "report.json"
         report_path.write_text(json.dumps({}))
 
@@ -410,10 +405,11 @@ class TestCmdReportBuild:
     def test_builds_python_report(self, tmp_path: Path) -> None:
         tool_dir = tmp_path / "tool-outputs"
         tool_dir.mkdir()
-        (tool_dir / "pytest.json").write_text(json.dumps({
-            "tool": "pytest", "ran": True, "success": True,
-            "metrics": {"coverage": 80, "tests_passed": 10}
-        }))
+        (tool_dir / "pytest.json").write_text(
+            json.dumps(
+                {"tool": "pytest", "ran": True, "success": True, "metrics": {"coverage": 80, "tests_passed": 10}}
+            )
+        )
 
         args = argparse.Namespace(
             subcommand="build",
@@ -443,9 +439,7 @@ class TestCmdReportBuild:
     def test_builds_java_report(self, tmp_path: Path) -> None:
         tool_dir = tmp_path / "tool-outputs"
         tool_dir.mkdir()
-        (tool_dir / "build.json").write_text(json.dumps({
-            "tool": "build", "ran": True, "success": True
-        }))
+        (tool_dir / "build.json").write_text(json.dumps({"tool": "build", "ran": True, "success": True}))
 
         args = argparse.Namespace(
             subcommand="build",
@@ -525,9 +519,7 @@ class TestCmdReportBuild:
         assert result.exit_code == EXIT_USAGE
         assert "Unknown report subcommand" in result.summary
 
-    def test_text_mode_prints_paths(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_text_mode_prints_paths(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         tool_dir = tmp_path / "tool-outputs"
         tool_dir.mkdir()
 

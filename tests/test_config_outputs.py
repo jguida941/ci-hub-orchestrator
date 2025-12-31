@@ -6,7 +6,7 @@ import argparse
 import os
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, mock_open, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -297,7 +297,7 @@ class TestCmdConfigOutputs:
                         "jacoco": True,
                         "checkstyle": False,
                         "pitest": {"enabled": True},
-                    }
+                    },
                 },
             }
             result = cmd_config_outputs(args)

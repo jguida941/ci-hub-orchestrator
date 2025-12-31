@@ -8,8 +8,6 @@ import os
 from pathlib import Path
 from unittest import mock
 
-import pytest
-
 
 class TestWriteOutputs:
     """Tests for _write_outputs helper."""
@@ -175,9 +173,7 @@ class TestCmdRuff:
 
     @mock.patch("cihub.commands.hub_ci._run_command")
     @mock.patch("subprocess.run")
-    def test_returns_success_when_no_issues(
-        self, mock_subprocess: mock.Mock, mock_run: mock.Mock
-    ) -> None:
+    def test_returns_success_when_no_issues(self, mock_subprocess: mock.Mock, mock_run: mock.Mock) -> None:
         from cihub.commands.hub_ci import cmd_ruff
         from cihub.exit_codes import EXIT_SUCCESS
 
@@ -195,9 +191,7 @@ class TestCmdRuff:
 
     @mock.patch("cihub.commands.hub_ci._run_command")
     @mock.patch("subprocess.run")
-    def test_returns_failure_when_issues_found(
-        self, mock_subprocess: mock.Mock, mock_run: mock.Mock
-    ) -> None:
+    def test_returns_failure_when_issues_found(self, mock_subprocess: mock.Mock, mock_run: mock.Mock) -> None:
         from cihub.commands.hub_ci import cmd_ruff
         from cihub.exit_codes import EXIT_FAILURE
 
@@ -259,9 +253,7 @@ class TestCmdBandit:
     """Tests for cmd_bandit command."""
 
     @mock.patch("cihub.commands.hub_ci._run_command")
-    def test_returns_success_no_high_issues(
-        self, mock_run: mock.Mock, tmp_path: Path
-    ) -> None:
+    def test_returns_success_no_high_issues(self, mock_run: mock.Mock, tmp_path: Path) -> None:
         from cihub.commands.hub_ci import cmd_bandit
         from cihub.exit_codes import EXIT_SUCCESS
 
@@ -289,9 +281,7 @@ class TestCmdBandit:
         from cihub.exit_codes import EXIT_FAILURE
 
         output_file = tmp_path / "bandit.json"
-        output_file.write_text(
-            json.dumps({"results": [{"issue_severity": "HIGH"}]})
-        )
+        output_file.write_text(json.dumps({"results": [{"issue_severity": "HIGH"}]}))
         mock_run.return_value = mock.Mock(returncode=0)
         mock_subprocess.return_value = mock.Mock(returncode=0)
 
@@ -342,11 +332,7 @@ class TestCmdZizmorCheck:
         from cihub.exit_codes import EXIT_FAILURE
 
         sarif_path = tmp_path / "zizmor.sarif"
-        sarif_path.write_text(
-            json.dumps(
-                {"runs": [{"results": [{"level": "error"}]}]}
-            )
-        )
+        sarif_path.write_text(json.dumps({"runs": [{"results": [{"level": "error"}]}]}))
 
         args = argparse.Namespace(
             sarif=str(sarif_path),

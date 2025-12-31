@@ -3,15 +3,14 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from cihub.commands.run import RUNNERS, _tool_enabled, cmd_run
 from cihub.ci_runner import ToolResult
+from cihub.commands.run import RUNNERS, _tool_enabled, cmd_run
 from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE
 
 
@@ -52,9 +51,17 @@ class TestRunners:
 
     def test_contains_all_supported_tools(self) -> None:
         expected = {
-            "pytest", "ruff", "black", "isort", "mypy",
-            "bandit", "pip_audit", "pip-audit", "mutmut",
-            "semgrep", "trivy"
+            "pytest",
+            "ruff",
+            "black",
+            "isort",
+            "mypy",
+            "bandit",
+            "pip_audit",
+            "pip-audit",
+            "mutmut",
+            "semgrep",
+            "trivy",
         }
         assert set(RUNNERS.keys()) == expected
 
@@ -343,16 +350,14 @@ class TestCmdRun:
             patch.dict(RUNNERS, {"ruff": MagicMock(return_value=mock_result)}),
         ):
             mock_load.return_value = {"language": "python"}
-            result = cmd_run(args)
+            cmd_run(args)
 
         # Verify write_json was called with custom path
         mock_result.write_json.assert_called_once()
         path_arg = mock_result.write_json.call_args[0][0]
         assert str(path_arg) == str(output_file)
 
-    def test_text_mode_prints_output(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_text_mode_prints_output(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Test text mode prints output path."""
         args = argparse.Namespace(
             repo=str(tmp_path),
@@ -378,9 +383,7 @@ class TestCmdRun:
         assert "Wrote output" in captured.out
         assert result == EXIT_SUCCESS
 
-    def test_text_mode_config_error(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_text_mode_config_error(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Test text mode prints config error."""
         args = argparse.Namespace(
             repo=str(tmp_path),
@@ -400,9 +403,7 @@ class TestCmdRun:
         assert "Failed to load config" in captured.out
         assert result == EXIT_FAILURE
 
-    def test_text_mode_unsupported_tool(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_text_mode_unsupported_tool(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Test text mode prints unsupported tool error."""
         args = argparse.Namespace(
             repo=str(tmp_path),
@@ -422,9 +423,7 @@ class TestCmdRun:
         assert "Unsupported tool" in captured.out
         assert result == EXIT_USAGE
 
-    def test_text_mode_disabled_tool(
-        self, tmp_path: Path, capsys: pytest.CaptureFixture[str]
-    ) -> None:
+    def test_text_mode_disabled_tool(self, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         """Test text mode prints skipped message for disabled tool."""
         args = argparse.Namespace(
             repo=str(tmp_path),
