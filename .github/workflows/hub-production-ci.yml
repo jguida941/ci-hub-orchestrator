@@ -190,7 +190,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install ruff
-        run: pip install ruff==0.8.6
+        run: pip install ruff==0.14.10
 
       - name: Install cihub
         run: pip install -e .

@@ -1,0 +1,4 @@
+# False positives from test files
+
+# NVD API test URL (not an actual secret)
+dc861ab251c9c6a80426ddc909844b6cd97cf267:tests/test_secrets.py:generic-api-key:422
