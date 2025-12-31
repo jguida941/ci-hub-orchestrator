@@ -28,6 +28,7 @@
 
 ## Needs Verification (Run Required)
 
+- (2025-12-30) `pytest tests/test_templates.py` passed (user run); full pytest still pending.
 - Hub Orchestrator (`hub-orchestrator.yml`)
 - Hub Security (`hub-security.yml`)
 - Hub Production CI (`hub-production-ci.yml`) gates
