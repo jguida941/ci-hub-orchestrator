@@ -219,7 +219,7 @@ def cmd_bandit(args: argparse.Namespace) -> int:
 
     if high > 0:
         subprocess.run(  # noqa: S603
-            ["bandit", "-r", *args.paths, "--severity-level", "high"],
+            ["bandit", "-r", *args.paths, "--severity-level", "high"],  # noqa: S607
             text=True,
         )
         print(f"::error::Found {high} high-severity issues")
@@ -266,7 +266,7 @@ def cmd_pip_audit(args: argparse.Namespace) -> int:
 
     if vulns > 0:
         markdown = subprocess.run(  # noqa: S603
-            ["pip-audit", "--format", "markdown"],
+            ["pip-audit", "--format", "markdown"],  # noqa: S607
             text=True,
             capture_output=True,
         )
@@ -308,9 +308,7 @@ def cmd_zizmor_check(args: argparse.Namespace) -> int:
 
 def cmd_validate_configs(args: argparse.Namespace) -> int:
     root = hub_root()
-    configs_dir = (
-        Path(args.configs_dir) if args.configs_dir else root / "config" / "repos"
-    )
+    configs_dir = Path(args.configs_dir) if args.configs_dir else root / "config" / "repos"
     script_path = root / "scripts" / "load_config.py"
     if not script_path.exists():
         print(f"Missing script: {script_path}", file=sys.stderr)
@@ -332,13 +330,9 @@ def cmd_validate_configs(args: argparse.Namespace) -> int:
 
 def cmd_validate_profiles(args: argparse.Namespace) -> int:
     root = hub_root()
-    profiles_dir = (
-        Path(args.profiles_dir)
-        if args.profiles_dir
-        else root / "templates" / "profiles"
-    )
+    profiles_dir = Path(args.profiles_dir) if args.profiles_dir else root / "templates" / "profiles"
     try:
-        import yaml  # type: ignore[import-untyped]
+        import yaml
     except ImportError as exc:
         print(f"Missing PyYAML: {exc}", file=sys.stderr)
         return EXIT_FAILURE
@@ -364,9 +358,7 @@ def cmd_license_check(args: argparse.Namespace) -> int:
     summary += f"Copyleft (GPL/AGPL): {copyleft}\n"
     if copyleft > 0:
         summary += "\nCopyleft packages (dev dependencies are acceptable):\n"
-        summary += "\n".join(
-            [line for line in lines if re.search(r"GPL|AGPL", line, re.I)]
-        )
+        summary += "\n".join([line for line in lines if re.search(r"GPL|AGPL", line, re.I)])
         summary += "\n"
         _append_summary(summary, summary_path)
         print(f"::warning::Found {copyleft} packages with copyleft licenses")
@@ -479,7 +471,7 @@ def cmd_summary(args: argparse.Namespace) -> int:
         f"| Validate | configs | true | {ran(results['configs'])} | {ok(results['configs'])} |",
         f"| Validate | matrix-keys | true | {ran(results['matrix-keys'])} | {ok(results['matrix-keys'])} |",
         f"| Validate | licenses | true | {ran(results['licenses'])} | {ok(results['licenses'])} |",
-        f"| Supply Chain | dependency-review | true | {ran(results['dependency-review'])} | {ok(results['dependency-review'])} |",
+        f"| Supply Chain | dependency-review | true | {ran(results['dependency-review'])} | {ok(results['dependency-review'])} |",  # noqa: E501
         f"| Supply Chain | scorecard | true | {ran(results['scorecard'])} | {ok(results['scorecard'])} |",
         "",
         "### Failed or Skipped Checks",

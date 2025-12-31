@@ -3,15 +3,16 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from typing import Any
 
-import questionary  # type: ignore[import-untyped]
+import questionary
 
 from cihub.wizard.core import _check_cancelled
 from cihub.wizard.styles import get_style
 from cihub.wizard.validators import validate_percentage
 
 
-def configure_thresholds(defaults: dict) -> dict:
+def configure_thresholds(defaults: dict) -> dict[str, Any]:
     """Prompt for global thresholds.
 
     Args:
@@ -20,7 +21,8 @@ def configure_thresholds(defaults: dict) -> dict:
     Returns:
         Thresholds dict.
     """
-    thresholds = deepcopy(defaults.get("thresholds", {}))
+    raw_thresholds = deepcopy(defaults.get("thresholds", {}))
+    thresholds: dict[str, Any] = raw_thresholds if isinstance(raw_thresholds, dict) else {}
     coverage_min: str = _check_cancelled(
         questionary.text(
             "Minimum coverage (%):",

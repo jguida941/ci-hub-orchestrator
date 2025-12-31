@@ -14,6 +14,7 @@ from __future__ import annotations
 import argparse
 import shutil
 import subprocess
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -179,12 +180,12 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
         "ruff-format",
         _run_process("ruff-format", ["ruff", "format", "--check", "."], root),
     )
-    add_step("black", _run_process("black", ["black", "--check", "."], root))
+    # Note: Black removed - using Ruff format only (faster, single formatter)
 
     # Type check
     add_step(
         "typecheck",
-        _run_process("typecheck", ["mypy", "cihub/", "scripts/"], root),
+        _run_process("typecheck", [sys.executable, "-m", "mypy", "cihub/", "scripts/"], root),
     )
 
     # YAML lint (optional tool)
@@ -194,7 +195,7 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
     )
 
     # Tests
-    add_step("test", _run_process("test", ["pytest", "tests/"], root))
+    add_step("test", _run_process("test", [sys.executable, "-m", "pytest", "tests/"], root))
 
     # Workflow lint (actionlint auto-discovers .github/workflows when run from repo root)
     add_step(
@@ -363,11 +364,7 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
         modes.append("mutation")
     mode_str = f" ({'+'.join(modes)})" if modes else ""
 
-    summary = (
-        f"{len(failed)} checks failed{mode_str}"
-        if failed
-        else f"All {len(steps)} checks passed{mode_str}"
-    )
+    summary = f"{len(failed)} checks failed{mode_str}" if failed else f"All {len(steps)} checks passed{mode_str}"
 
     if json_mode:
         return CommandResult(

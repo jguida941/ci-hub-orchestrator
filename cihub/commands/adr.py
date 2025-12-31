@@ -14,9 +14,7 @@ from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS
 
 ADR_DIR = "docs/adr"
 ADR_PATTERN = re.compile(r"^(\d{4})-(.+)\.md$")
-STATUS_PATTERN = re.compile(
-    r"^\*\*Status:?\*\*:?\s*(.+)$", re.MULTILINE | re.IGNORECASE
-)
+STATUS_PATTERN = re.compile(r"^\*\*Status:?\*\*:?\s*(.+)$", re.MULTILINE | re.IGNORECASE)
 DATE_PATTERN = re.compile(r"^\*\*Date:?\*\*:?\s*(\S+)", re.MULTILINE)
 MARKDOWN_LINK_RE = re.compile(r"\[([^\]]*)\]\(([^)]+)\)")
 FENCED_BLOCK_RE = re.compile(r"```.*?```|~~~.*?~~~", re.DOTALL)
@@ -295,9 +293,7 @@ def cmd_adr_list(args: argparse.Namespace) -> int | CommandResult:
     print("-" * 70)
 
     for adr in adrs:
-        print(
-            f"{adr['number']:>4}  {adr['status']:<12}  {adr['date']:<12}  {adr['title']}"
-        )
+        print(f"{adr['number']:>4}  {adr['status']:<12}  {adr['date']:<12}  {adr['title']}")
 
     print(f"\nTotal: {len(adrs)} ADRs")
     return EXIT_SUCCESS

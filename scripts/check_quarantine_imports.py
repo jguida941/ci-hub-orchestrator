@@ -44,9 +44,7 @@ _DEFAULT_EXCLUDES = {
     "generated",
 }
 _env_excludes = os.environ.get("QUARANTINE_EXCLUDE_DIRS", "")
-EXCLUDE_DIRS = _DEFAULT_EXCLUDES | (
-    set(_env_excludes.split(",")) if _env_excludes else set()
-)
+EXCLUDE_DIRS = _DEFAULT_EXCLUDES | (set(_env_excludes.split(",")) if _env_excludes else set())
 
 
 def find_quarantine_imports(root: Path) -> list[tuple[Path, int, str]]:

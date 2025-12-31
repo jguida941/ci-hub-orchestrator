@@ -156,6 +156,4 @@ def test_dispatch_workflow_valid_values():
     cfg["repo"]["dispatch_workflow"] = "invalid-workflow.yml"
     errors = validate_against_schema(cfg)
     assert errors, "dispatch_workflow='invalid-workflow.yml' should fail validation"
-    assert any("dispatch_workflow" in e for e in errors), (
-        f"Error should mention dispatch_workflow: {errors}"
-    )
+    assert any("dispatch_workflow" in e for e in errors), f"Error should mention dispatch_workflow: {errors}"

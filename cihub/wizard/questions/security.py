@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import questionary  # type: ignore[import-untyped]
+import questionary
 
 from cihub.wizard.core import _check_cancelled
 from cihub.wizard.styles import get_style

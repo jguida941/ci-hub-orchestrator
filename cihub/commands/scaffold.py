@@ -19,9 +19,7 @@ SCAFFOLD_TYPES: dict[str, str] = {
 
 
 def list_scaffold_types() -> list[dict[str, str]]:
-    return [
-        {"type": name, "description": desc} for name, desc in SCAFFOLD_TYPES.items()
-    ]
+    return [{"type": name, "description": desc} for name, desc in SCAFFOLD_TYPES.items()]
 
 
 def _template_root() -> Path:

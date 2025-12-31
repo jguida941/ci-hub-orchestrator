@@ -145,9 +145,7 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
     ok, error = set_secret(hub_repo)
     if not ok:
         if json_mode:
-            return CommandResult(
-                exit_code=EXIT_FAILURE, summary=error or "Failed to set secret"
-            )
+            return CommandResult(exit_code=EXIT_FAILURE, summary=error or "Failed to set secret")
         print(f"Failed: {error}", file=sys.stderr)
         return EXIT_FAILURE
     if not json_mode:
@@ -173,15 +171,11 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
                     suffix = f" ({error})"
                 if not json_mode:
                     print(f"  [FAIL] {repo}{suffix}")
-                repo_results.append(
-                    {"repo": repo, "status": "failed", "message": error or ""}
-                )
+                repo_results.append({"repo": repo, "status": "failed", "message": error or ""})
                 failures += 1
 
     if json_mode:
-        summary = (
-            "Secrets updated" if failures == 0 else "Secrets updated with failures"
-        )
+        summary = "Secrets updated" if failures == 0 else "Secrets updated with failures"
         data: dict[str, object] = {"hub_repo": hub_repo}
         if repo_results:
             data["repos"] = repo_results
@@ -194,10 +188,7 @@ def cmd_setup_secrets(args: argparse.Namespace) -> int | CommandResult:
     print("\nConnected dispatch-enabled repos:")
     for repo in get_connected_repos():
         print(f"  - {repo}")
-    print(
-        "\nEnsure PAT has 'repo' scope (classic) or Actions R/W (fine-grained) "
-        "on all repos."
-    )
+    print("\nEnsure PAT has 'repo' scope (classic) or Actions R/W (fine-grained) on all repos.")
     return EXIT_SUCCESS
 
 
@@ -237,9 +228,7 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
 
     def verify_nvd_key(key: str) -> tuple[bool, str]:
         """Verify NVD API key by making a test request."""
-        test_url = (
-            "https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=CVE-2021-44228"
-        )
+        test_url = "https://services.nvd.nist.gov/rest/json/cves/2.0?cveId=CVE-2021-44228"
         req = urllib.request.Request(  # noqa: S310
             test_url,
             headers={
@@ -317,15 +306,11 @@ def cmd_setup_nvd(args: argparse.Namespace) -> int | CommandResult:
             suffix = " (no admin access)" if not error else f" ({error})"
             if not json_mode:
                 print(f"  [FAIL] {repo}{suffix}")
-            repo_results.append(
-                {"repo": repo, "status": "failed", "message": error or ""}
-            )
+            repo_results.append({"repo": repo, "status": "failed", "message": error or ""})
 
     if json_mode:
         failures = len(java_repos) - success_count
-        summary = (
-            "NVD key set on all repos" if failures == 0 else "NVD key set with failures"
-        )
+        summary = "NVD key set on all repos" if failures == 0 else "NVD key set with failures"
         return CommandResult(
             exit_code=EXIT_FAILURE if failures else EXIT_SUCCESS,
             summary=summary,

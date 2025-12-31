@@ -66,6 +66,7 @@ These are references, not competing plans.
 - [x] Archive `CONFIG_REFERENCE.md` (superseded by generated `CONFIG.md`).
 - [x] Archive `docs/development/architecture/ARCHITECTURE_PLAN.md`.
 - [ ] Move remaining legacy/duplicate docs to `docs/development/archive/` with a superseded header (no deletion).
+- [x] Archive legacy dispatch templates under `templates/legacy/` and update docs/tests to match.
 - [ ] Make reference docs generated, not hand-written (CLI/CONFIG done; TOOLS still manual).
   - Execution docs: merge `docs/development/execution/SMOKE_TEST*.md` into `docs/guides/INTEGRATION_SMOKE_TEST.md` or archive.
   - Status docs: keep `docs/development/status/STATUS.md` canonical; archive snapshots.
@@ -85,6 +86,7 @@ These are references, not competing plans.
 - [ ] Run `cihub smoke --full` on scaffolded fixtures and capture results.
 - [ ] Re-run the hub production workflows as needed after CLI changes.
 - [x] Define and document a local validation checklist that mirrors CI (`cihub check` + `make check` + GETTING_STARTED.md section).
+- [x] Capture a CI parity map in the plan (localizable vs CI-only per hub-production step).
 
 ### 6) CLI Automation (Drift Prevention)
 
@@ -98,6 +100,8 @@ These are references, not competing plans.
 - [ ] `cihub audit` — Umbrella: docs check + links + adr check + config validate
 - [x] Add `make links` target
 - [ ] Add `make audit` target
+- [ ] Add a “triage bundle” output for failures (machine-readable: command, env, tool output, file snippet, workflow/job/step).
+- [x] Add a template freshness guard (caller templates + legacy dispatch archive).
 
 ### 7) Local/CI Parity (Expand `cihub check`)
 
@@ -112,6 +116,7 @@ These are references, not competing plans.
 - [x] Update `docs/guides/GETTING_STARTED.md` with new flags and expected runtimes.
 - [x] Add `docs/guides/CLI_EXAMPLES.md` with runnable command examples.
 - [x] Update AGENTS.md rule: "If GitHub CI fails but local checks passed, add it to `cihub check` or document as CI-only."
+- [ ] Evaluate `act` integration for local workflow simulation (document limitations; optional).
 
 ---
 

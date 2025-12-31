@@ -3,6 +3,8 @@
 > **Status: Superseded by [ADR-0014: Reusable Workflow Migration](./0014-reusable-workflow-migration.md)**
 >
 > This ADR established dispatch templates that users copy to repos. ADR-0014 replaces this with reusable workflows + minimal callers to eliminate template drift and ensure consistent reporting.
+>
+> **Note:** Legacy dispatch templates are archived under `templates/legacy/`.
 
 **Status**: Superseded  
 **Date:** 2025-12-15  

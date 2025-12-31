@@ -311,28 +311,18 @@ def _run_python_tools(
             problems.append(
                 {
                     "severity": "warning",
-                    "message": (
-                        f"Tool '{tool}' is enabled but is not supported by cihub; "
-                        "run it via a workflow step."
-                    ),
+                    "message": (f"Tool '{tool}' is enabled but is not supported by cihub; run it via a workflow step."),
                     "code": "CIHUB-CI-UNSUPPORTED",
                 }
             )
-            ToolResult(tool=tool, ran=False, success=False).write_json(
-                tool_output_dir / f"{tool}.json"
-            )
+            ToolResult(tool=tool, ran=False, success=False).write_json(tool_output_dir / f"{tool}.json")
             continue
         try:
             if tool == "mutmut":
-                timeout = (
-                    config.get("python", {})
-                    .get("tools", {})
-                    .get("mutmut", {})
-                    .get("timeout_minutes", 15)
-                )
-                result = runner(workdir_path, output_dir, int(timeout) * 60)
+                timeout = config.get("python", {}).get("tools", {}).get("mutmut", {}).get("timeout_minutes", 15)
+                result = runner(workdir_path, output_dir, int(timeout) * 60)  # type: ignore[operator]
             else:
-                result = runner(workdir_path, output_dir)
+                result = runner(workdir_path, output_dir)  # type: ignore[operator]
         except FileNotFoundError as exc:
             problems.append(
                 {
@@ -378,12 +368,7 @@ def _run_java_tools(
     tool_outputs["build"] = build_result.to_payload()
     build_result.write_json(tool_output_dir / "build.json")
 
-    use_nvd_api_key = bool(
-        config.get("java", {})
-        .get("tools", {})
-        .get("owasp", {})
-        .get("use_nvd_api_key", True)
-    )
+    use_nvd_api_key = bool(config.get("java", {}).get("tools", {}).get("owasp", {}).get("use_nvd_api_key", True))
 
     for tool in JAVA_TOOLS:
         if tool == "jqwik":
@@ -396,30 +381,25 @@ def _run_java_tools(
             problems.append(
                 {
                     "severity": "warning",
-                    "message": (
-                        f"Tool '{tool}' is enabled but is not supported by cihub; "
-                        "run it via a workflow step."
-                    ),
+                    "message": (f"Tool '{tool}' is enabled but is not supported by cihub; run it via a workflow step."),
                     "code": "CIHUB-CI-UNSUPPORTED",
                 }
             )
-            ToolResult(tool=tool, ran=False, success=False).write_json(
-                tool_output_dir / f"{tool}.json"
-            )
+            ToolResult(tool=tool, ran=False, success=False).write_json(tool_output_dir / f"{tool}.json")
             continue
         try:
             if tool == "pitest":
-                result = runner(workdir_path, output_dir, build_tool)
+                result = runner(workdir_path, output_dir, build_tool)  # type: ignore[operator]
             elif tool == "checkstyle":
-                result = runner(workdir_path, output_dir, build_tool)
+                result = runner(workdir_path, output_dir, build_tool)  # type: ignore[operator]
             elif tool == "spotbugs":
-                result = runner(workdir_path, output_dir, build_tool)
+                result = runner(workdir_path, output_dir, build_tool)  # type: ignore[operator]
             elif tool == "pmd":
-                result = runner(workdir_path, output_dir, build_tool)
+                result = runner(workdir_path, output_dir, build_tool)  # type: ignore[operator]
             elif tool == "owasp":
-                result = runner(workdir_path, output_dir, build_tool, use_nvd_api_key)
+                result = runner(workdir_path, output_dir, build_tool, use_nvd_api_key)  # type: ignore[operator]
             else:
-                result = runner(workdir_path, output_dir)
+                result = runner(workdir_path, output_dir)  # type: ignore[operator]
         except FileNotFoundError as exc:
             problems.append(
                 {
@@ -585,23 +565,13 @@ def _evaluate_java_gates(
 
     owasp_critical = int(metrics.get("owasp_critical", 0))
     owasp_high = int(metrics.get("owasp_high", 0))
-    if tools_configured.get("owasp") and (
-        owasp_critical > max_critical or owasp_high > max_high
-    ):
-        failures.append(
-            "owasp critical/high "
-            f"{owasp_critical}/{owasp_high} > {max_critical}/{max_high}"
-        )
+    if tools_configured.get("owasp") and (owasp_critical > max_critical or owasp_high > max_high):
+        failures.append(f"owasp critical/high {owasp_critical}/{owasp_high} > {max_critical}/{max_high}")
 
     trivy_critical = int(metrics.get("trivy_critical", 0))
     trivy_high = int(metrics.get("trivy_high", 0))
-    if tools_configured.get("trivy") and (
-        trivy_critical > max_critical or trivy_high > max_high
-    ):
-        failures.append(
-            "trivy critical/high "
-            f"{trivy_critical}/{trivy_high} > {max_critical}/{max_high}"
-        )
+    if tools_configured.get("trivy") and (trivy_critical > max_critical or trivy_high > max_high):
+        failures.append(f"trivy critical/high {trivy_critical}/{trivy_high} > {max_critical}/{max_high}")
 
     max_semgrep = int(thresholds.get("max_semgrep_findings", 0) or 0)
     semgrep_findings = int(metrics.get("semgrep_findings", 0))
@@ -641,9 +611,7 @@ def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
         if args.install_deps:
             _install_python_dependencies(config, repo_path / workdir, problems)
         try:
-            tool_outputs, tools_ran, tools_success = _run_python_tools(
-                config, repo_path, workdir, output_dir, problems
-            )
+            tool_outputs, tools_ran, tools_success = _run_python_tools(config, repo_path, workdir, output_dir, problems)
         except Exception as exc:
             message = f"Tool execution failed: {exc}"
             if json_mode:
@@ -655,9 +623,7 @@ def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
             print(message)
             return EXIT_INTERNAL_ERROR
 
-        tools_configured = {
-            tool: _tool_enabled(config, tool, "python") for tool in PYTHON_TOOLS
-        }
+        tools_configured = {tool: _tool_enabled(config, tool, "python") for tool in PYTHON_TOOLS}
         thresholds = resolve_thresholds(config, "python")
         context = _build_context(repo_path, config, workdir, args.correlation_id)
         report = build_python_report(
@@ -672,9 +638,7 @@ def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
         gate_failures = _evaluate_python_gates(report, thresholds, tools_configured)
 
     elif language == "java":
-        build_tool = (
-            config.get("java", {}).get("build_tool", "maven").strip().lower() or "maven"
-        )
+        build_tool = config.get("java", {}).get("build_tool", "maven").strip().lower() or "maven"
         if build_tool not in {"maven", "gradle"}:
             build_tool = "maven"
         project_type = _detect_java_project_type(repo_path / workdir)
@@ -697,9 +661,7 @@ def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
             print(message)
             return EXIT_INTERNAL_ERROR
 
-        tools_configured = {
-            tool: _tool_enabled(config, tool, "java") for tool in JAVA_TOOLS
-        }
+        tools_configured = {tool: _tool_enabled(config, tool, "java") for tool in JAVA_TOOLS}
         thresholds = resolve_thresholds(config, "java")
         context = _build_context(
             repo_path,

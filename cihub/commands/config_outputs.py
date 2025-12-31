@@ -98,11 +98,7 @@ def cmd_config_outputs(args: argparse.Namespace) -> int | CommandResult:
         print(message, file=sys.stderr)
         return EXIT_FAILURE
 
-    language = (
-        config.get("language")
-        or _get_str(config, ["repo", "language"], "python")
-        or "python"
-    )
+    language = config.get("language") or _get_str(config, ["repo", "language"], "python") or "python"
 
     workdir = args.workdir or _get_str(config, ["workdir"], "")
     if not workdir:
@@ -112,13 +108,9 @@ def cmd_config_outputs(args: argparse.Namespace) -> int | CommandResult:
 
     python_thresholds = {
         "coverage_min": _tool_int(config, "python", "pytest", "min_coverage", 70),
-        "mutation_score_min": _tool_int(
-            config, "python", "mutmut", "min_mutation_score", 70
-        ),
+        "mutation_score_min": _tool_int(config, "python", "mutmut", "min_mutation_score", 70),
         "owasp_cvss_fail": _tool_int(config, "python", "trivy", "fail_on_cvss", 7),
-        "max_semgrep_findings": _tool_int(
-            config, "python", "semgrep", "max_findings", 0
-        ),
+        "max_semgrep_findings": _tool_int(config, "python", "semgrep", "max_findings", 0),
         "max_ruff_errors": _tool_int(config, "python", "ruff", "max_errors", 0),
         "max_black_issues": _tool_int(config, "python", "black", "max_issues", 0),
         "max_isort_issues": _tool_int(config, "python", "isort", "max_issues", 0),
@@ -126,14 +118,10 @@ def cmd_config_outputs(args: argparse.Namespace) -> int | CommandResult:
 
     java_thresholds = {
         "coverage_min": _tool_int(config, "java", "jacoco", "min_coverage", 70),
-        "mutation_score_min": _tool_int(
-            config, "java", "pitest", "min_mutation_score", 70
-        ),
+        "mutation_score_min": _tool_int(config, "java", "pitest", "min_mutation_score", 70),
         "owasp_cvss_fail": _tool_int(config, "java", "owasp", "fail_on_cvss", 7),
         "max_semgrep_findings": _tool_int(config, "java", "semgrep", "max_findings", 0),
-        "max_checkstyle_errors": _tool_int(
-            config, "java", "checkstyle", "max_errors", 0
-        ),
+        "max_checkstyle_errors": _tool_int(config, "java", "checkstyle", "max_errors", 0),
         "max_spotbugs_bugs": _tool_int(config, "java", "spotbugs", "max_bugs", 0),
         "max_pmd_violations": _tool_int(config, "java", "pmd", "max_violations", 0),
     }
@@ -141,9 +129,9 @@ def cmd_config_outputs(args: argparse.Namespace) -> int | CommandResult:
     global_thresholds = config.get("thresholds", {}) or {}
     for key in ("coverage_min", "mutation_score_min", "owasp_cvss_fail"):
         if key in global_thresholds and global_thresholds[key] is not None:
-            value = int(global_thresholds[key])
-            python_thresholds[key] = value
-            java_thresholds[key] = value
+            threshold_value = int(global_thresholds[key])
+            python_thresholds[key] = threshold_value
+            java_thresholds[key] = threshold_value
 
     max_critical = _get_int(config, ["thresholds", "max_critical_vulns"], 0)
     max_high = _get_int(config, ["thresholds", "max_high_vulns"], 0)
@@ -166,19 +154,11 @@ def cmd_config_outputs(args: argparse.Namespace) -> int | CommandResult:
         "run_black": _bool_str(_tool_enabled(config, "python", "black", True)),
         "run_isort": _bool_str(_tool_enabled(config, "python", "isort", True)),
         "run_mutmut": _bool_str(_tool_enabled(config, "python", "mutmut", True)),
-        "run_hypothesis": _bool_str(
-            _tool_enabled(config, "python", "hypothesis", True)
-        ),
-        "run_semgrep": _bool_str(
-            _tool_enabled(config, lang_for_shared, "semgrep", False)
-        ),
+        "run_hypothesis": _bool_str(_tool_enabled(config, "python", "hypothesis", True)),
+        "run_semgrep": _bool_str(_tool_enabled(config, lang_for_shared, "semgrep", False)),
         "run_trivy": _bool_str(_tool_enabled(config, lang_for_shared, "trivy", False)),
-        "run_codeql": _bool_str(
-            _tool_enabled(config, lang_for_shared, "codeql", False)
-        ),
-        "run_docker": _bool_str(
-            _tool_enabled(config, lang_for_shared, "docker", False)
-        ),
+        "run_codeql": _bool_str(_tool_enabled(config, lang_for_shared, "codeql", False)),
+        "run_docker": _bool_str(_tool_enabled(config, lang_for_shared, "docker", False)),
         # Java tool toggles
         "run_jacoco": _bool_str(_tool_enabled(config, "java", "jacoco", True)),
         "run_checkstyle": _bool_str(_tool_enabled(config, "java", "checkstyle", True)),
@@ -186,8 +166,7 @@ def cmd_config_outputs(args: argparse.Namespace) -> int | CommandResult:
         "run_owasp": _bool_str(_tool_enabled(config, "java", "owasp", True)),
         "use_nvd_api_key": _bool_str(
             _tool_enabled(config, "java", "owasp", True)
-            and _get_value(config, ["java", "tools", "owasp", "use_nvd_api_key"], True)
-            is not False
+            and _get_value(config, ["java", "tools", "owasp", "use_nvd_api_key"], True) is not False
         ),
         "run_pmd": _bool_str(_tool_enabled(config, "java", "pmd", True)),
         "run_pitest": _bool_str(_tool_enabled(config, "java", "pitest", True)),

@@ -20,12 +20,13 @@ import sys
 import tempfile
 import zipfile
 from pathlib import Path
+from typing import Any
 from urllib import request
 from urllib.error import HTTPError
 from urllib.parse import urlparse
 
 
-def gh_get(url: str, token: str) -> dict:
+def gh_get(url: str, token: str) -> dict[str, Any]:
     """Make authenticated GET request to GitHub API."""
     parsed = urlparse(url)
     if parsed.scheme != "https":
@@ -40,7 +41,8 @@ def gh_get(url: str, token: str) -> dict:
     )
     try:
         with request.urlopen(req, timeout=15) as resp:  # noqa: S310
-            return json.loads(resp.read().decode())
+            data = json.loads(resp.read().decode())
+            return data if isinstance(data, dict) else {}
     except HTTPError as e:
         print(f"HTTP Error {e.code}: {e.reason}")
         print(f"URL: {url}")
@@ -117,10 +119,7 @@ def check_repo_runs(owner: str, repo: str, token: str, limit: int = 5):
 
         print(f"   📦 Artifacts: {len(artifacts['artifacts'])}")
         for art in artifacts["artifacts"]:
-            print(
-                f"      - {art['name']} ({art['size_in_bytes']} bytes, "
-                f"expired: {art['expired']})"
-            )
+            print(f"      - {art['name']} ({art['size_in_bytes']} bytes, expired: {art['expired']})")
 
             # Look for ci-report
             if art["name"] == "ci-report":
@@ -198,9 +197,7 @@ def check_hub_runs(token: str, limit: int = 3):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Debug orchestrator artifact downloads"
-    )
+    parser = argparse.ArgumentParser(description="Debug orchestrator artifact downloads")
     parser.add_argument("--repo", help="Check specific repo (format: owner/repo)")
     parser.add_argument(
         "--hub-runs",
@@ -211,11 +208,7 @@ def main():
     parser.add_argument("--limit", type=int, default=5, help="Number of runs to check")
     args = parser.parse_args()
 
-    token = (
-        args.token
-        or os.environ.get("GITHUB_TOKEN")
-        or os.environ.get("HUB_DISPATCH_TOKEN")
-    )
+    token = args.token or os.environ.get("GITHUB_TOKEN") or os.environ.get("HUB_DISPATCH_TOKEN")
     if not token:
         print("Error: No token provided. Use --token or set GITHUB_TOKEN env var")
         sys.exit(1)

@@ -58,6 +58,42 @@ jobs:
       build_tool: ${{ steps.parse.outputs.build_tool }}
       workdir: ${{ steps.parse.outputs.workdir }}
       retention_days: ${{ steps.parse.outputs.retention_days }}
+      # Thresholds
+      coverage_min: ${{ steps.parse.outputs.coverage_min }}
+      mutation_score_min: ${{ steps.parse.outputs.mutation_score_min }}
+      owasp_cvss_fail: ${{ steps.parse.outputs.owasp_cvss_fail }}
+      max_critical_vulns: ${{ steps.parse.outputs.max_critical_vulns }}
+      max_high_vulns: ${{ steps.parse.outputs.max_high_vulns }}
+      max_semgrep_findings: ${{ steps.parse.outputs.max_semgrep_findings }}
+      max_ruff_errors: ${{ steps.parse.outputs.max_ruff_errors }}
+      max_black_issues: ${{ steps.parse.outputs.max_black_issues }}
+      max_isort_issues: ${{ steps.parse.outputs.max_isort_issues }}
+      max_checkstyle_errors: ${{ steps.parse.outputs.max_checkstyle_errors }}
+      max_spotbugs_bugs: ${{ steps.parse.outputs.max_spotbugs_bugs }}
+      max_pmd_violations: ${{ steps.parse.outputs.max_pmd_violations }}
+      # Python tool toggles
+      run_pytest: ${{ steps.parse.outputs.run_pytest }}
+      run_ruff: ${{ steps.parse.outputs.run_ruff }}
+      run_bandit: ${{ steps.parse.outputs.run_bandit }}
+      run_pip_audit: ${{ steps.parse.outputs.run_pip_audit }}
+      run_mypy: ${{ steps.parse.outputs.run_mypy }}
+      run_black: ${{ steps.parse.outputs.run_black }}
+      run_isort: ${{ steps.parse.outputs.run_isort }}
+      run_mutmut: ${{ steps.parse.outputs.run_mutmut }}
+      run_hypothesis: ${{ steps.parse.outputs.run_hypothesis }}
+      run_semgrep: ${{ steps.parse.outputs.run_semgrep }}
+      run_trivy: ${{ steps.parse.outputs.run_trivy }}
+      run_codeql: ${{ steps.parse.outputs.run_codeql }}
+      run_docker: ${{ steps.parse.outputs.run_docker }}
+      # Java tool toggles
+      run_jacoco: ${{ steps.parse.outputs.run_jacoco }}
+      run_checkstyle: ${{ steps.parse.outputs.run_checkstyle }}
+      run_spotbugs: ${{ steps.parse.outputs.run_spotbugs }}
+      run_owasp: ${{ steps.parse.outputs.run_owasp }}
+      use_nvd_api_key: ${{ steps.parse.outputs.use_nvd_api_key }}
+      run_pmd: ${{ steps.parse.outputs.run_pmd }}
+      run_pitest: ${{ steps.parse.outputs.run_pitest }}
+      run_jqwik: ${{ steps.parse.outputs.run_jqwik }}
 
     steps:
       - name: Checkout calling repo

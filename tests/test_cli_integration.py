@@ -130,9 +130,7 @@ def test_cli_fix_pom_adds_dependencies(tmp_path: Path) -> None:
         "repo": {"subdir": "java-passing"},
         "java": {"tools": {"jqwik": {"enabled": True}}},
     }
-    (repo_root / ".ci-hub.yml").write_text(
-        yaml.safe_dump(config, sort_keys=False), encoding="utf-8"
-    )
+    (repo_root / ".ci-hub.yml").write_text(yaml.safe_dump(config, sort_keys=False), encoding="utf-8")
 
     status = cli_main(["fix-pom", "--repo", str(repo_root), "--apply"])
     assert status == 0

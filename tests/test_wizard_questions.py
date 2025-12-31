@@ -78,27 +78,21 @@ class TestSelectLanguage:
 
     def test_returns_java(self) -> None:
         """Returns 'java' when user selects java."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.select"
-        ) as mock_select:
+        with mock.patch("cihub.wizard.questions.language.questionary.select") as mock_select:
             mock_select.return_value.ask.return_value = "java"
             result = select_language()
             assert result == "java"
 
     def test_returns_python(self) -> None:
         """Returns 'python' when user selects python."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.select"
-        ) as mock_select:
+        with mock.patch("cihub.wizard.questions.language.questionary.select") as mock_select:
             mock_select.return_value.ask.return_value = "python"
             result = select_language()
             assert result == "python"
 
     def test_raises_when_cancelled(self) -> None:
         """Raises WizardCancelled when user cancels."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.select"
-        ) as mock_select:
+        with mock.patch("cihub.wizard.questions.language.questionary.select") as mock_select:
             mock_select.return_value.ask.return_value = None
             with pytest.raises(WizardCancelled):
                 select_language()
@@ -109,27 +103,21 @@ class TestSelectJavaVersion:
 
     def test_returns_version(self) -> None:
         """Returns version string."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.text"
-        ) as mock_text:
+        with mock.patch("cihub.wizard.questions.language.questionary.text") as mock_text:
             mock_text.return_value.ask.return_value = "21"
             result = select_java_version()
             assert result == "21"
 
     def test_returns_custom_version(self) -> None:
         """Returns custom version string."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.text"
-        ) as mock_text:
+        with mock.patch("cihub.wizard.questions.language.questionary.text") as mock_text:
             mock_text.return_value.ask.return_value = "17"
             result = select_java_version(default="17")
             assert result == "17"
 
     def test_raises_when_cancelled(self) -> None:
         """Raises WizardCancelled when user cancels."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.text"
-        ) as mock_text:
+        with mock.patch("cihub.wizard.questions.language.questionary.text") as mock_text:
             mock_text.return_value.ask.return_value = None
             with pytest.raises(WizardCancelled):
                 select_java_version()
@@ -140,27 +128,21 @@ class TestSelectPythonVersion:
 
     def test_returns_version(self) -> None:
         """Returns version string."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.text"
-        ) as mock_text:
+        with mock.patch("cihub.wizard.questions.language.questionary.text") as mock_text:
             mock_text.return_value.ask.return_value = "3.12"
             result = select_python_version()
             assert result == "3.12"
 
     def test_returns_custom_version(self) -> None:
         """Returns custom version string."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.text"
-        ) as mock_text:
+        with mock.patch("cihub.wizard.questions.language.questionary.text") as mock_text:
             mock_text.return_value.ask.return_value = "3.11"
             result = select_python_version(default="3.11")
             assert result == "3.11"
 
     def test_raises_when_cancelled(self) -> None:
         """Raises WizardCancelled when user cancels."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.text"
-        ) as mock_text:
+        with mock.patch("cihub.wizard.questions.language.questionary.text") as mock_text:
             mock_text.return_value.ask.return_value = None
             with pytest.raises(WizardCancelled):
                 select_python_version()
@@ -171,27 +153,21 @@ class TestSelectBuildTool:
 
     def test_returns_maven(self) -> None:
         """Returns 'maven' when user selects maven."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.select"
-        ) as mock_select:
+        with mock.patch("cihub.wizard.questions.language.questionary.select") as mock_select:
             mock_select.return_value.ask.return_value = "maven"
             result = select_build_tool()
             assert result == "maven"
 
     def test_returns_gradle(self) -> None:
         """Returns 'gradle' when user selects gradle."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.select"
-        ) as mock_select:
+        with mock.patch("cihub.wizard.questions.language.questionary.select") as mock_select:
             mock_select.return_value.ask.return_value = "gradle"
             result = select_build_tool()
             assert result == "gradle"
 
     def test_raises_when_cancelled(self) -> None:
         """Raises WizardCancelled when user cancels."""
-        with mock.patch(
-            "cihub.wizard.questions.language.questionary.select"
-        ) as mock_select:
+        with mock.patch("cihub.wizard.questions.language.questionary.select") as mock_select:
             mock_select.return_value.ask.return_value = None
             with pytest.raises(WizardCancelled):
                 select_build_tool()
@@ -207,9 +183,7 @@ class TestConfigureThresholds:
 
     def test_returns_thresholds(self) -> None:
         """Returns threshold values."""
-        with mock.patch(
-            "cihub.wizard.questions.thresholds.questionary.text"
-        ) as mock_text:
+        with mock.patch("cihub.wizard.questions.thresholds.questionary.text") as mock_text:
             mock_text.return_value.ask.side_effect = ["80", "75"]
             defaults = {"thresholds": {"coverage_min": 70, "mutation_score_min": 70}}
             result = configure_thresholds(defaults)
@@ -218,9 +192,7 @@ class TestConfigureThresholds:
 
     def test_uses_defaults_when_no_thresholds(self) -> None:
         """Uses default values when no thresholds in config."""
-        with mock.patch(
-            "cihub.wizard.questions.thresholds.questionary.text"
-        ) as mock_text:
+        with mock.patch("cihub.wizard.questions.thresholds.questionary.text") as mock_text:
             mock_text.return_value.ask.side_effect = ["70", "70"]
             result = configure_thresholds({})
             assert result["coverage_min"] == 70
@@ -228,9 +200,7 @@ class TestConfigureThresholds:
 
     def test_raises_when_cancelled(self) -> None:
         """Raises WizardCancelled when user cancels."""
-        with mock.patch(
-            "cihub.wizard.questions.thresholds.questionary.text"
-        ) as mock_text:
+        with mock.patch("cihub.wizard.questions.thresholds.questionary.text") as mock_text:
             mock_text.return_value.ask.return_value = None
             with pytest.raises(WizardCancelled):
                 configure_thresholds({})
@@ -260,9 +230,7 @@ class TestConfigureJavaTools:
 
     def test_enables_tools(self) -> None:
         """Enables tools when user confirms."""
-        with mock.patch(
-            "cihub.wizard.questions.java_tools.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.java_tools.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.return_value = True
             defaults = {"java": {"tools": {"jacoco": {"enabled": False}}}}
             result = configure_java_tools(defaults)
@@ -270,9 +238,7 @@ class TestConfigureJavaTools:
 
     def test_disables_tools(self) -> None:
         """Disables tools when user declines."""
-        with mock.patch(
-            "cihub.wizard.questions.java_tools.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.java_tools.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.return_value = False
             defaults = {"java": {"tools": {"jacoco": {"enabled": True}}}}
             result = configure_java_tools(defaults)
@@ -280,9 +246,7 @@ class TestConfigureJavaTools:
 
     def test_skips_tools_not_in_defaults(self) -> None:
         """Skips tools not present in defaults."""
-        with mock.patch(
-            "cihub.wizard.questions.java_tools.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.java_tools.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.return_value = True
             defaults = {"java": {"tools": {"jacoco": {"enabled": False}}}}
             result = configure_java_tools(defaults)
@@ -297,9 +261,7 @@ class TestConfigureJavaTools:
 
     def test_raises_when_cancelled(self) -> None:
         """Raises WizardCancelled when user cancels."""
-        with mock.patch(
-            "cihub.wizard.questions.java_tools.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.java_tools.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.return_value = None
             defaults = {"java": {"tools": {"jacoco": {"enabled": False}}}}
             with pytest.raises(WizardCancelled):
@@ -330,9 +292,7 @@ class TestConfigurePythonTools:
 
     def test_enables_tools(self) -> None:
         """Enables tools when user confirms."""
-        with mock.patch(
-            "cihub.wizard.questions.python_tools.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.python_tools.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.return_value = True
             defaults = {"python": {"tools": {"pytest": {"enabled": False}}}}
             result = configure_python_tools(defaults)
@@ -340,9 +300,7 @@ class TestConfigurePythonTools:
 
     def test_disables_tools(self) -> None:
         """Disables tools when user declines."""
-        with mock.patch(
-            "cihub.wizard.questions.python_tools.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.python_tools.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.return_value = False
             defaults = {"python": {"tools": {"pytest": {"enabled": True}}}}
             result = configure_python_tools(defaults)
@@ -350,9 +308,7 @@ class TestConfigurePythonTools:
 
     def test_skips_tools_not_in_defaults(self) -> None:
         """Skips tools not present in defaults."""
-        with mock.patch(
-            "cihub.wizard.questions.python_tools.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.python_tools.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.return_value = True
             defaults = {"python": {"tools": {"pytest": {"enabled": False}}}}
             result = configure_python_tools(defaults)
@@ -367,9 +323,7 @@ class TestConfigurePythonTools:
 
     def test_raises_when_cancelled(self) -> None:
         """Raises WizardCancelled when user cancels."""
-        with mock.patch(
-            "cihub.wizard.questions.python_tools.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.python_tools.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.return_value = None
             defaults = {"python": {"tools": {"pytest": {"enabled": False}}}}
             with pytest.raises(WizardCancelled):
@@ -386,9 +340,7 @@ class TestPromptSecurityTools:
 
     def test_returns_enabled_tools(self) -> None:
         """Returns enabled security tools."""
-        with mock.patch(
-            "cihub.wizard.questions.security.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.security.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.side_effect = [True, True, True]
             result = _prompt_security_tools({})
             assert result["semgrep"]["enabled"] is True
@@ -397,9 +349,7 @@ class TestPromptSecurityTools:
 
     def test_returns_disabled_tools(self) -> None:
         """Returns disabled security tools."""
-        with mock.patch(
-            "cihub.wizard.questions.security.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.security.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.side_effect = [False, False, False]
             result = _prompt_security_tools({})
             assert result["semgrep"]["enabled"] is False
@@ -408,9 +358,7 @@ class TestPromptSecurityTools:
 
     def test_mixed_enabled_disabled(self) -> None:
         """Returns mixed enabled/disabled tools."""
-        with mock.patch(
-            "cihub.wizard.questions.security.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.security.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.side_effect = [True, False, True]
             result = _prompt_security_tools({})
             assert result["semgrep"]["enabled"] is True
@@ -419,9 +367,7 @@ class TestPromptSecurityTools:
 
     def test_raises_when_cancelled(self) -> None:
         """Raises WizardCancelled when user cancels."""
-        with mock.patch(
-            "cihub.wizard.questions.security.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.security.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.return_value = None
             with pytest.raises(WizardCancelled):
                 _prompt_security_tools({})
@@ -432,9 +378,7 @@ class TestConfigureSecurityTools:
 
     def test_java_security_tools(self) -> None:
         """Returns Java security tool overrides."""
-        with mock.patch(
-            "cihub.wizard.questions.security.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.security.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.side_effect = [True, True, False]
             defaults = {"java": {"tools": {}}}
             result = configure_security_tools("java", defaults)
@@ -445,9 +389,7 @@ class TestConfigureSecurityTools:
 
     def test_python_security_tools(self) -> None:
         """Returns Python security tool overrides."""
-        with mock.patch(
-            "cihub.wizard.questions.security.questionary.confirm"
-        ) as mock_confirm:
+        with mock.patch("cihub.wizard.questions.security.questionary.confirm") as mock_confirm:
             mock_confirm.return_value.ask.side_effect = [True, False, True]
             defaults = {"python": {"tools": {}}}
             result = configure_security_tools("python", defaults)

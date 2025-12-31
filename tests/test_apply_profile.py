@@ -234,9 +234,7 @@ class TestProfileApplication:
         merged = deep_merge(profile_data, target_data)
 
         assert merged["java"]["version"] == "17"  # Target wins
-        assert (
-            merged["java"]["tools"]["checkstyle"]["enabled"] is True
-        )  # Profile preserved
+        assert merged["java"]["tools"]["checkstyle"]["enabled"] is True  # Profile preserved
 
     def test_tool_toggle_override(self, tmp_path: Path):
         """Target can disable tools enabled by profile."""
@@ -271,12 +269,8 @@ class TestProfileApplication:
         target_data = load_yaml(target)
         merged = deep_merge(profile_data, target_data)
 
-        assert (
-            merged["python"]["tools"]["mypy"]["enabled"] is False
-        )  # Disabled by target
-        assert (
-            merged["python"]["tools"]["black"]["enabled"] is True
-        )  # Preserved from profile
+        assert merged["python"]["tools"]["mypy"]["enabled"] is False  # Disabled by target
+        assert merged["python"]["tools"]["black"]["enabled"] is True  # Preserved from profile
 
 
 class TestMain:

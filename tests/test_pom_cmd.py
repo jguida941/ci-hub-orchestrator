@@ -13,9 +13,7 @@ if str(ROOT) not in sys.path:
 from cihub.commands.pom import cmd_fix_deps, cmd_fix_pom  # noqa: E402
 
 
-def write_ci_hub_config(
-    path: Path, language: str = "java", build_tool: str = "maven"
-) -> None:
+def write_ci_hub_config(path: Path, language: str = "java", build_tool: str = "maven") -> None:
     """Helper to create .ci-hub.yml config file."""
     config = f"""
 repo:
@@ -127,11 +125,7 @@ java:
 
         captured = capsys.readouterr()
         # Should show diff output
-        assert (
-            "---" in captured.out
-            or "+++" in captured.out
-            or "jacoco" in captured.out.lower()
-        )
+        assert "---" in captured.out or "+++" in captured.out or "jacoco" in captured.out.lower()
 
     def test_fix_pom_apply_modifies_file(self, tmp_path: Path, capsys) -> None:
         """fix-pom with --apply modifies pom.xml."""
@@ -443,11 +437,7 @@ java:
         # Should return error or show warning
         captured = capsys.readouterr()
         # Invalid XML should trigger a warning
-        assert (
-            result != 0
-            or "Invalid pom.xml" in captured.out
-            or "warning" in captured.out.lower()
-        )
+        assert result != 0 or "Invalid pom.xml" in captured.out or "warning" in captured.out.lower()
 
     def test_fix_deps_multi_module_project(self, tmp_path: Path, capsys) -> None:
         """fix-deps handles multi-module Maven projects."""
@@ -519,9 +509,7 @@ java:
         result = cmd_fix_pom(args)
         assert result == 0
 
-    def test_fix_deps_missing_pom_no_error_for_missing_file(
-        self, tmp_path: Path, capsys
-    ) -> None:
+    def test_fix_deps_missing_pom_no_error_for_missing_file(self, tmp_path: Path, capsys) -> None:
         """fix-deps returns no error when pom.xml is missing (unlike fix-pom)."""
         write_ci_hub_config(tmp_path)
         # No pom.xml created

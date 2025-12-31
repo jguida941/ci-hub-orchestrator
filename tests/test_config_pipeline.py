@@ -44,10 +44,7 @@ def test_generate_workflow_inputs_java():
 
     # Thresholds are direct inputs
     assert inputs["coverage_min"] == cfg["java"]["tools"]["jacoco"]["min_coverage"]
-    assert (
-        inputs["mutation_score_min"]
-        == cfg["java"]["tools"]["pitest"]["min_mutation_score"]
-    )
+    assert inputs["mutation_score_min"] == cfg["java"]["tools"]["pitest"]["min_mutation_score"]
     assert inputs["max_critical_vulns"] == cfg["thresholds"]["max_critical_vulns"]
     assert inputs["max_high_vulns"] == cfg["thresholds"]["max_high_vulns"]
 
@@ -77,10 +74,7 @@ def test_generate_workflow_inputs_python():
 
     # Thresholds are direct inputs
     assert inputs["coverage_min"] == cfg["python"]["tools"]["pytest"]["min_coverage"]
-    assert (
-        inputs["mutation_score_min"]
-        == cfg["python"]["tools"]["mutmut"]["min_mutation_score"]
-    )
+    assert inputs["mutation_score_min"] == cfg["python"]["tools"]["mutmut"]["min_mutation_score"]
     assert inputs["max_critical_vulns"] == cfg["thresholds"]["max_critical_vulns"]
     assert inputs["max_high_vulns"] == cfg["thresholds"]["max_high_vulns"]
 
@@ -91,9 +85,7 @@ def test_load_config_merge_and_no_exit(tmp_path: Path):
     schema_src = ROOT / "schema" / "ci-hub-config.schema.json"
     schema_dst = hub_root / "schema"
     schema_dst.mkdir(parents=True, exist_ok=True)
-    schema_dst.joinpath("ci-hub-config.schema.json").write_text(
-        schema_src.read_text(), encoding="utf-8"
-    )
+    schema_dst.joinpath("ci-hub-config.schema.json").write_text(schema_src.read_text(), encoding="utf-8")
 
     defaults = {
         "repo": {"owner": "owner", "name": "base", "language": "java"},
@@ -106,16 +98,10 @@ def test_load_config_merge_and_no_exit(tmp_path: Path):
     }
 
     (hub_root / "config" / "repos").mkdir(parents=True, exist_ok=True)
-    (hub_root / "config" / "defaults.yaml").write_text(
-        json.dumps(defaults), encoding="utf-8"
-    )
-    (hub_root / "config" / "repos" / "example.yaml").write_text(
-        json.dumps(repo_override), encoding="utf-8"
-    )
+    (hub_root / "config" / "defaults.yaml").write_text(json.dumps(defaults), encoding="utf-8")
+    (hub_root / "config" / "repos" / "example.yaml").write_text(json.dumps(repo_override), encoding="utf-8")
 
-    cfg = load_config(
-        repo_name="example", hub_root=hub_root, exit_on_validation_error=False
-    )
+    cfg = load_config(repo_name="example", hub_root=hub_root, exit_on_validation_error=False)
 
     assert cfg["repo"]["name"] == "example"
     assert cfg["thresholds"]["max_high_vulns"] == 5
@@ -127,17 +113,13 @@ def test_load_config_raises_validation_error(tmp_path: Path):
     schema_src = ROOT / "schema" / "ci-hub-config.schema.json"
     schema_dst = hub_root / "schema"
     schema_dst.mkdir(parents=True, exist_ok=True)
-    schema_dst.joinpath("ci-hub-config.schema.json").write_text(
-        schema_src.read_text(), encoding="utf-8"
-    )
+    schema_dst.joinpath("ci-hub-config.schema.json").write_text(schema_src.read_text(), encoding="utf-8")
     (hub_root / "config" / "repos").mkdir(parents=True, exist_ok=True)
     (hub_root / "config" / "defaults.yaml").write_text("{}", encoding="utf-8")
     (hub_root / "config" / "repos" / "badrepo.yaml").write_text("{}", encoding="utf-8")
 
     with pytest.raises(ConfigValidationError):
-        load_config(
-            repo_name="badrepo", hub_root=hub_root, exit_on_validation_error=False
-        )
+        load_config(repo_name="badrepo", hub_root=hub_root, exit_on_validation_error=False)
 
 
 def test_validate_config_sorts_paths():

@@ -154,15 +154,11 @@ def load_pip_audit() -> Optional[int]:
     try:
         data = json.loads(report.read_text())
         if isinstance(data, list):
-            return sum(
-                len(pkg.get("vulns", [])) for pkg in data if isinstance(pkg, dict)
-            )
+            return sum(len(pkg.get("vulns", [])) for pkg in data if isinstance(pkg, dict))
         if isinstance(data, dict):
             deps = data.get("dependencies")
             if isinstance(deps, list):
-                return sum(
-                    len(pkg.get("vulns", [])) for pkg in deps if isinstance(pkg, dict)
-                )
+                return sum(len(pkg.get("vulns", [])) for pkg in deps if isinstance(pkg, dict))
         return None
     except (json.JSONDecodeError, TypeError):
         return None

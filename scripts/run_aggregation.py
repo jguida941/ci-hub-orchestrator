@@ -53,9 +53,7 @@ class GitHubAPI:
     def __init__(self, token: str):
         self.token = token
 
-    def get(
-        self, url: str, retries: int = 3, backoff: float = 2.0, timeout: int = 30
-    ) -> dict[str, Any]:
+    def get(self, url: str, retries: int = 3, backoff: float = 2.0, timeout: int = 30) -> dict[str, Any]:
         """Make GET request with retry logic."""
         attempt = 0
         while True:
@@ -69,15 +67,14 @@ class GitHubAPI:
                     },
                 )
                 with request.urlopen(req, timeout=timeout) as resp:  # noqa: S310
-                    return json.loads(resp.read().decode())
+                    data = json.loads(resp.read().decode())
+                    return data if isinstance(data, dict) else {}
             except Exception as exc:
                 attempt += 1
                 if attempt > retries:
                     raise
                 sleep_for = backoff * attempt
-                print(
-                    f"Retry {attempt}/{retries} for {url}: {exc} (sleep {sleep_for}s)"
-                )
+                print(f"Retry {attempt}/{retries} for {url}: {exc} (sleep {sleep_for}s)")
                 time.sleep(sleep_for)
 
     def download_artifact(self, archive_url: str, target_dir: Path) -> Path | None:
@@ -112,6 +109,9 @@ def load_dispatch_metadata(dispatch_dir: Path) -> list[dict[str, Any]]:
     for path in dispatch_dir.rglob("*.json"):
         try:
             data = json.loads(path.read_text())
+            if not isinstance(data, dict):
+                print(f"Warning: skipping non-object JSON in {path}")
+                continue
             data["_source"] = str(path)
             entries.append(data)
         except Exception as exc:
@@ -176,7 +176,7 @@ def poll_run_completion(
     url = f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}"
     run_url = f"https://github.com/{owner}/{repo}/actions/runs/{run_id}"
     start_poll = time.time()
-    delay = 10
+    delay: float = 10.0
     poll_count = 0
 
     print(f"Polling {owner}/{repo} run {run_id}...")
@@ -194,10 +194,7 @@ def poll_run_completion(
             conclusion = run.get("conclusion", "unknown")
 
             # Always log current status
-            print(
-                f"   [{elapsed_min:02d}:{elapsed_sec:02d}] {owner}/{repo}: "
-                f"status={status}, conclusion={conclusion}"
-            )
+            print(f"   [{elapsed_min:02d}:{elapsed_sec:02d}] {owner}/{repo}: status={status}, conclusion={conclusion}")
 
             if status not in pending_statuses:
                 print(f"Completed {owner}/{repo}: {conclusion}")
@@ -215,9 +212,7 @@ def poll_run_completion(
             return "fetch_failed", "unknown"
 
 
-def extract_metrics_from_report(
-    report_data: dict[str, Any], run_status: dict[str, Any]
-) -> None:
+def extract_metrics_from_report(report_data: dict[str, Any], run_status: dict[str, Any]) -> None:
     """Extract metrics from report.json into run_status (mutates run_status)."""
     results_data = report_data.get("results", {}) or {}
     tool_metrics = report_data.get("tool_metrics", {}) or {}
@@ -272,16 +267,12 @@ def fetch_and_validate_artifact(
     """
     try:
         print(f"   Fetching artifacts for run {run_id}...")
-        artifacts = api.get(
-            f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts"
-        )
+        artifacts = api.get(f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts")
         ci_artifacts = artifacts.get("artifacts", [])
         print(f"   Found {len(ci_artifacts)} artifact(s)")
 
         # Prefer artifact ending with ci-report
-        artifact = next(
-            (a for a in ci_artifacts if a.get("name", "").endswith("ci-report")), None
-        )
+        artifact = next((a for a in ci_artifacts if a.get("name", "").endswith("ci-report")), None)
         if not artifact and ci_artifacts:
             artifact = next(
                 (a for a in ci_artifacts if "report" in a.get("name", "")),
@@ -309,14 +300,15 @@ def fetch_and_validate_artifact(
                 return None
 
             report_data = json.loads(report_file.read_text())
-            report_corr = report_data.get("hub_correlation_id", "")
+            if not isinstance(report_data, dict):
+                print("   WARNING: report.json is not a JSON object")
+                return None
+            report_corr_value = report_data.get("hub_correlation_id", "")
+            report_corr = report_corr_value if isinstance(report_corr_value, str) else ""
 
             # Validate correlation ID
             if expected_correlation_id:
-                print(
-                    f"   Validating correlation: expected={expected_correlation_id}, "
-                    f"got={report_corr or '(none)'}"
-                )
+                print(f"   Validating correlation: expected={expected_correlation_id}, got={report_corr or '(none)'}")
             if not validate_correlation_id(expected_correlation_id, report_corr):
                 print(
                     f"Correlation mismatch for {owner}/{repo} run {run_id} "
@@ -336,9 +328,7 @@ def fetch_and_validate_artifact(
                 if correct_run_id and correct_run_id != run_id:
                     print(f"Found correct run {correct_run_id}, re-fetching...")
                     # Re-fetch from correct run (empty expected to skip re-validation)
-                    return fetch_and_validate_artifact(
-                        api, owner, repo, correct_run_id, "", workflow, token
-                    )
+                    return fetch_and_validate_artifact(api, owner, repo, correct_run_id, "", workflow, token)
                 else:
                     print(f"Could not find correct run for {owner}/{repo}")
                     return None
@@ -389,9 +379,7 @@ def aggregate_results(results: list[dict[str, Any]]) -> dict[str, Any]:
         aggregated["mutation_average"] = round(sum(mutations) / len(mutations), 1)
 
     aggregated["total_critical_vulns"] = sum(owasp_critical) + sum(trivy_critical)
-    aggregated["total_high_vulns"] = (
-        sum(owasp_high) + sum(bandit_high) + sum(trivy_high)
-    )
+    aggregated["total_high_vulns"] = sum(owasp_high) + sum(bandit_high) + sum(trivy_high)
     aggregated["total_medium_vulns"] = sum(owasp_medium) + sum(bandit_medium)
     aggregated["total_pip_audit_vulns"] = sum(pip_audit_vulns)
     aggregated["total_semgrep_findings"] = sum(semgrep_findings)
@@ -481,8 +469,7 @@ def generate_summary_markdown(
                 trivy = "-"
 
             lines.append(
-                f"| {config} | {status_label} | {cov} | {mut} "
-                f"| {cs} | {sb} | {pmd} | {owasp} | {sem} | {trivy} |"
+                f"| {config} | {status_label} | {cov} | {mut} | {cs} | {sb} | {pmd} | {owasp} | {sem} | {trivy} |"
             )
         lines.append("")
 
@@ -622,9 +609,12 @@ def run_aggregation(
             continue
 
         owner, repo = owner_repo
-        run_id = entry.get("run_id")
-        workflow = entry.get("workflow")
-        expected_corr = entry.get("correlation_id", "")
+        run_id_value = entry.get("run_id")
+        run_id = str(run_id_value) if run_id_value else None
+        workflow_value = entry.get("workflow")
+        workflow = workflow_value if isinstance(workflow_value, str) else ""
+        expected_corr_value = entry.get("correlation_id", "")
+        expected_corr = expected_corr_value if isinstance(expected_corr_value, str) else ""
 
         print(f"\n[{idx}/{len(entries)}] Processing {repo_full}...")
         run_status = create_run_status(entry)
@@ -632,9 +622,7 @@ def run_aggregation(
         # Try to find run by correlation ID if run_id is missing
         if not run_id and expected_corr and workflow:
             print(f"No run_id for {repo_full}, searching by {expected_corr}...")
-            found_run_id = find_run_by_correlation_id(
-                owner, repo, workflow, expected_corr, token, gh_get=api.get
-            )
+            found_run_id = find_run_by_correlation_id(owner, repo, workflow, expected_corr, token, gh_get=api.get)
             if found_run_id:
                 run_id = found_run_id
                 run_status["run_id"] = run_id
@@ -658,9 +646,7 @@ def run_aggregation(
 
         # Fetch and validate artifact (for both success AND failure to get metrics)
         if status == "completed":
-            report_data = fetch_and_validate_artifact(
-                api, owner, repo, run_id, expected_corr, workflow, token
-            )
+            report_data = fetch_and_validate_artifact(api, owner, repo, run_id, expected_corr, workflow, token)
             if report_data:
                 corr = report_data.get("hub_correlation_id", expected_corr)
                 run_status["correlation_id"] = corr
@@ -673,7 +659,7 @@ def run_aggregation(
     missing = max(total_repos - dispatched, 0)
     missing_run_id = len([e for e in results if not e.get("run_id")])
 
-    report = {
+    report: dict[str, Any] = {
         "hub_run_id": hub_run_id,
         "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
         "triggered_by": hub_event,
@@ -693,21 +679,21 @@ def run_aggregation(
 
     # Write summary
     if summary_file:
-        summary_md = generate_summary_markdown(
-            results, report, total_repos, dispatched, missing, missing_run_id
-        )
+        summary_md = generate_summary_markdown(results, report, total_repos, dispatched, missing, missing_run_id)
         summary_file.write_text(summary_md)
 
     # Check thresholds
     max_critical, max_high = load_thresholds(defaults_file)
+    total_critical = int(report.get("total_critical_vulns", 0) or 0)
+    total_high = int(report.get("total_high_vulns", 0) or 0)
     threshold_exceeded = False
 
-    if report["total_critical_vulns"] > max_critical:
-        crit_v = report["total_critical_vulns"]
+    if total_critical > max_critical:
+        crit_v = total_critical
         print(f"THRESHOLD EXCEEDED: Critical vulns {crit_v} > {max_critical}")
         threshold_exceeded = True
-    if report["total_high_vulns"] > max_high:
-        high_v = report["total_high_vulns"]
+    if total_high > max_high:
+        high_v = total_high
         print(f"THRESHOLD EXCEEDED: High vulns {high_v} > {max_high}")
         threshold_exceeded = True
 
@@ -720,11 +706,7 @@ def run_aggregation(
         or r.get("status") not in ("completed",)
     ]
 
-    passed_runs = [
-        r
-        for r in results
-        if r.get("status") == "completed" and r.get("conclusion") == "success"
-    ]
+    passed_runs = [r for r in results if r.get("status") == "completed" and r.get("conclusion") == "success"]
 
     # Print final summary
     print(f"\n{'=' * 60}")
@@ -756,13 +738,10 @@ def run_aggregation(
 
     if threshold_exceeded:
         print("\nThreshold violations:")
-        if report["total_critical_vulns"] > max_critical:
-            print(
-                f"  - Critical vulns: {report['total_critical_vulns']} "
-                f"(max: {max_critical})"
-            )
-        if report["total_high_vulns"] > max_high:
-            print(f"  - High vulns: {report['total_high_vulns']} (max: {max_high})")
+        if total_critical > max_critical:
+            print(f"  - Critical vulns: {total_critical} (max: {max_critical})")
+        if total_high > max_high:
+            print(f"  - High vulns: {total_high} (max: {max_high})")
 
     print(f"{'=' * 60}\n")
 
@@ -777,9 +756,7 @@ def main():
     parser.add_argument("--dispatch-dir", type=Path, default=Path("dispatch-artifacts"))
     parser.add_argument("--output", type=Path, default=Path("hub-report.json"))
     parser.add_argument("--summary-file", type=Path, default=None)
-    parser.add_argument(
-        "--defaults-file", type=Path, default=Path("config/defaults.yaml")
-    )
+    parser.add_argument("--defaults-file", type=Path, default=Path("config/defaults.yaml"))
     args = parser.parse_args()
 
     token = os.environ.get("GITHUB_TOKEN")

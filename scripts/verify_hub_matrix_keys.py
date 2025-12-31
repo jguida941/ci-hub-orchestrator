@@ -48,10 +48,7 @@ def main() -> int:
     print("OK: all referenced matrix keys are emitted by the builder.")
 
     if unused:
-        print(
-            "\nWARN: builder emits keys not referenced as matrix.<key> in "
-            "this workflow:"
-        )
+        print("\nWARN: builder emits keys not referenced as matrix.<key> in this workflow:")
         for key in unused:
             print(f"  - {key}")
 

@@ -125,9 +125,12 @@ def _parse_json(path: Path) -> dict[str, Any] | list[Any] | None:
     if not path.exists():
         return None
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError:
         return None
+    if isinstance(data, (dict, list)):
+        return data
+    return None
 
 
 def _find_files(workdir: Path, patterns: list[str]) -> list[Path]:
@@ -150,9 +153,7 @@ def _parse_junit_files(paths: list[Path]) -> dict[str, Any]:
         totals["tests_passed"] += int(parsed.get("tests_passed", 0))
         totals["tests_failed"] += int(parsed.get("tests_failed", 0))
         totals["tests_skipped"] += int(parsed.get("tests_skipped", 0))
-        totals["tests_runtime_seconds"] += float(
-            parsed.get("tests_runtime_seconds", 0.0) or 0.0
-        )
+        totals["tests_runtime_seconds"] += float(parsed.get("tests_runtime_seconds", 0.0) or 0.0)
     return totals
 
 
@@ -444,14 +445,13 @@ def _ensure_mutmut_config(workdir: Path) -> tuple[Path | None, str | None]:
     if setup_cfg.exists() and "[mutmut]" in setup_cfg.read_text(encoding="utf-8"):
         return None, None
 
-    original_text = (
-        setup_cfg.read_text(encoding="utf-8") if setup_cfg.exists() else None
-    )
     mutate_path = _detect_mutmut_paths(workdir)
     snippet = f"\n[mutmut]\npaths_to_mutate={mutate_path}\n"
     if setup_cfg.exists():
+        original_text = setup_cfg.read_text(encoding="utf-8")
         setup_cfg.write_text(original_text + snippet, encoding="utf-8")
     else:
+        original_text = None
         setup_cfg.write_text(snippet.lstrip(), encoding="utf-8")
     return setup_cfg, original_text
 
@@ -467,7 +467,12 @@ def run_mutmut(workdir: Path, output_dir: Path, timeout_seconds: int) -> ToolRes
             timeout=timeout_seconds,
         )
     except subprocess.TimeoutExpired as exc:
-        log_path.write_text(exc.stdout or "", encoding="utf-8")
+        stdout = exc.stdout
+        if isinstance(stdout, bytes):
+            stdout_text = stdout.decode("utf-8", errors="replace")
+        else:
+            stdout_text = stdout or ""
+        log_path.write_text(stdout_text, encoding="utf-8")
         return ToolResult(
             tool="mutmut",
             ran=True,

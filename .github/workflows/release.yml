@@ -125,12 +125,12 @@ jobs:
           echo "Updating floating tag $MAJOR to point to $VERSION..."
 
           # Delete local tag if exists
-          git tag -d $MAJOR 2>/dev/null || true
+          git tag -d "$MAJOR" 2>/dev/null || true
 
           # Create new tag pointing to current commit
-          git tag $MAJOR
+          git tag "$MAJOR"
 
           # Force push to update remote
-          git push -f origin $MAJOR
+          git push -f origin "$MAJOR"
 
           echo "Floating tag $MAJOR now points to $VERSION"

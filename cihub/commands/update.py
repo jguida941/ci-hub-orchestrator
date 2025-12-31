@@ -8,7 +8,7 @@ import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from cihub.cli import (
     CommandResult,
@@ -54,18 +54,11 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
     repo_side_execution = False
     if existing_config:
         existing_cfg = load_yaml_file(config_path)
-        repo_block = (
-            existing_cfg.get("repo", {})
-            if isinstance(existing_cfg.get("repo"), dict)
-            else {}
-        )
+        repo_block = existing_cfg.get("repo", {}) if isinstance(existing_cfg.get("repo"), dict) else {}
         repo_side_execution = bool(repo_block.get("repo_side_execution", False))
 
     if apply and not repo_side_execution and not bootstrap and not force:
-        message = (
-            "repo_side_execution is false; re-run with --force or enable "
-            "repo.repo_side_execution in .ci-hub.yml"
-        )
+        message = "repo_side_execution is false; re-run with --force or enable repo.repo_side_execution in .ci-hub.yml"
         if json_mode:
             return CommandResult(
                 exit_code=EXIT_USAGE,
@@ -90,9 +83,7 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
 
     owner = args.owner or existing.get("repo", {}).get("owner", "")
     name = args.name or existing.get("repo", {}).get("name", "")
-    repo_existing = (
-        existing.get("repo", {}) if isinstance(existing.get("repo"), dict) else {}
-    )
+    repo_existing = existing.get("repo", {}) if isinstance(existing.get("repo"), dict) else {}
     branch = args.branch or repo_existing.get("default_branch", "main")
     subdir = args.subdir or repo_existing.get("subdir")
 
@@ -101,9 +92,7 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
     owner_warnings: list[str] = []
     if not owner:
         owner = "unknown"
-        owner_warnings.append(
-            "Warning: could not detect repo owner; set repo.owner manually."
-        )
+        owner_warnings.append("Warning: could not detect repo owner; set repo.owner manually.")
         if not json_mode:
             print(owner_warnings[-1], file=sys.stderr)
 
@@ -111,9 +100,7 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
     merged = deep_merge(base, existing)
     if dry_run:
         if not json_mode:
-            payload = yaml.safe_dump(
-                merged, sort_keys=False, default_flow_style=False, allow_unicode=True
-            )
+            payload = yaml.safe_dump(merged, sort_keys=False, default_flow_style=False, allow_unicode=True)
             print(f"# Would write: {config_path}")
             print(payload)
     else:
@@ -187,9 +174,7 @@ def cmd_update(args: argparse.Namespace) -> int | CommandResult:
             data["pom_fix_status"] = pom_fix_status
             if not dry_run:
                 summary = (
-                    "Update complete; POM fixes applied"
-                    if pom_fix_status == 0
-                    else "Update complete; POM fixes failed"
+                    "Update complete; POM fixes applied" if pom_fix_status == 0 else "Update complete; POM fixes failed"
                 )
             root_path = repo_path / subdir if subdir else repo_path
             pom_path = root_path / "pom.xml"

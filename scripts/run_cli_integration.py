@@ -70,9 +70,7 @@ def load_yaml(path: Path) -> dict:
     return data
 
 
-def iter_fixtures(
-    fixtures: Iterable[FixtureCase], names: set[str]
-) -> list[FixtureCase]:
+def iter_fixtures(fixtures: Iterable[FixtureCase], names: set[str]) -> list[FixtureCase]:
     if not names:
         return list(fixtures)
     filtered = [fx for fx in fixtures if fx.name in names]
@@ -113,15 +111,10 @@ def run_fixture(fixtures_path: Path, fixture: FixtureCase) -> None:
         except json.JSONDecodeError as exc:
             raise ValueError(f"cihub detect did not return JSON: {exc}") from exc
         detected = (
-            payload.get("data", {}).get("language")
-            if isinstance(payload.get("data"), dict)
-            else None
+            payload.get("data", {}).get("language") if isinstance(payload.get("data"), dict) else None
         ) or payload.get("language")
         if detected != fixture.language:
-            raise ValueError(
-                f"Language mismatch for {fixture.name}: "
-                f"expected '{fixture.language}', got: {detected}"
-            )
+            raise ValueError(f"Language mismatch for {fixture.name}: expected '{fixture.language}', got: {detected}")
         run(
             [
                 sys.executable,
@@ -179,9 +172,7 @@ def run_fixture(fixtures_path: Path, fixture: FixtureCase) -> None:
         config = load_yaml(config_path)
         repo_block = config.get("repo", {})
         if repo_block.get("subdir") != fixture.subdir:
-            raise ValueError(
-                f"repo.subdir mismatch for {fixture.name}: {repo_block.get('subdir')}"
-            )
+            raise ValueError(f"repo.subdir mismatch for {fixture.name}: {repo_block.get('subdir')}")
 
         workflow_path = repo_root / ".github" / "workflows" / "hub-ci.yml"
         if not workflow_path.exists():

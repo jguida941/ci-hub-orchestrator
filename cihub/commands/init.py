@@ -8,7 +8,7 @@ import sys
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from cihub.cli import (
     CommandResult,
@@ -76,10 +76,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
         repo_side_execution = bool(repo_block.get("repo_side_execution", False))
 
     if apply and not repo_side_execution and not bootstrap and not force:
-        message = (
-            "repo_side_execution is false; re-run with --force or enable "
-            "repo.repo_side_execution in .ci-hub.yml"
-        )
+        message = "repo_side_execution is false; re-run with --force or enable repo.repo_side_execution in .ci-hub.yml"
         if json_mode:
             return CommandResult(
                 exit_code=EXIT_USAGE,
@@ -112,9 +109,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
     owner_warnings: list[str] = []
     if not owner:
         owner = "unknown"
-        owner_warnings.append(
-            "Warning: could not detect repo owner; set repo.owner manually."
-        )
+        owner_warnings.append("Warning: could not detect repo owner; set repo.owner manually.")
         if not json_mode:
             print(owner_warnings[-1], file=sys.stderr)
 
@@ -143,9 +138,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
     config_path = repo_path / ".ci-hub.yml"
     if dry_run:
         if not json_mode:
-            payload = yaml.safe_dump(
-                config, sort_keys=False, default_flow_style=False, allow_unicode=True
-            )
+            payload = yaml.safe_dump(config, sort_keys=False, default_flow_style=False, allow_unicode=True)
             print(f"# Would write: {config_path}")
             print(payload)
     else:
@@ -225,9 +218,7 @@ def cmd_init(args: argparse.Namespace) -> int | CommandResult:
                         },
                     )
                 status = apply_pom_fixes(repo_path, effective, apply=True)
-                status = max(
-                    status, apply_dependency_fixes(repo_path, effective, apply=True)
-                )
+                status = max(status, apply_dependency_fixes(repo_path, effective, apply=True))
                 return status
             if not json_mode:
                 print("Run: cihub fix-pom --repo . --apply")

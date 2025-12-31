@@ -23,9 +23,7 @@ from cihub.config.io import load_yaml_file
 from cihub.config.merge import deep_merge
 from cihub.exit_codes import EXIT_FAILURE, EXIT_INTERNAL_ERROR, EXIT_SUCCESS
 
-GIT_REMOTE_RE = re.compile(
-    r"(?:github\.com[:/])(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$"
-)
+GIT_REMOTE_RE = re.compile(r"(?:github\.com[:/])(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$")
 
 JAVA_TOOL_PLUGINS = {
     "jacoco": ("org.jacoco", "jacoco-maven-plugin"),
@@ -145,8 +143,9 @@ def get_java_tool_flags(config: dict[str, Any]) -> dict[str, bool]:
 
 
 def get_xml_namespace(root: ET.Element) -> str:
-    if root.tag.startswith("{"):
-        return root.tag.split("}")[0][1:]
+    tag = root.tag
+    if isinstance(tag, str) and tag.startswith("{"):
+        return tag.split("}")[0][1:]
     return ""
 
 
@@ -157,9 +156,12 @@ def ns_tag(namespace: str, tag: str) -> str:
 
 
 def elem_text(elem: ET.Element | None) -> str:
-    if elem is None or elem.text is None:
+    if elem is None:
         return ""
-    return elem.text.strip()
+    text = elem.text
+    if not isinstance(text, str):
+        return ""
+    return text.strip()
 
 
 def resolve_executable(name: str) -> str:
@@ -319,9 +321,7 @@ def parse_pom_dependencies(
     return deps, deps_mgmt, None
 
 
-def plugin_matches(
-    plugins: set[tuple[str, str]], group_id: str, artifact_id: str
-) -> bool:
+def plugin_matches(plugins: set[tuple[str, str]], group_id: str, artifact_id: str) -> bool:
     for group, artifact in plugins:
         if artifact != artifact_id:
             continue
@@ -330,9 +330,7 @@ def plugin_matches(
     return False
 
 
-def collect_java_pom_warnings(
-    repo_path: Path, config: dict[str, Any]
-) -> tuple[list[str], list[tuple[str, str]]]:
+def collect_java_pom_warnings(repo_path: Path, config: dict[str, Any]) -> tuple[list[str], list[tuple[str, str]]]:
     warnings: list[str] = []
     missing_plugins: list[tuple[str, str]] = []
 
@@ -353,17 +351,13 @@ def collect_java_pom_warnings(
         return warnings, missing_plugins
 
     tool_flags = get_java_tool_flags(config)
-    checkstyle_config = (
-        config.get("java", {}).get("tools", {}).get("checkstyle", {}).get("config_file")
-    )
+    checkstyle_config = config.get("java", {}).get("tools", {}).get("checkstyle", {}).get("config_file")
     if checkstyle_config:
         config_path = repo_path / checkstyle_config
         if not config_path.exists():
             alt_path = root_path / checkstyle_config
             if not alt_path.exists():
-                warnings.append(
-                    f"checkstyle config file not found: {checkstyle_config}"
-                )
+                warnings.append(f"checkstyle config file not found: {checkstyle_config}")
     for tool, enabled in tool_flags.items():
         if tool not in JAVA_TOOL_PLUGINS or not enabled:
             continue
@@ -371,29 +365,18 @@ def collect_java_pom_warnings(
         if plugin_matches(plugins, group_id, artifact_id):
             continue
         if plugin_matches(plugins_mgmt, group_id, artifact_id):
-            warnings.append(
-                f"pom.xml: {tool} plugin is only in <pluginManagement>; "
-                "move to <build><plugins>"
-            )
+            warnings.append(f"pom.xml: {tool} plugin is only in <pluginManagement>; move to <build><plugins>")
         else:
-            warnings.append(
-                f"pom.xml: missing plugin for enabled tool '{tool}' "
-                f"({group_id}:{artifact_id})"
-            )
+            warnings.append(f"pom.xml: missing plugin for enabled tool '{tool}' ({group_id}:{artifact_id})")
         missing_plugins.append((group_id, artifact_id))
 
     if has_modules and missing_plugins:
-        warnings.append(
-            "pom.xml: multi-module project detected; add plugins to parent "
-            "<build><plugins>"
-        )
+        warnings.append("pom.xml: multi-module project detected; add plugins to parent <build><plugins>")
 
     return warnings, missing_plugins
 
 
-def dependency_matches(
-    dependencies: set[tuple[str, str]], group_id: str, artifact_id: str
-) -> bool:
+def dependency_matches(dependencies: set[tuple[str, str]], group_id: str, artifact_id: str) -> bool:
     for group, artifact in dependencies:
         if artifact != artifact_id:
             continue
@@ -447,15 +430,9 @@ def collect_java_dependency_warnings(
             if dependency_matches(deps, group_id, artifact_id):
                 continue
             if dependency_matches(deps_mgmt, group_id, artifact_id):
-                warnings.append(
-                    f"{target}: {tool} dependency only in <dependencyManagement>; "
-                    "add to <dependencies>"
-                )
+                warnings.append(f"{target}: {tool} dependency only in <dependencyManagement>; add to <dependencies>")
             else:
-                warnings.append(
-                    f"{target}: missing dependency for enabled tool '{tool}' "
-                    f"({group_id}:{artifact_id})"
-                )
+                warnings.append(f"{target}: missing dependency for enabled tool '{tool}' ({group_id}:{artifact_id})")
             missing.append((target, (group_id, artifact_id)))
 
     return warnings, missing
@@ -532,10 +509,7 @@ def insert_plugins_into_pom(pom_text: str, plugin_block: str) -> tuple[str, bool
         plugin_indent = plugins_indent + "  "
         block = indent_block(plugin_block, plugin_indent)
         insert_at = build_close
-        plugins_block = (
-            f"\n{plugins_indent}<plugins>\n{block}\n"
-            f"{plugins_indent}</plugins>\n{build_indent}"
-        )
+        plugins_block = f"\n{plugins_indent}<plugins>\n{block}\n{plugins_indent}</plugins>\n{build_indent}"
         return pom_text[:insert_at] + plugins_block + pom_text[insert_at:], True
 
     project_close = pom_text.find("</project>")
@@ -563,9 +537,7 @@ def find_tag_spans(text: str, tag: str) -> list[tuple[int, int]]:
     return spans
 
 
-def insert_dependencies_into_pom(
-    pom_text: str, dependency_block: str
-) -> tuple[str, bool]:
+def insert_dependencies_into_pom(pom_text: str, dependency_block: str) -> tuple[str, bool]:
     dep_mgmt_spans = find_tag_spans(pom_text, "dependencyManagement")
     build_spans = find_tag_spans(pom_text, "build")
 
@@ -573,9 +545,7 @@ def insert_dependencies_into_pom(
         return any(start <= index < end for start, end in spans)
 
     for match in re.finditer(r"<dependencies[^>]*>", pom_text):
-        if in_spans(match.start(), dep_mgmt_spans) or in_spans(
-            match.start(), build_spans
-        ):
+        if in_spans(match.start(), dep_mgmt_spans) or in_spans(match.start(), build_spans):
             continue
         deps_close = pom_text.find("</dependencies>", match.end())
         if deps_close == -1:
@@ -594,10 +564,7 @@ def insert_dependencies_into_pom(
     deps_indent = project_indent + "  "
     dep_indent = deps_indent + "  "
     block = indent_block(dependency_block, dep_indent)
-    deps_block = (
-        f"\n{deps_indent}<dependencies>\n{block}\n{deps_indent}</dependencies>\n"
-        f"{project_indent}"
-    )
+    deps_block = f"\n{deps_indent}<dependencies>\n{block}\n{deps_indent}</dependencies>\n{project_indent}"
     return pom_text[:project_close] + deps_block + pom_text[project_close:], True
 
 
@@ -995,9 +962,7 @@ def render_dispatch_workflow(language: str, dispatch_workflow: str) -> str:
     raise ValueError(f"Unsupported dispatch_workflow: {dispatch_workflow}")
 
 
-def gh_api_json(
-    path: str, method: str = "GET", payload: dict[str, Any] | None = None
-) -> dict[str, Any]:
+def gh_api_json(path: str, method: str = "GET", payload: dict[str, Any] | None = None) -> dict[str, Any]:
     gh_bin = resolve_executable("gh")
     cmd = [gh_bin, "api"]
     if method != "GET":
@@ -1018,7 +983,10 @@ def gh_api_json(
         raise RuntimeError(msg or "gh api failed")
     if not result.stdout.strip():
         return {}
-    return json.loads(result.stdout)
+    data = json.loads(result.stdout)
+    if not isinstance(data, dict):
+        raise RuntimeError("gh api returned non-object JSON")
+    return data
 
 
 def fetch_remote_file(repo: str, path: str, branch: str) -> dict[str, str] | None:
@@ -1153,25 +1121,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     doctor.set_defaults(func=cmd_preflight)
 
-    scaffold = subparsers.add_parser(
-        "scaffold", help="Generate a minimal fixture project"
-    )
+    scaffold = subparsers.add_parser("scaffold", help="Generate a minimal fixture project")
     add_json_flag(scaffold)
     scaffold.add_argument(
         "type",
         nargs="?",
-        help=(
-            "Fixture type (python-pyproject, python-setup, java-maven, "
-            "java-gradle, monorepo)"
-        ),
+        help=("Fixture type (python-pyproject, python-setup, java-maven, java-gradle, monorepo)"),
     )
     scaffold.add_argument("path", nargs="?", help="Destination path")
-    scaffold.add_argument(
-        "--list", action="store_true", help="List available fixture types"
-    )
-    scaffold.add_argument(
-        "--force", action="store_true", help="Overwrite destination if not empty"
-    )
+    scaffold.add_argument("--list", action="store_true", help="List available fixture types")
+    scaffold.add_argument("--force", action="store_true", help="Overwrite destination if not empty")
     scaffold.set_defaults(func=cmd_scaffold)
 
     smoke = subparsers.add_parser("smoke", help="Run a local smoke test")
@@ -1186,8 +1145,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--type",
         action="append",
         help=(
-            "Fixture type to generate (repeatable): python-pyproject, "
-            "python-setup, java-maven, java-gradle, monorepo"
+            "Fixture type to generate (repeatable): python-pyproject, python-setup, java-maven, java-gradle, monorepo"
         ),
     )
     smoke.add_argument(
@@ -1316,9 +1274,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_json_flag(report)
     report_sub = report.add_subparsers(dest="subcommand", required=True)
 
-    report_build = report_sub.add_parser(
-        "build", help="Build report.json from tool outputs"
-    )
+    report_build = report_sub.add_parser("build", help="Build report.json from tool outputs")
     add_json_flag(report_build)
     report_build.add_argument("--repo", default=".", help="Path to repo (default: .)")
     report_build.add_argument("--workdir", help="Override workdir/subdir")
@@ -1336,9 +1292,7 @@ def build_parser() -> argparse.ArgumentParser:
     report_build.add_argument("--summary", help="Override summary.md path")
     report_build.set_defaults(func=cmd_report)
 
-    report_summary = report_sub.add_parser(
-        "summary", help="Render summary from report.json"
-    )
+    report_summary = report_sub.add_parser("summary", help="Render summary from report.json")
     add_json_flag(report_summary)
     report_summary.add_argument("--report", required=True, help="Path to report.json")
     report_summary.add_argument("--output", help="Output summary.md path")
@@ -1349,22 +1303,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     report_summary.set_defaults(func=cmd_report)
 
-    report_outputs = report_sub.add_parser(
-        "outputs", help="Write workflow outputs from report.json"
-    )
+    report_outputs = report_sub.add_parser("outputs", help="Write workflow outputs from report.json")
     add_json_flag(report_outputs)
     report_outputs.add_argument("--report", required=True, help="Path to report.json")
-    report_outputs.add_argument(
-        "--output", help="Path to write outputs (defaults to GITHUB_OUTPUT)"
-    )
+    report_outputs.add_argument("--output", help="Path to write outputs (defaults to GITHUB_OUTPUT)")
     report_outputs.set_defaults(func=cmd_report)
 
     docs = subparsers.add_parser("docs", help="Generate reference documentation")
     docs_sub = docs.add_subparsers(dest="subcommand", required=True)
 
-    docs_generate = docs_sub.add_parser(
-        "generate", help="Generate CLI and config reference docs"
-    )
+    docs_generate = docs_sub.add_parser("generate", help="Generate CLI and config reference docs")
     add_json_flag(docs_generate)
     docs_generate.add_argument(
         "--output",
@@ -1378,9 +1326,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     docs_generate.set_defaults(func=cmd_docs)
 
-    docs_check = docs_sub.add_parser(
-        "check", help="Check reference docs are up to date"
-    )
+    docs_check = docs_sub.add_parser("check", help="Check reference docs are up to date")
     add_json_flag(docs_check)
     docs_check.add_argument(
         "--output",
@@ -1389,9 +1335,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     docs_check.set_defaults(func=cmd_docs)
 
-    docs_links = docs_sub.add_parser(
-        "links", help="Check documentation for broken links"
-    )
+    docs_links = docs_sub.add_parser("links", help="Check documentation for broken links")
     add_json_flag(docs_links)
     docs_links.add_argument(
         "--external",
@@ -1423,9 +1367,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     adr_list.set_defaults(func=cmd_adr)
 
-    adr_check = adr_sub.add_parser(
-        "check", help="Validate ADRs for broken links and missing fields"
-    )
+    adr_check = adr_sub.add_parser("check", help="Validate ADRs for broken links and missing fields")
     add_json_flag(adr_check)
     adr_check.set_defaults(func=cmd_adr)
 
@@ -1449,35 +1391,21 @@ def build_parser() -> argparse.ArgumentParser:
 
     hub_ci_ruff = hub_ci_sub.add_parser("ruff", help="Run ruff and emit issue count")
     hub_ci_ruff.add_argument("--path", default=".", help="Path to lint")
-    hub_ci_ruff.add_argument(
-        "--force-exclude", action="store_true", help="Force ruff exclude rules"
-    )
+    hub_ci_ruff.add_argument("--force-exclude", action="store_true", help="Force ruff exclude rules")
     hub_ci_ruff.add_argument("--output", help="Write outputs to file")
-    hub_ci_ruff.add_argument(
-        "--github-output", action="store_true", help="Write outputs to GITHUB_OUTPUT"
-    )
+    hub_ci_ruff.add_argument("--github-output", action="store_true", help="Write outputs to GITHUB_OUTPUT")
 
     hub_ci_black = hub_ci_sub.add_parser("black", help="Run black and emit issue count")
     hub_ci_black.add_argument("--path", default=".", help="Path to check")
     hub_ci_black.add_argument("--output", help="Write outputs to file")
-    hub_ci_black.add_argument(
-        "--github-output", action="store_true", help="Write outputs to GITHUB_OUTPUT"
-    )
+    hub_ci_black.add_argument("--github-output", action="store_true", help="Write outputs to GITHUB_OUTPUT")
 
-    hub_ci_mutmut = hub_ci_sub.add_parser(
-        "mutmut", help="Run mutmut and emit summary outputs"
-    )
+    hub_ci_mutmut = hub_ci_sub.add_parser("mutmut", help="Run mutmut and emit summary outputs")
     hub_ci_mutmut.add_argument("--workdir", default=".", help="Workdir to scan")
-    hub_ci_mutmut.add_argument(
-        "--output-dir", default=".", help="Directory for mutmut logs"
-    )
-    hub_ci_mutmut.add_argument(
-        "--min-score", type=int, default=70, help="Minimum mutation score"
-    )
+    hub_ci_mutmut.add_argument("--output-dir", default=".", help="Directory for mutmut logs")
+    hub_ci_mutmut.add_argument("--min-score", type=int, default=70, help="Minimum mutation score")
     hub_ci_mutmut.add_argument("--output", help="Write outputs to file")
-    hub_ci_mutmut.add_argument(
-        "--github-output", action="store_true", help="Write outputs to GITHUB_OUTPUT"
-    )
+    hub_ci_mutmut.add_argument("--github-output", action="store_true", help="Write outputs to GITHUB_OUTPUT")
     hub_ci_mutmut.add_argument("--summary", help="Write summary to file")
     hub_ci_mutmut.add_argument(
         "--github-summary",
@@ -1485,24 +1413,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Append summary to GITHUB_STEP_SUMMARY",
     )
 
-    hub_ci_bandit = hub_ci_sub.add_parser(
-        "bandit", help="Run bandit and enforce high severity gate"
-    )
+    hub_ci_bandit = hub_ci_sub.add_parser("bandit", help="Run bandit and enforce high severity gate")
     hub_ci_bandit.add_argument(
         "--paths",
         nargs="+",
         default=["cihub", "scripts"],
         help="Paths to scan",
     )
-    hub_ci_bandit.add_argument(
-        "--output", default="bandit.json", help="Bandit JSON output path"
-    )
-    hub_ci_bandit.add_argument(
-        "--severity", default="medium", help="Bandit severity level"
-    )
-    hub_ci_bandit.add_argument(
-        "--confidence", default="medium", help="Bandit confidence level"
-    )
+    hub_ci_bandit.add_argument("--output", default="bandit.json", help="Bandit JSON output path")
+    hub_ci_bandit.add_argument("--severity", default="medium", help="Bandit severity level")
+    hub_ci_bandit.add_argument("--confidence", default="medium", help="Bandit confidence level")
     hub_ci_bandit.add_argument("--summary", help="Write summary to file")
     hub_ci_bandit.add_argument(
         "--github-summary",
@@ -1510,18 +1430,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="Append summary to GITHUB_STEP_SUMMARY",
     )
 
-    hub_ci_pip_audit = hub_ci_sub.add_parser(
-        "pip-audit", help="Run pip-audit and enforce vulnerability gate"
-    )
+    hub_ci_pip_audit = hub_ci_sub.add_parser("pip-audit", help="Run pip-audit and enforce vulnerability gate")
     hub_ci_pip_audit.add_argument(
         "--requirements",
         nargs="+",
         default=["requirements/requirements.txt", "requirements/requirements-dev.txt"],
         help="Requirements files",
     )
-    hub_ci_pip_audit.add_argument(
-        "--output", default="pip-audit.json", help="pip-audit JSON output path"
-    )
+    hub_ci_pip_audit.add_argument("--output", default="pip-audit.json", help="pip-audit JSON output path")
     hub_ci_pip_audit.add_argument("--summary", help="Write summary to file")
     hub_ci_pip_audit.add_argument(
         "--github-summary",
@@ -1529,12 +1445,8 @@ def build_parser() -> argparse.ArgumentParser:
         help="Append summary to GITHUB_STEP_SUMMARY",
     )
 
-    hub_ci_zizmor = hub_ci_sub.add_parser(
-        "zizmor-check", help="Check zizmor SARIF for high findings"
-    )
-    hub_ci_zizmor.add_argument(
-        "--sarif", default="zizmor.sarif", help="Path to SARIF file"
-    )
+    hub_ci_zizmor = hub_ci_sub.add_parser("zizmor-check", help="Check zizmor SARIF for high findings")
+    hub_ci_zizmor.add_argument("--sarif", default="zizmor.sarif", help="Path to SARIF file")
     hub_ci_zizmor.add_argument("--summary", help="Write summary to file")
     hub_ci_zizmor.add_argument(
         "--github-summary",
@@ -1542,23 +1454,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Append summary to GITHUB_STEP_SUMMARY",
     )
 
-    hub_ci_validate_configs = hub_ci_sub.add_parser(
-        "validate-configs", help="Validate hub repo config files"
-    )
-    hub_ci_validate_configs.add_argument(
-        "--configs-dir", help="Directory containing config repos"
-    )
+    hub_ci_validate_configs = hub_ci_sub.add_parser("validate-configs", help="Validate hub repo config files")
+    hub_ci_validate_configs.add_argument("--configs-dir", help="Directory containing config repos")
 
-    hub_ci_validate_profiles = hub_ci_sub.add_parser(
-        "validate-profiles", help="Validate profile YAML files"
-    )
-    hub_ci_validate_profiles.add_argument(
-        "--profiles-dir", help="Directory containing profiles"
-    )
+    hub_ci_validate_profiles = hub_ci_sub.add_parser("validate-profiles", help="Validate profile YAML files")
+    hub_ci_validate_profiles.add_argument("--profiles-dir", help="Directory containing profiles")
 
-    hub_ci_license = hub_ci_sub.add_parser(
-        "license-check", help="Run license checks for dependencies"
-    )
+    hub_ci_license = hub_ci_sub.add_parser("license-check", help="Run license checks for dependencies")
     hub_ci_license.add_argument("--summary", help="Write summary to file")
     hub_ci_license.add_argument(
         "--github-summary",
@@ -1566,9 +1468,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Append summary to GITHUB_STEP_SUMMARY",
     )
 
-    hub_ci_gitleaks = hub_ci_sub.add_parser(
-        "gitleaks-summary", help="Summarize gitleaks results"
-    )
+    hub_ci_gitleaks = hub_ci_sub.add_parser("gitleaks-summary", help="Summarize gitleaks results")
     hub_ci_gitleaks.add_argument("--outcome", help="Gitleaks outcome")
     hub_ci_gitleaks.add_argument("--summary", help="Write summary to file")
     hub_ci_gitleaks.add_argument(
@@ -1585,9 +1485,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Append summary to GITHUB_STEP_SUMMARY",
     )
 
-    hub_ci_enforce = hub_ci_sub.add_parser(
-        "enforce", help="Fail if critical hub checks failed"
-    )
+    _hub_ci_enforce = hub_ci_sub.add_parser("enforce", help="Fail if critical hub checks failed")  # noqa: F841
 
     new = subparsers.add_parser("new", help="Create hub-side repo config")
     add_json_flag(new)
@@ -1699,14 +1597,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     add_json_flag(validate)
     validate.add_argument("--repo", required=True, help="Path to repo")
-    validate.add_argument(
-        "--strict", action="store_true", help="Fail if pom.xml warnings are found"
-    )
+    validate.add_argument("--strict", action="store_true", help="Fail if pom.xml warnings are found")
     validate.set_defaults(func=cmd_validate)
 
-    setup_secrets = subparsers.add_parser(
-        "setup-secrets", help="Set HUB_DISPATCH_TOKEN on hub and connected repos"
-    )
+    setup_secrets = subparsers.add_parser("setup-secrets", help="Set HUB_DISPATCH_TOKEN on hub and connected repos")
     add_json_flag(setup_secrets)
     setup_secrets.add_argument(
         "--hub-repo",
@@ -1714,9 +1608,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Hub repository (default: jguida941/ci-cd-hub)",
     )
     setup_secrets.add_argument("--token", help="GitHub PAT (prompts if not provided)")
-    setup_secrets.add_argument(
-        "--all", action="store_true", help="Also set on all connected repos"
-    )
+    setup_secrets.add_argument("--all", action="store_true", help="Also set on all connected repos")
     setup_secrets.add_argument(
         "--verify",
         action="store_true",
@@ -1724,9 +1616,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     setup_secrets.set_defaults(func=cmd_setup_secrets)
 
-    setup_nvd = subparsers.add_parser(
-        "setup-nvd", help="Set NVD_API_KEY on Java repos for OWASP Dependency Check"
-    )
+    setup_nvd = subparsers.add_parser("setup-nvd", help="Set NVD_API_KEY on Java repos for OWASP Dependency Check")
     add_json_flag(setup_nvd)
     setup_nvd.add_argument("--nvd-key", help="NVD API key (prompts if not provided)")
     setup_nvd.add_argument(
@@ -1749,9 +1639,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     fix_pom.set_defaults(func=cmd_fix_pom)
 
-    fix_deps = subparsers.add_parser(
-        "fix-deps", help="Add missing Maven dependencies for Java repos"
-    )
+    fix_deps = subparsers.add_parser("fix-deps", help="Add missing Maven dependencies for Java repos")
     add_json_flag(fix_deps)
     fix_deps.add_argument("--repo", required=True, help="Path to repo")
     fix_deps.add_argument(

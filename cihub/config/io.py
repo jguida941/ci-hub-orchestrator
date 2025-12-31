@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from cihub.config.paths import PathConfig
 
@@ -32,10 +32,7 @@ def load_yaml_file(path: str | Path) -> dict[str, Any]:
     if data is None:
         return {}
     if not isinstance(data, dict):
-        raise ValueError(
-            f"Expected YAML file {path} to contain a mapping (dict), "
-            f"but got {type(data).__name__}"
-        )
+        raise ValueError(f"Expected YAML file {path} to contain a mapping (dict), but got {type(data).__name__}")
     return data
 
 

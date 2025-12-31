@@ -47,11 +47,11 @@ cp templates/repo/hub-java-ci.yml /path/to/your-repo/.github/workflows/hub-ci.ym
 cp templates/repo/hub-python-ci.yml /path/to/your-repo/.github/workflows/hub-ci.yml
 ```
 
-### Legacy dispatch templates (deprecated)
+### Legacy dispatch templates (archived)
 
-These are still present for migration but should not be used for new repos:
-- `templates/java/java-ci-dispatch.yml`
-- `templates/python/python-ci-dispatch.yml`
+These are archived for historical reference and should not be used for new repos:
+- `templates/legacy/java-ci-dispatch.yml`
+- `templates/legacy/python-ci-dispatch.yml`
 
 ### What Tools Are Included
 

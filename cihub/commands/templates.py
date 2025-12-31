@@ -28,9 +28,7 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
         repo_map = {entry["full"]: entry for entry in entries}
         missing = [repo for repo in args.repo if repo not in repo_map]
         if missing:
-            message = "Error: repos not found in config/repos/*.yaml: " + ", ".join(
-                missing
-            )
+            message = "Error: repos not found in config/repos/*.yaml: " + ", ".join(missing)
             if json_mode:
                 return CommandResult(exit_code=EXIT_USAGE, summary=message)
             print(message, file=sys.stderr)
@@ -39,9 +37,7 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
 
     if not entries:
         if json_mode:
-            return CommandResult(
-                exit_code=EXIT_SUCCESS, summary="No repos found to sync."
-            )
+            return CommandResult(exit_code=EXIT_SUCCESS, summary="No repos found to sync.")
         print("No repos found to sync.")
         return EXIT_SUCCESS
 
@@ -119,19 +115,13 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
                 if stale_file and stale_file.get("sha"):
                     if args.check:
                         if not json_mode:
-                            print(
-                                f"[FAIL] {repo} {stale_path} stale (should be deleted)"
-                            )
+                            print(f"[FAIL] {repo} {stale_path} stale (should be deleted)")
                         failures += 1
-                        repo_result["stale"].append(
-                            {"path": stale_path, "status": "stale"}
-                        )
+                        repo_result["stale"].append({"path": stale_path, "status": "stale"})
                     elif args.dry_run:
                         if not json_mode:
                             print(f"# Would delete {repo} {stale_path} (stale)")
-                        repo_result["stale"].append(
-                            {"path": stale_path, "status": "would_delete"}
-                        )
+                        repo_result["stale"].append({"path": stale_path, "status": "would_delete"})
                     elif workflow_synced:
                         try:
                             delete_remote_file(
@@ -143,9 +133,7 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
                             )
                             if not json_mode:
                                 print(f"[OK] {repo} {stale_path} deleted (stale)")
-                            repo_result["stale"].append(
-                                {"path": stale_path, "status": "deleted"}
-                            )
+                            repo_result["stale"].append({"path": stale_path, "status": "deleted"})
                         except RuntimeError as exc:
                             if not json_mode:
                                 print(
@@ -204,16 +192,11 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
                         f"Warning: This will force-push v1 tag from "
                         f"{current_v1[:7] if current_v1 else 'none'} to {head_sha[:7]}"
                     )
-                    print(
-                        "This affects all repositories referencing "
-                        "jguida941/hub-release/.github/workflows/*@v1"
-                    )
+                    print("This affects all repositories referencing jguida941/hub-release/.github/workflows/*@v1")
                     confirm = input("Continue? [y/N] ").strip().lower()
                     if confirm not in ("y", "yes"):
                         if json_mode:
-                            return CommandResult(
-                                exit_code=EXIT_SUCCESS, summary="Aborted"
-                            )
+                            return CommandResult(exit_code=EXIT_SUCCESS, summary="Aborted")
                         print("Aborted.")
                         return EXIT_SUCCESS
 
@@ -228,10 +211,7 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
                     capture_output=True,
                 )
                 if not json_mode:
-                    print(
-                        "[OK] v1 tag updated: "
-                        f"{current_v1[:7] if current_v1 else 'none'} -> {head_sha[:7]}"
-                    )
+                    print(f"[OK] v1 tag updated: {current_v1[:7] if current_v1 else 'none'} -> {head_sha[:7]}")
                 tag_status = "updated"
         except subprocess.CalledProcessError as exc:
             if not json_mode:
@@ -243,11 +223,7 @@ def cmd_sync_templates(args: argparse.Namespace) -> int | CommandResult:
         tag_status = "would_update"
 
     if json_mode:
-        summary = (
-            "Template sync complete"
-            if exit_code == EXIT_SUCCESS
-            else "Template sync failed"
-        )
+        summary = "Template sync complete" if exit_code == EXIT_SUCCESS else "Template sync failed"
         data: dict[str, object] = {"repos": results, "failures": failures}
         if tag_status:
             data["tag"] = tag_status

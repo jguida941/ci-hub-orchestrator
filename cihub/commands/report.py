@@ -235,9 +235,7 @@ def cmd_report(args: argparse.Namespace) -> int | CommandResult:
             tools_ran["hypothesis"] = tools_ran.get("pytest", False)
             tools_success["hypothesis"] = tools_success.get("pytest", False)
         thresholds = resolve_thresholds(config, "python")
-        context = _build_context(
-            repo_path, config, args.workdir or ".", args.correlation_id
-        )
+        context = _build_context(repo_path, config, args.workdir or ".", args.correlation_id)
         report = build_python_report(
             config,
             tool_outputs,
@@ -278,9 +276,7 @@ def cmd_report(args: argparse.Namespace) -> int | CommandResult:
             tools_success["jqwik"] = build_success and tests_failed == 0
 
         thresholds = resolve_thresholds(config, "java")
-        build_tool = (
-            config.get("java", {}).get("build_tool", "maven").strip().lower() or "maven"
-        )
+        build_tool = config.get("java", {}).get("build_tool", "maven").strip().lower() or "maven"
         project_type = _detect_java_project_type(repo_path / (args.workdir or "."))
         docker_cfg = config.get("java", {}).get("tools", {}).get("docker", {}) or {}
         context = _build_context(

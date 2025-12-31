@@ -43,9 +43,7 @@ def cmd_fix_pom(args: argparse.Namespace) -> int | CommandResult:
     if json_mode:
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             status = apply_pom_fixes(repo_path, config, apply=args.apply)
-            status = max(
-                status, apply_dependency_fixes(repo_path, config, apply=args.apply)
-            )
+            status = max(status, apply_dependency_fixes(repo_path, config, apply=args.apply))
         summary = "POM fix applied" if args.apply else "POM fix dry-run complete"
         return CommandResult(
             exit_code=status,
@@ -83,9 +81,7 @@ def cmd_fix_deps(args: argparse.Namespace) -> int | CommandResult:
     if json_mode:
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
             status = apply_dependency_fixes(repo_path, config, apply=args.apply)
-        summary = (
-            "Dependencies applied" if args.apply else "Dependency dry-run complete"
-        )
+        summary = "Dependencies applied" if args.apply else "Dependency dry-run complete"
         return CommandResult(
             exit_code=status,
             summary=summary,

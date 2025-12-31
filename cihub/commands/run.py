@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+from typing import Any, Callable
 
 from cihub.ci_config import load_ci_config
 from cihub.ci_runner import (
@@ -22,7 +23,7 @@ from cihub.ci_runner import (
 from cihub.cli import CommandResult, validate_subdir
 from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE
 
-RUNNERS = {
+RUNNERS: dict[str, Callable[..., ToolResult]] = {
     "pytest": run_pytest,
     "ruff": run_ruff,
     "black": run_black,
@@ -37,8 +38,9 @@ RUNNERS = {
 }
 
 
-def _tool_enabled(config: dict[str, object], tool: str) -> bool:
-    tools = config.get("python", {}).get("tools", {}) or {}
+def _tool_enabled(config: dict[str, Any], tool: str) -> bool:
+    python_block = config.get("python", {})
+    tools = python_block.get("tools", {}) if isinstance(python_block, dict) else {}
     entry = tools.get(tool, {}) if isinstance(tools, dict) else {}
     if isinstance(entry, bool):
         return entry
@@ -56,9 +58,7 @@ def cmd_run(args: argparse.Namespace) -> int | CommandResult:
     tool_output_dir = output_dir / "tool-outputs"
     tool_output_dir.mkdir(parents=True, exist_ok=True)
     output_name = tool_key
-    output_path = (
-        Path(args.output) if args.output else tool_output_dir / f"{output_name}.json"
-    )
+    output_path = Path(args.output) if args.output else tool_output_dir / f"{output_name}.json"
 
     try:
         config = load_ci_config(repo_path)
@@ -101,12 +101,7 @@ def cmd_run(args: argparse.Namespace) -> int | CommandResult:
 
     try:
         if tool == "mutmut":
-            timeout = (
-                config.get("python", {})
-                .get("tools", {})
-                .get("mutmut", {})
-                .get("timeout_minutes", 15)
-            )
+            timeout = config.get("python", {}).get("tools", {}).get("mutmut", {}).get("timeout_minutes", 15)
             result = runner(workdir_path, output_dir, int(timeout) * 60)
         else:
             result = runner(workdir_path, output_dir)

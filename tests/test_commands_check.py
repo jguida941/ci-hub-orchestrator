@@ -7,7 +7,6 @@ FAST_STEPS = [
     "preflight",
     "ruff-lint",
     "ruff-format",
-    "black",
     "typecheck",
     "yamllint",
     "test",
@@ -110,9 +109,7 @@ def test_check_json_with_all(monkeypatch) -> None:
 
     assert result.exit_code == 0
     step_names = [step["name"] for step in result.data["steps"]]
-    assert step_names == (
-        FAST_STEPS + AUDIT_STEPS + SECURITY_STEPS + FULL_STEPS + MUTATION_STEPS
-    )
+    assert step_names == (FAST_STEPS + AUDIT_STEPS + SECURITY_STEPS + FULL_STEPS + MUTATION_STEPS)
     assert result.data["modes"] == {
         "audit": True,
         "security": True,

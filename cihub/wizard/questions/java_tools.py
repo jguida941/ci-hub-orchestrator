@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from copy import deepcopy
+from typing import Any
 
-import questionary  # type: ignore[import-untyped]
+import questionary
 
 from cihub.wizard.core import _check_cancelled
 from cihub.wizard.styles import get_style
@@ -24,7 +25,7 @@ JAVA_TOOL_ORDER = [
 ]
 
 
-def configure_java_tools(defaults: dict) -> dict:
+def configure_java_tools(defaults: dict) -> dict[str, Any]:
     """Prompt to enable/disable Java tools.
 
     Args:
@@ -33,11 +34,13 @@ def configure_java_tools(defaults: dict) -> dict:
     Returns:
         Tool config dict with updated enabled flags.
     """
-    tools = deepcopy(defaults.get("java", {}).get("tools", {}))
+    raw_tools = deepcopy(defaults.get("java", {}).get("tools", {}))
+    tools: dict[str, Any] = raw_tools if isinstance(raw_tools, dict) else {}
     for tool in JAVA_TOOL_ORDER:
-        if tool not in tools:
+        tool_cfg = tools.get(tool)
+        if not isinstance(tool_cfg, dict):
             continue
-        enabled = tools[tool].get("enabled", False)
+        enabled = tool_cfg.get("enabled", False)
         answer: bool = _check_cancelled(
             questionary.confirm(
                 f"Enable {tool}?",
@@ -46,5 +49,5 @@ def configure_java_tools(defaults: dict) -> dict:
             ).ask(),
             f"{tool} toggle",
         )
-        tools[tool]["enabled"] = bool(answer)
+        tool_cfg["enabled"] = bool(answer)
     return tools

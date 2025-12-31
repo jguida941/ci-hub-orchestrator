@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from cihub.cli import CommandResult, hub_root
 from cihub.config.io import (
@@ -88,9 +88,7 @@ def _resolve_tool_path(
     if python_has and not java_has:
         return f"python.tools.{tool}.enabled"
     if java_has and python_has:
-        raise ConfigError(
-            "Tool exists in both java and python; set repo.language first"
-        )
+        raise ConfigError("Tool exists in both java and python; set repo.language first")
     raise ConfigError(f"Unknown tool: {tool}")
 
 
@@ -133,9 +131,7 @@ def cmd_config(args: argparse.Namespace) -> int | CommandResult:
                 updated = _apply_wizard(paths, existing)
             except WizardCancelled:
                 if json_mode:
-                    return CommandResult(
-                        exit_code=EXIT_INTERRUPTED, summary="Cancelled"
-                    )
+                    return CommandResult(exit_code=EXIT_INTERRUPTED, summary="Cancelled")
                 print("Cancelled.", file=sys.stderr)
                 return EXIT_INTERRUPTED
             if args.dry_run:

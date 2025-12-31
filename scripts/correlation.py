@@ -13,7 +13,7 @@ import json
 import tempfile
 import zipfile
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 from urllib import request
 
 
@@ -71,7 +71,10 @@ def extract_correlation_id_from_artifact(
         if report_file and report_file.exists():
             try:
                 report_data = json.loads(report_file.read_text())
-                return report_data.get("hub_correlation_id")
+                if not isinstance(report_data, dict):
+                    return None
+                corr = report_data.get("hub_correlation_id")
+                return corr if isinstance(corr, str) else None
             except (json.JSONDecodeError, OSError):
                 return None
     return None
@@ -83,7 +86,7 @@ def find_run_by_correlation_id(
     workflow_id: str,
     correlation_id: str,
     token: str,
-    gh_get: Callable[[str], dict] | None = None,
+    gh_get: Callable[[str], dict[str, Any]] | None = None,
 ) -> str | None:
     """
     Deterministic run matching: search runs and match by hub_correlation_id.
@@ -107,7 +110,7 @@ def find_run_by_correlation_id(
 
     if gh_get is None:
 
-        def gh_get(url: str) -> dict:
+        def gh_get(url: str) -> dict[str, Any]:
             req = request.Request(  # noqa: S310
                 url,
                 headers={
@@ -117,7 +120,8 @@ def find_run_by_correlation_id(
                 },
             )
             with request.urlopen(req) as resp:  # noqa: S310
-                return json.loads(resp.read().decode())
+                data = json.loads(resp.read().decode())
+                return data if isinstance(data, dict) else {}
 
     try:
         # List recent workflow runs
@@ -134,24 +138,15 @@ def find_run_by_correlation_id(
 
             # Check artifacts for this run
             try:
-                artifacts_url = (
-                    f"https://api.github.com/repos/{owner}/{repo}/"
-                    f"actions/runs/{run_id}/artifacts"
-                )
+                artifacts_url = f"https://api.github.com/repos/{owner}/{repo}/actions/runs/{run_id}/artifacts"
                 artifacts = gh_get(artifacts_url)
                 ci_artifact = next(
-                    (
-                        a
-                        for a in artifacts.get("artifacts", [])
-                        if a.get("name", "").endswith("ci-report")
-                    ),
+                    (a for a in artifacts.get("artifacts", []) if a.get("name", "").endswith("ci-report")),
                     None,
                 )
 
                 if ci_artifact:
-                    artifact_corr = extract_correlation_id_from_artifact(
-                        ci_artifact["archive_download_url"], token
-                    )
+                    artifact_corr = extract_correlation_id_from_artifact(ci_artifact["archive_download_url"], token)
                     if artifact_corr == correlation_id:
                         print(f"Found matching run {run_id} for {correlation_id}")
                         return str(run_id)

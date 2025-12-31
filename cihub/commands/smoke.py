@@ -212,9 +212,7 @@ def _run_case(
     if init_result.exit_code != 0:
         return steps, language
 
-    validate_args = argparse.Namespace(
-        repo=str(case.repo_path), json=True, strict=False
-    )
+    validate_args = argparse.Namespace(repo=str(case.repo_path), json=True, strict=False)
     validate_result = _as_command_result(cmd_validate(validate_args))
     steps.append(
         SmokeStep(
@@ -230,13 +228,9 @@ def _run_case(
     if full:
         build_tool = _detect_java_build_tool(detect_path)
         if case.generated or relax:
-            _apply_smoke_overrides(
-                case.repo_path, language, case.subdir, build_tool, relax=True
-            )
+            _apply_smoke_overrides(case.repo_path, language, case.subdir, build_tool, relax=True)
         elif language == "java" and build_tool:
-            _apply_smoke_overrides(
-                case.repo_path, language, case.subdir, build_tool, relax=False
-            )
+            _apply_smoke_overrides(case.repo_path, language, case.subdir, build_tool, relax=False)
 
         validate_result = _as_command_result(cmd_validate(validate_args))
         steps.append(
@@ -277,7 +271,7 @@ def _resolve_types(args: argparse.Namespace) -> list[str]:
     if args.all:
         return ALL_TYPES
     if args.type:
-        return args.type
+        return list(args.type)
     return DEFAULT_TYPES
 
 

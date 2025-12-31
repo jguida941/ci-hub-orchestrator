@@ -2,6 +2,32 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-12-30 - Formatter Unification (Ruff-only)
+
+### Breaking Changes
+- **Removed Black from `cihub check`** - Ruff format is now the single source of truth for local formatting
+
+### Rationale
+- Eliminates formatter conflicts (Ruff and Black can disagree on edge cases)
+- Faster formatting (Ruff is 10-100x faster than Black, written in Rust)
+- Unified tooling: Ruff handles both linting and formatting
+
+### Notes
+- CI workflows still run Black until `hub-production-ci.yml` is updated.
+- `cihub check` now invokes mypy/pytest via the current Python interpreter to honor the active environment.
+
+### Migration
+- Run `make format` (or `ruff format cihub/ tests/ scripts/`) to format code
+- Keep Black installed if CI still enforces it.
+
+## 2025-12-30 - Template Freshness Guard
+
+### Templates & Tests
+- Archived legacy dispatch templates to `templates/legacy/`
+- Updated docs/tests to reference caller templates under `templates/repo/`
+- Added a guard to prevent legacy dispatch templates from drifting in active paths
+- Added `.yamllint` config to align linting with 120-char line length and ignore archived templates
+
 ## 2025-12-30 - CLI Doc Drift Guardrails & Plan Consolidation
 
 ### CLI & Tooling

@@ -8,7 +8,7 @@ class WizardCancelled(RuntimeError):
 
 
 try:
-    import questionary  # type: ignore[import-untyped]  # noqa: F401
+    import questionary  # noqa: F401
     from rich.console import Console  # noqa: F401
 except Exception:
     HAS_WIZARD = False

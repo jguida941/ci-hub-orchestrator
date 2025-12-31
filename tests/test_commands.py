@@ -28,9 +28,7 @@ class TestCmdDetect:
 
     def test_detect_python_project(self, tmp_path: Path) -> None:
         """Detect Python project from pyproject.toml."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(repo=str(tmp_path), language=None, explain=False)
         result = cmd_detect(args)
         assert result == 0
@@ -44,9 +42,7 @@ class TestCmdDetect:
 
     def test_detect_with_explain_flag(self, tmp_path: Path, capsys) -> None:
         """Detect with explain flag shows reasons."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(repo=str(tmp_path), language=None, explain=True)
         result = cmd_detect(args)
         assert result == 0
@@ -58,9 +54,7 @@ class TestCmdDetect:
     def test_detect_with_override(self, tmp_path: Path, capsys) -> None:
         """Detect respects language override."""
         # Create Python markers but override to Java
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(repo=str(tmp_path), language="java", explain=False)
         result = cmd_detect(args)
         assert result == 0
@@ -216,9 +210,7 @@ class TestDetectEdgeCases:
 
     def test_detect_gradle_project(self, tmp_path: Path, capsys) -> None:
         """Detect Java project from build.gradle."""
-        (tmp_path / "build.gradle").write_text(
-            "plugins { id 'java' }", encoding="utf-8"
-        )
+        (tmp_path / "build.gradle").write_text("plugins { id 'java' }", encoding="utf-8")
         args = argparse.Namespace(repo=str(tmp_path), language=None, explain=True)
         result = cmd_detect(args)
         assert result == 0
@@ -239,9 +231,7 @@ class TestDetectEdgeCases:
 
     def test_detect_setup_py_python(self, tmp_path: Path, capsys) -> None:
         """Detect Python from setup.py."""
-        (tmp_path / "setup.py").write_text(
-            "from setuptools import setup\nsetup()", encoding="utf-8"
-        )
+        (tmp_path / "setup.py").write_text("from setuptools import setup\nsetup()", encoding="utf-8")
         args = argparse.Namespace(repo=str(tmp_path), language=None, explain=True)
         result = cmd_detect(args)
         assert result == 0
@@ -255,9 +245,7 @@ class TestValidateEdgeCases:
 
     def test_validate_malformed_yaml(self, tmp_path: Path, capsys) -> None:
         """Validate handles malformed YAML gracefully."""
-        (tmp_path / ".ci-hub.yml").write_text(
-            "repo:\n  owner: test\n  - invalid list", encoding="utf-8"
-        )
+        (tmp_path / ".ci-hub.yml").write_text("repo:\n  owner: test\n  - invalid list", encoding="utf-8")
         args = argparse.Namespace(repo=str(tmp_path), strict=False)
         # Should handle error gracefully - may raise or return error code
         try:
@@ -286,9 +274,7 @@ class TestCmdInit:
 
     def test_init_python_project(self, tmp_path: Path, capsys) -> None:
         """Init creates config for Python project."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -334,9 +320,7 @@ class TestCmdInit:
 
     def test_init_dry_run(self, tmp_path: Path, capsys) -> None:
         """Init dry run prints config without writing."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -361,9 +345,7 @@ class TestCmdInit:
         """Init handles subdir parameter."""
         subdir = "services/backend"
         (tmp_path / subdir).mkdir(parents=True)
-        (tmp_path / subdir / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / subdir / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language="python",
@@ -386,9 +368,7 @@ class TestCmdInit:
 
     def test_init_missing_owner_uses_fallback(self, tmp_path: Path, capsys) -> None:
         """Init uses fallback owner when not provided and no git remote."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -420,9 +400,7 @@ class TestCmdUpdate:
 
     def test_update_creates_config_if_missing(self, tmp_path: Path) -> None:
         """Update creates config if it doesn't exist."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -463,9 +441,7 @@ java:
       enabled: false
 """
         (tmp_path / ".ci-hub.yml").write_text(config_content, encoding="utf-8")
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -505,9 +481,7 @@ java:
       enabled: false
 """
         (tmp_path / ".ci-hub.yml").write_text(config_content, encoding="utf-8")
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,

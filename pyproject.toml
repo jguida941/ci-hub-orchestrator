@@ -64,13 +64,30 @@ cihub = "cihub.__main__:main"
 include = ["cihub*"]
 
 [tool.ruff]
-line-length = 88
+line-length = 120
 target-version = "py310"
 exclude = ["_quarantine"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "S", "B", "I"]
 ignore = ["S101"]  # Allow assert in tests
+
+[tool.ruff.format]
+# Black-compatible formatting
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 120
+target-version = ["py310"]
+extend-exclude = "_quarantine"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -52,9 +52,7 @@ def main() -> int:
     parser.add_argument(
         "--schema",
         type=Path,
-        default=Path(__file__).resolve().parent.parent
-        / "schema"
-        / "ci-hub-config.schema.json",
+        default=Path(__file__).resolve().parent.parent / "schema" / "ci-hub-config.schema.json",
         help="Path to JSON schema",
     )
     args = parser.parse_args()

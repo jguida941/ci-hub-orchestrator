@@ -96,9 +96,7 @@ def load_config(
                 message = f"{path}: {err.message}"
                 messages.append(message)
                 print(f"  - {message}", file=sys.stderr)
-            raise ConfigValidationError(
-                f"Validation failed for {source}", errors=messages
-            )
+            raise ConfigValidationError(f"Validation failed for {source}", errors=messages)
 
     # 1. Load defaults (lowest priority)
     defaults_path = hub_root / "config" / "defaults.yaml"
@@ -156,19 +154,32 @@ def load_config(
     return config
 
 
-def get_tool_enabled(config: dict, language: str, tool: str) -> bool:
+def get_tool_enabled(config: dict[str, Any], language: str, tool: str) -> bool:
     """Check if a specific tool is enabled for the given language."""
     lang_config = config.get(language, {})
+    if not isinstance(lang_config, dict):
+        return False
     tools = lang_config.get("tools", {})
+    if not isinstance(tools, dict):
+        return False
     tool_config = tools.get(tool, {})
-    return tool_config.get("enabled", False)
+    if isinstance(tool_config, dict):
+        return bool(tool_config.get("enabled", False))
+    if isinstance(tool_config, bool):
+        return tool_config
+    return False
 
 
-def get_tool_config(config: dict, language: str, tool: str) -> dict:
+def get_tool_config(config: dict[str, Any], language: str, tool: str) -> dict[str, Any]:
     """Get the full configuration for a specific tool."""
     lang_config = config.get(language, {})
+    if not isinstance(lang_config, dict):
+        return {}
     tools = lang_config.get("tools", {})
-    return tools.get(tool, {})
+    if not isinstance(tools, dict):
+        return {}
+    tool_config = tools.get(tool, {})
+    return tool_config if isinstance(tool_config, dict) else {}
 
 
 def generate_workflow_inputs(config: dict) -> dict:
@@ -214,18 +225,12 @@ def generate_workflow_inputs(config: dict) -> dict:
 
         # Thresholds (direct dispatch inputs)
         thresholds["coverage_min"] = tools.get("jacoco", {}).get("min_coverage", 70)
-        thresholds["mutation_score_min"] = tools.get("pitest", {}).get(
-            "min_mutation_score", 70
-        )
+        thresholds["mutation_score_min"] = tools.get("pitest", {}).get("min_mutation_score", 70)
         thresholds["owasp_cvss_fail"] = tools.get("owasp", {}).get("fail_on_cvss", 7)
-        thresholds["max_checkstyle_errors"] = tools.get("checkstyle", {}).get(
-            "max_errors", 0
-        )
+        thresholds["max_checkstyle_errors"] = tools.get("checkstyle", {}).get("max_errors", 0)
         thresholds["max_spotbugs_bugs"] = tools.get("spotbugs", {}).get("max_bugs", 0)
         thresholds["max_pmd_violations"] = tools.get("pmd", {}).get("max_violations", 0)
-        thresholds["max_semgrep_findings"] = tools.get("semgrep", {}).get(
-            "max_findings", 0
-        )
+        thresholds["max_semgrep_findings"] = tools.get("semgrep", {}).get("max_findings", 0)
 
     elif language == "python":
         python = config.get("python", {})
@@ -250,17 +255,13 @@ def generate_workflow_inputs(config: dict) -> dict:
 
         # Thresholds (direct dispatch inputs)
         thresholds["coverage_min"] = tools.get("pytest", {}).get("min_coverage", 70)
-        thresholds["mutation_score_min"] = tools.get("mutmut", {}).get(
-            "min_mutation_score", 70
-        )
+        thresholds["mutation_score_min"] = tools.get("mutmut", {}).get("min_mutation_score", 70)
         # For Trivy CVSS gate - check trivy config, global thresholds, or default to 7
         thresholds["owasp_cvss_fail"] = tools.get("trivy", {}).get("fail_on_cvss", 7)
         thresholds["max_ruff_errors"] = tools.get("ruff", {}).get("max_errors", 0)
         thresholds["max_black_issues"] = tools.get("black", {}).get("max_issues", 0)
         thresholds["max_isort_issues"] = tools.get("isort", {}).get("max_issues", 0)
-        thresholds["max_semgrep_findings"] = tools.get("semgrep", {}).get(
-            "max_findings", 0
-        )
+        thresholds["max_semgrep_findings"] = tools.get("semgrep", {}).get("max_findings", 0)
 
     # Global thresholds override tool-specific ones
     global_thresholds = config.get("thresholds", {})

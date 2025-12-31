@@ -6,7 +6,7 @@ import argparse
 import sys
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from cihub.cli import CommandResult, build_repo_config, hub_root
 from cihub.config.io import (

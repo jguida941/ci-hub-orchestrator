@@ -5,7 +5,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import TypeVar
 
-import questionary  # type: ignore[import-untyped]
+import questionary
 from rich.console import Console
 
 from cihub.config.io import load_defaults, load_profile_strict
@@ -98,19 +98,13 @@ class WizardRunner:
 
         if language == "java":
             java_cfg = deepcopy(defaults.get("java", {}))
-            java_cfg["version"] = select_java_version(
-                default=str(java_cfg.get("version", "21"))
-            )
-            java_cfg["build_tool"] = select_build_tool(
-                default=str(java_cfg.get("build_tool", "maven"))
-            )
+            java_cfg["version"] = select_java_version(default=str(java_cfg.get("version", "21")))
+            java_cfg["build_tool"] = select_build_tool(default=str(java_cfg.get("build_tool", "maven")))
             java_cfg["tools"] = configure_java_tools(defaults)
             config["java"] = java_cfg
         elif language == "python":
             py_cfg = deepcopy(defaults.get("python", {}))
-            py_cfg["version"] = select_python_version(
-                default=str(py_cfg.get("version", "3.12"))
-            )
+            py_cfg["version"] = select_python_version(default=str(py_cfg.get("version", "3.12")))
             py_cfg["tools"] = configure_python_tools(defaults)
             config["python"] = py_cfg
 

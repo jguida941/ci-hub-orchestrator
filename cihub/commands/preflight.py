@@ -69,7 +69,7 @@ def _check_gh_auth(checks: list[dict[str, Any]]) -> None:
         )
         return
     proc = subprocess.run(  # noqa: S603
-        ["gh", "auth", "status", "--hostname", "github.com"],
+        ["gh", "auth", "status", "--hostname", "github.com"],  # noqa: S607
         capture_output=True,
         text=True,
     )
@@ -90,33 +90,21 @@ def cmd_preflight(args: argparse.Namespace) -> int | CommandResult:
     _check_gh_auth(checks)
 
     if full:
-        _check_command(
-            checks, "pytest", True, "Install pytest (pip install -e '.[ci]')"
-        )
+        _check_command(checks, "pytest", True, "Install pytest (pip install -e '.[ci]')")
         _check_command(checks, "ruff", True, "Install ruff (pip install -e '.[ci]')")
         _check_command(checks, "black", True, "Install black (pip install -e '.[ci]')")
         _check_command(checks, "isort", True, "Install isort (pip install -e '.[ci]')")
         _check_command(checks, "mvn", False, "Install Maven for Java smoke tests")
         _check_command(checks, "gradle", False, "Install Gradle for Java smoke tests")
         _check_command(checks, "java", False, "Install Java for Java smoke tests")
-        _check_command(
-            checks, "bandit", False, "Install bandit (pip install -e '.[ci]')"
-        )
-        _check_command(
-            checks, "pip-audit", False, "Install pip-audit (pip install -e '.[ci]')"
-        )
-        _check_command(
-            checks, "mutmut", False, "Install mutmut (pip install -e '.[ci]')"
-        )
+        _check_command(checks, "bandit", False, "Install bandit (pip install -e '.[ci]')")
+        _check_command(checks, "pip-audit", False, "Install pip-audit (pip install -e '.[ci]')")
+        _check_command(checks, "mutmut", False, "Install mutmut (pip install -e '.[ci]')")
 
     required_failures = [c for c in checks if c["required"] and c["status"] != "ok"]
     exit_code = EXIT_FAILURE if required_failures else EXIT_SUCCESS
 
-    summary = (
-        f"{len(required_failures)} required checks failed"
-        if required_failures
-        else "Preflight OK"
-    )
+    summary = f"{len(required_failures)} required checks failed" if required_failures else "Preflight OK"
 
     if json_mode:
         return CommandResult(

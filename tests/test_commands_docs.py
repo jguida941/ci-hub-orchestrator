@@ -65,9 +65,7 @@ def test_docs_check_detects_drift(tmp_path: Path) -> None:
 
 def test_internal_links_valid(tmp_path: Path) -> None:
     """Test that valid internal links pass."""
-    (tmp_path / "README.md").write_text(
-        "See [guide](guide.md) for details.", encoding="utf-8"
-    )
+    (tmp_path / "README.md").write_text("See [guide](guide.md) for details.", encoding="utf-8")
     (tmp_path / "guide.md").write_text("# Guide", encoding="utf-8")
 
     problems = _check_internal_links(tmp_path)
@@ -76,9 +74,7 @@ def test_internal_links_valid(tmp_path: Path) -> None:
 
 def test_internal_links_broken(tmp_path: Path) -> None:
     """Test that broken internal links are detected."""
-    (tmp_path / "README.md").write_text(
-        "See [missing](nonexistent.md) for details.", encoding="utf-8"
-    )
+    (tmp_path / "README.md").write_text("See [missing](nonexistent.md) for details.", encoding="utf-8")
 
     problems = _check_internal_links(tmp_path)
     assert len(problems) == 1

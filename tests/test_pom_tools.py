@@ -49,9 +49,7 @@ def test_collect_java_pom_warnings_missing_plugin(tmp_path: Path) -> None:
 """,
     )
 
-    warnings, missing = collect_java_pom_warnings(
-        tmp_path, base_plugin_config("jacoco")
-    )
+    warnings, missing = collect_java_pom_warnings(tmp_path, base_plugin_config("jacoco"))
 
     assert warnings
     assert missing
@@ -84,9 +82,7 @@ def test_collect_java_dependency_warnings_single_module(tmp_path: Path) -> None:
 """,
     )
 
-    warnings, missing = collect_java_dependency_warnings(
-        tmp_path, base_config(jqwik_enabled=True)
-    )
+    warnings, missing = collect_java_dependency_warnings(tmp_path, base_config(jqwik_enabled=True))
 
     assert warnings
     assert missing
@@ -113,9 +109,7 @@ def test_apply_dependency_fixes_inserts_dependency(tmp_path: Path) -> None:
 """,
     )
 
-    result = apply_dependency_fixes(
-        tmp_path, base_config(jqwik_enabled=True), apply=True
-    )
+    result = apply_dependency_fixes(tmp_path, base_config(jqwik_enabled=True), apply=True)
     assert result == 0
     updated = pom_path.read_text(encoding="utf-8")
     assert "<artifactId>jqwik</artifactId>" in updated
@@ -146,9 +140,7 @@ def test_apply_dependency_fixes_multi_module(tmp_path: Path) -> None:
 """,
     )
 
-    result = apply_dependency_fixes(
-        tmp_path, base_config(jqwik_enabled=True), apply=True
-    )
+    result = apply_dependency_fixes(tmp_path, base_config(jqwik_enabled=True), apply=True)
     assert result == 0
     updated = module_pom.read_text(encoding="utf-8")
     assert "<artifactId>jqwik</artifactId>" in updated

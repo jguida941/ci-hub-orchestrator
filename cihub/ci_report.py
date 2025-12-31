@@ -49,15 +49,11 @@ def resolve_thresholds(config: dict[str, Any], language: str) -> dict[str, Any]:
         trivy_cfg = tools.get("trivy", {}) or {}
 
         _set_threshold(thresholds, "coverage_min", pytest_cfg.get("min_coverage"))
-        _set_threshold(
-            thresholds, "mutation_score_min", mutmut_cfg.get("min_mutation_score")
-        )
+        _set_threshold(thresholds, "mutation_score_min", mutmut_cfg.get("min_mutation_score"))
         _set_threshold(thresholds, "max_ruff_errors", ruff_cfg.get("max_errors"))
         _set_threshold(thresholds, "max_black_issues", black_cfg.get("max_issues"))
         _set_threshold(thresholds, "max_isort_issues", isort_cfg.get("max_issues"))
-        _set_threshold(
-            thresholds, "max_semgrep_findings", semgrep_cfg.get("max_findings")
-        )
+        _set_threshold(thresholds, "max_semgrep_findings", semgrep_cfg.get("max_findings"))
         _set_threshold(thresholds, "trivy_cvss_fail", trivy_cfg.get("fail_on_cvss"))
         if "max_pip_audit_vulns" not in thresholds:
             max_high = thresholds.get("max_high_vulns")
@@ -74,18 +70,12 @@ def resolve_thresholds(config: dict[str, Any], language: str) -> dict[str, Any]:
         semgrep_cfg = tools.get("semgrep", {}) or {}
 
         _set_threshold(thresholds, "coverage_min", jacoco_cfg.get("min_coverage"))
-        _set_threshold(
-            thresholds, "mutation_score_min", pitest_cfg.get("min_mutation_score")
-        )
-        _set_threshold(
-            thresholds, "max_checkstyle_errors", checkstyle_cfg.get("max_errors")
-        )
+        _set_threshold(thresholds, "mutation_score_min", pitest_cfg.get("min_mutation_score"))
+        _set_threshold(thresholds, "max_checkstyle_errors", checkstyle_cfg.get("max_errors"))
         _set_threshold(thresholds, "max_spotbugs_bugs", spotbugs_cfg.get("max_bugs"))
         _set_threshold(thresholds, "max_pmd_violations", pmd_cfg.get("max_violations"))
         _set_threshold(thresholds, "owasp_cvss_fail", owasp_cfg.get("fail_on_cvss"))
-        _set_threshold(
-            thresholds, "max_semgrep_findings", semgrep_cfg.get("max_findings")
-        )
+        _set_threshold(thresholds, "max_semgrep_findings", semgrep_cfg.get("max_findings"))
     return thresholds
 
 
@@ -96,7 +86,15 @@ def _get_metric(
     default: int | float = 0,
 ) -> int | float:
     metrics = tool_results.get(tool, {}).get("metrics", {})
-    return metrics.get(key, default)
+    value = metrics.get(key, default)
+    if isinstance(value, (int, float)):
+        return value
+    if isinstance(value, str):
+        try:
+            return float(value) if "." in value else int(value)
+        except ValueError:
+            return default
+    return default
 
 
 def build_python_report(
@@ -115,12 +113,8 @@ def build_python_report(
     tests_runtime = _get_metric(tool_results, "pytest", "tests_runtime_seconds", 0.0)
 
     coverage = int(_get_metric(tool_results, "pytest", "coverage", 0))
-    coverage_lines_covered = int(
-        _get_metric(tool_results, "pytest", "coverage_lines_covered", 0)
-    )
-    coverage_lines_total = int(
-        _get_metric(tool_results, "pytest", "coverage_lines_total", 0)
-    )
+    coverage_lines_covered = int(_get_metric(tool_results, "pytest", "coverage_lines_covered", 0))
+    coverage_lines_total = int(_get_metric(tool_results, "pytest", "coverage_lines_total", 0))
 
     mutation_score = int(_get_metric(tool_results, "mutmut", "mutation_score", 0))
     mutation_killed = int(_get_metric(tool_results, "mutmut", "mutation_killed", 0))
@@ -228,12 +222,8 @@ def build_java_report(
     tests_runtime = _get_metric(tool_results, "build", "tests_runtime_seconds", 0.0)
 
     coverage = int(_get_metric(tool_results, "jacoco", "coverage", 0))
-    coverage_lines_covered = int(
-        _get_metric(tool_results, "jacoco", "coverage_lines_covered", 0)
-    )
-    coverage_lines_total = int(
-        _get_metric(tool_results, "jacoco", "coverage_lines_total", 0)
-    )
+    coverage_lines_covered = int(_get_metric(tool_results, "jacoco", "coverage_lines_covered", 0))
+    coverage_lines_total = int(_get_metric(tool_results, "jacoco", "coverage_lines_total", 0))
 
     mutation_score = int(_get_metric(tool_results, "pitest", "mutation_score", 0))
     mutation_killed = int(_get_metric(tool_results, "pitest", "mutation_killed", 0))
@@ -272,9 +262,7 @@ def build_java_report(
     }
 
     tool_metrics = {
-        "checkstyle_issues": _get_metric(
-            tool_results, "checkstyle", "checkstyle_issues", 0
-        ),
+        "checkstyle_issues": _get_metric(tool_results, "checkstyle", "checkstyle_issues", 0),
         "spotbugs_issues": _get_metric(tool_results, "spotbugs", "spotbugs_issues", 0),
         "pmd_violations": _get_metric(tool_results, "pmd", "pmd_violations", 0),
         "owasp_critical": owasp_critical,

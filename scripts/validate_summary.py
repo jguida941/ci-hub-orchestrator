@@ -108,21 +108,15 @@ PYTHON_ARTIFACTS = {
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(
-        description="Validate summaries and artifacts against report.json tool flags"
-    )
+    parser = argparse.ArgumentParser(description="Validate summaries and artifacts against report.json tool flags")
     parser.add_argument("--report", required=True, help="Path to report.json")
     parser.add_argument("--summary", help="Path to summary markdown (optional)")
     parser.add_argument(
         "--reports-dir",
         help="Directory containing tool artifacts (optional)",
     )
-    parser.add_argument(
-        "--strict", action="store_true", help="Exit non-zero on warnings"
-    )
-    parser.add_argument(
-        "--debug", action="store_true", help="Show debug output for validation"
-    )
+    parser.add_argument("--strict", action="store_true", help="Exit non-zero on warnings")
+    parser.add_argument("--debug", action="store_true", help="Show debug output for validation")
     return parser.parse_args()
 
 
@@ -265,10 +259,7 @@ def compare_summary(
             if label in summary_configured:
                 actual_conf = summary_configured[label]
                 if actual_conf != expected_conf:
-                    warnings.append(
-                        f"configured mismatch for {label}: "
-                        f"summary={actual_conf} report={expected_conf}"
-                    )
+                    warnings.append(f"configured mismatch for {label}: summary={actual_conf} report={expected_conf}")
 
         # Check ran values
         if key not in tools_ran:
@@ -280,9 +271,7 @@ def compare_summary(
             continue
         actual_ran = summary_ran[label]
         if actual_ran != expected_ran:
-            warnings.append(
-                f"ran mismatch for {label}: summary={actual_ran} report={expected_ran}"
-            )
+            warnings.append(f"ran mismatch for {label}: summary={actual_ran} report={expected_ran}")
     return warnings
 
 
@@ -337,8 +326,7 @@ def validate_tool_execution(
         # Neither metrics nor artifacts found
         if succeeded:
             warnings.append(
-                f"tool '{tool}' marked as ran+success but no proof found "
-                f"(expected metrics: {metric_paths})"
+                f"tool '{tool}' marked as ran+success but no proof found (expected metrics: {metric_paths})"
             )
         else:
             debug.append(f"Debug: {tool} ran but failed, no metrics expected")
@@ -357,9 +345,7 @@ def compare_configured_vs_ran(
             continue
         ran = tools_ran.get(tool, False)
         if configured and not ran:
-            warnings.append(
-                f"DRIFT: '{tool}' was configured=true but did NOT run (ran=false)"
-            )
+            warnings.append(f"DRIFT: '{tool}' was configured=true but did NOT run (ran=false)")
     return warnings
 
 
@@ -392,15 +378,9 @@ def main() -> int:
         if not summary_path.exists():
             print(f"summary file not found: {summary_path}", file=sys.stderr)
             return 2
-        summary_configured, summary_ran, summary_success = parse_summary_tools(
-            summary_path.read_text(encoding="utf-8")
-        )
+        summary_configured, summary_ran, summary_success = parse_summary_tools(summary_path.read_text(encoding="utf-8"))
         mapping = JAVA_SUMMARY_MAP if language == "java" else PYTHON_SUMMARY_MAP
-        warnings.extend(
-            compare_summary(
-                summary_configured, summary_ran, tools_configured, tools_ran, mapping
-            )
-        )
+        warnings.extend(compare_summary(summary_configured, summary_ran, tools_configured, tools_ran, mapping))
 
     # Validate tool execution using metrics (primary) and artifacts (backup)
     metrics_map = JAVA_TOOL_METRICS if language == "java" else PYTHON_TOOL_METRICS

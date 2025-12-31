@@ -172,7 +172,6 @@ jobs:
       contents: read
     outputs:
       ruff_issues: ${{ steps.ruff.outputs.issues }}
-      black_issues: ${{ steps.black.outputs.issues }}
     env:
       PYTHON_VERSION: '3.12'
     steps:
@@ -191,7 +190,7 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Install ruff
-        run: pip install ruff==0.8.6 black==24.10.0
+        run: pip install ruff==0.8.6
 
       - name: Install cihub
         run: pip install -e .
@@ -202,10 +201,6 @@ jobs:
 
       - name: Ruff format check
         run: ruff format --check . --force-exclude
-
-      - name: Black format check
-        id: black
-        run: python -m cihub hub-ci black --path . --github-output
 
   syntax-check:
     name: Python Syntax
@@ -779,7 +774,6 @@ jobs:
           UPDATE_BADGES: 'true'
           RUFF_ISSUES: ${{ needs.lint.outputs.ruff_issues }}
           MUTATION_SCORE: ${{ needs.mutation-tests.outputs.mutation_score }}
-          BLACK_ISSUES: ${{ needs.lint.outputs.black_issues }}
         run: |
           mkdir -p badges
 

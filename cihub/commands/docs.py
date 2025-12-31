@@ -208,11 +208,7 @@ def cmd_docs_links(args: argparse.Namespace) -> int | CommandResult:
         tool_used = "internal"
 
     failed = exit_code != EXIT_SUCCESS
-    summary = (
-        f"Link check ({tool_used}): {len(problems)} issues"
-        if failed
-        else f"Link check ({tool_used}): OK"
-    )
+    summary = f"Link check ({tool_used}): {len(problems)} issues" if failed else f"Link check ({tool_used}): OK"
 
     if json_mode:
         return CommandResult(
@@ -382,10 +378,7 @@ def _render_config_reference() -> str:
 
     for entry in _schema_entries(schema, schema):
         default = _sanitize(entry["default"])
-        line = (
-            f"| `{entry['path']}` | {entry['type']} | {entry['required']} | "
-            f"{default} | {entry['description']} |"
-        )
+        line = f"| `{entry['path']}` | {entry['type']} | {entry['required']} | {default} | {entry['description']} |"
         lines.append(line)
 
     return "\n".join(lines) + "\n"
@@ -433,19 +426,19 @@ def cmd_docs(args: argparse.Namespace) -> int | CommandResult:
         if missing or changed:
             summary = "Docs are out of date"
             problems = []
-            for path in missing:
+            for p in missing:
                 problems.append(
                     {
                         "severity": "error",
-                        "message": f"Missing generated doc: {path}",
+                        "message": f"Missing generated doc: {p}",
                         "code": "CIHUB-DOCS-MISSING",
                     }
                 )
-            for path in changed:
+            for p in changed:
                 problems.append(
                     {
                         "severity": "error",
-                        "message": f"Docs differ from generated output: {path}",
+                        "message": f"Docs differ from generated output: {p}",
                         "code": "CIHUB-DOCS-DRIFT",
                     }
                 )
@@ -482,8 +475,8 @@ def cmd_docs(args: argparse.Namespace) -> int | CommandResult:
             files_modified=files_modified,
         )
     print(summary)
-    for path in files_generated:
-        print(f"Generated: {path}")
-    for path in files_modified:
-        print(f"Updated: {path}")
+    for p in files_generated:
+        print(f"Generated: {p}")
+    for p in files_modified:
+        print(f"Updated: {p}")
     return EXIT_SUCCESS

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import questionary  # type: ignore[import-untyped]
+import questionary
 
 SUCCESS = "bold fg:ansigreen"
 ERROR = "bold fg:ansired"

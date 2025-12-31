@@ -7,7 +7,7 @@ Copy/paste starters that align with current workflows and schema.
 - Repo-local overrides live in `.ci-hub.yml` inside each target repo (highest precedence).
 - Profiles and examples are under `templates/`.
 - Repo caller templates are under `templates/repo/` (recommended).
-- Legacy dispatch templates are under `templates/java/` and `templates/python/` (deprecated).
+- Legacy dispatch templates are archived under `templates/legacy/` (deprecated).
 
 ## Repo Caller Templates (Recommended)
 
@@ -25,11 +25,11 @@ These templates:
 
 See [GETTING_STARTED.md](GETTING_STARTED.md#central-mode-hub-config-5-minutes) for full setup instructions.
 
-## Legacy Dispatch Templates (Deprecated)
+## Legacy Dispatch Templates (Archived)
 
-These full dispatch workflows are still present for migration but should not be used for new repos:
-- `templates/java/java-ci-dispatch.yml`
-- `templates/python/python-ci-dispatch.yml`
+These full dispatch workflows are preserved for historical reference only:
+- `templates/legacy/java-ci-dispatch.yml`
+- `templates/legacy/python-ci-dispatch.yml`
 
 ## Hub-side Repo Config Template
 `templates/hub/config/repos/repo-template.yaml` → copy to `config/repos/<repo>.yaml`

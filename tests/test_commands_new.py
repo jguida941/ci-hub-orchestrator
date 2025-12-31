@@ -40,9 +40,7 @@ def hub_paths(tmp_path: Path) -> PathConfig:
 
     # Create defaults.yaml
     defaults_file = config_dir / "defaults.yaml"
-    defaults_file.write_text(
-        "repo:\n  use_central_runner: true\n  dispatch_workflow: hub-ci.yml\n"
-    )
+    defaults_file.write_text("repo:\n  use_central_runner: true\n  dispatch_workflow: hub-ci.yml\n")
 
     return PathConfig(str(tmp_path))
 
@@ -164,9 +162,7 @@ class TestValidateProfileLanguage:
 class TestCmdNew:
     """Tests for cmd_new command handler."""
 
-    def test_creates_repo_config_file(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_creates_repo_config_file(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Creates repo config file successfully."""
         with mock.patch("cihub.commands.new.hub_root") as mock_hub_root:
             mock_hub_root.return_value = Path(hub_paths.root)
@@ -179,9 +175,7 @@ class TestCmdNew:
             content = repo_file.read_text()
             assert "language: python" in content
 
-    def test_existing_config_fails(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_existing_config_fails(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Fails when config already exists."""
         # Create existing config (need to create parent directory first)
         repo_file = Path(hub_paths.repo_file("owner/repo"))
@@ -195,9 +189,7 @@ class TestCmdNew:
 
             assert result == 2
 
-    def test_dry_run_does_not_create_file(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_dry_run_does_not_create_file(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Dry run does not create the config file."""
         base_args.dry_run = True
 
@@ -210,9 +202,7 @@ class TestCmdNew:
             repo_file = Path(hub_paths.repo_file("owner/repo"))
             assert not repo_file.exists()
 
-    def test_missing_owner_fails(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_missing_owner_fails(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Fails when owner is missing in non-interactive mode."""
         base_args.owner = None
 
@@ -223,9 +213,7 @@ class TestCmdNew:
 
             assert result == 2
 
-    def test_missing_language_fails(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_missing_language_fails(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Fails when language is missing in non-interactive mode."""
         base_args.language = None
 
@@ -236,9 +224,7 @@ class TestCmdNew:
 
             assert result == 2
 
-    def test_json_mode_with_interactive_fails(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_json_mode_with_interactive_fails(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """JSON mode with interactive flag fails."""
         base_args.json = True
         base_args.interactive = True
@@ -268,9 +254,7 @@ class TestCmdNew:
             assert "config" in result.data
             assert result.files_generated
 
-    def test_sets_subdir_when_provided(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_sets_subdir_when_provided(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Sets subdir in config when provided."""
         base_args.subdir = "services/api"
 
@@ -284,9 +268,7 @@ class TestCmdNew:
             content = repo_file.read_text()
             assert "subdir: services/api" in content
 
-    def test_applies_profile_when_provided(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_applies_profile_when_provided(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Applies profile settings when profile is provided."""
         # Create a profile file in templates/profiles (where PathConfig expects it)
         profile_file = Path(hub_paths.root) / "templates" / "profiles" / "strict.yaml"
@@ -303,9 +285,7 @@ class TestCmdNew:
             content = repo_file.read_text()
             assert "ruff" in content
 
-    def test_missing_profile_fails(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_missing_profile_fails(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Fails when specified profile does not exist."""
         base_args.profile = "nonexistent"
 
@@ -316,14 +296,10 @@ class TestCmdNew:
 
             assert result == 2
 
-    def test_profile_language_mismatch_fails(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_profile_language_mismatch_fails(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Fails when profile language doesn't match specified language."""
         # Create a Java-only profile in templates/profiles
-        profile_file = (
-            Path(hub_paths.root) / "templates" / "profiles" / "java-only.yaml"
-        )
+        profile_file = Path(hub_paths.root) / "templates" / "profiles" / "java-only.yaml"
         profile_file.write_text("java:\n  tools:\n    jacoco:\n      enabled: true\n")
         base_args.profile = "java-only"
         base_args.language = "python"  # Mismatch!
@@ -334,9 +310,7 @@ class TestCmdNew:
             with pytest.raises(ValueError, match="Java-only"):
                 cmd_new(base_args)
 
-    def test_confirmation_required_in_json_mode(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_confirmation_required_in_json_mode(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """JSON mode without --yes returns error about confirmation."""
         base_args.json = True
         base_args.yes = False
@@ -349,9 +323,7 @@ class TestCmdNew:
             assert result.exit_code == 2
             assert "confirmation" in result.summary.lower() or "--yes" in result.summary
 
-    def test_creates_java_config(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_creates_java_config(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Creates Java language config successfully."""
         base_args.language = "java"
 
@@ -365,9 +337,7 @@ class TestCmdNew:
             content = repo_file.read_text()
             assert "language: java" in content
 
-    def test_existing_config_json_mode_fails(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_existing_config_json_mode_fails(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """JSON mode fails when config already exists."""
         from cihub.cli import CommandResult
 
@@ -387,9 +357,7 @@ class TestCmdNew:
             assert result.exit_code == 2
             assert "already exists" in result.summary
 
-    def test_json_mode_success_after_write(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_json_mode_success_after_write(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """JSON mode returns CommandResult after successful write."""
         from cihub.cli import CommandResult
 
@@ -408,9 +376,7 @@ class TestCmdNew:
             assert "config" in result.data
             assert result.files_generated
 
-    def test_interactive_without_wizard_deps(
-        self, hub_paths: PathConfig, base_args: argparse.Namespace
-    ) -> None:
+    def test_interactive_without_wizard_deps(self, hub_paths: PathConfig, base_args: argparse.Namespace) -> None:
         """Interactive mode without wizard deps fails."""
         base_args.interactive = True
 

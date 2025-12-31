@@ -57,9 +57,7 @@ def deep_merge(base: Dict[str, Any], overlay: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Apply a CI/CD Hub profile to a repo config."
-    )
+    parser = argparse.ArgumentParser(description="Apply a CI/CD Hub profile to a repo config.")
     parser.add_argument("profile", type=Path, help="Path to profile YAML (source)")
     parser.add_argument(
         "target",

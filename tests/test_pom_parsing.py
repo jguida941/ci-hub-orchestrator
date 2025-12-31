@@ -352,18 +352,12 @@ class TestPluginMatches:
     def test_no_match(self) -> None:
         """No match for different plugin."""
         plugins = {("org.jacoco", "jacoco-maven-plugin")}
-        assert (
-            plugin_matches(plugins, "com.github.spotbugs", "spotbugs-maven-plugin")
-            is False
-        )
+        assert plugin_matches(plugins, "com.github.spotbugs", "spotbugs-maven-plugin") is False
 
     def test_match_with_empty_group(self) -> None:
         """Match plugin with empty groupId in set."""
         plugins = {("", "maven-compiler-plugin")}
-        assert (
-            plugin_matches(plugins, "org.apache.maven.plugins", "maven-compiler-plugin")
-            is True
-        )
+        assert plugin_matches(plugins, "org.apache.maven.plugins", "maven-compiler-plugin") is True
 
     def test_no_match_different_artifact(self) -> None:
         """No match when artifactId differs."""

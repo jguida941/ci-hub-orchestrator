@@ -74,12 +74,7 @@ class TestHubConfigTemplates:
 
     @pytest.mark.parametrize(
         "template_path",
-        [
-            pytest.param(p, id=p.name)
-            for p in (
-                HUB_TEMPLATES_DIR.glob("*.yaml") if HUB_TEMPLATES_DIR.exists() else []
-            )
-        ],
+        [pytest.param(p, id=p.name) for p in (HUB_TEMPLATES_DIR.glob("*.yaml") if HUB_TEMPLATES_DIR.exists() else [])],
     )
     def test_hub_template_is_valid_yaml(self, template_path):
         """Each hub template should be valid YAML."""
@@ -88,12 +83,7 @@ class TestHubConfigTemplates:
 
     @pytest.mark.parametrize(
         "template_path",
-        [
-            pytest.param(p, id=p.name)
-            for p in (
-                HUB_TEMPLATES_DIR.glob("*.yaml") if HUB_TEMPLATES_DIR.exists() else []
-            )
-        ],
+        [pytest.param(p, id=p.name) for p in (HUB_TEMPLATES_DIR.glob("*.yaml") if HUB_TEMPLATES_DIR.exists() else [])],
     )
     def test_hub_template_has_required_fields(self, template_path):
         """Hub templates should have repo section with required fields."""
@@ -102,9 +92,7 @@ class TestHubConfigTemplates:
         # Templates might be partial (for merging), but full templates need repo
         if "repo" in data:
             repo = data["repo"]
-            assert "owner" in repo or "name" in repo, (
-                f"{template_path.name} repo section should have owner or name"
-            )
+            assert "owner" in repo or "name" in repo, f"{template_path.name} repo section should have owner or name"
 
 
 class TestProfileTemplates:
@@ -131,10 +119,7 @@ class TestProfileTemplates:
 
     @pytest.mark.parametrize(
         "profile_path",
-        [
-            pytest.param(p, id=p.name)
-            for p in (PROFILES_DIR.glob("*.yaml") if PROFILES_DIR.exists() else [])
-        ],
+        [pytest.param(p, id=p.name) for p in (PROFILES_DIR.glob("*.yaml") if PROFILES_DIR.exists() else [])],
     )
     def test_profile_is_valid_yaml(self, profile_path):
         """Each profile should be valid YAML."""
@@ -143,12 +128,7 @@ class TestProfileTemplates:
 
     @pytest.mark.parametrize(
         "profile_path",
-        [
-            pytest.param(p, id=p.name)
-            for p in (
-                PROFILES_DIR.glob("python-*.yaml") if PROFILES_DIR.exists() else []
-            )
-        ],
+        [pytest.param(p, id=p.name) for p in (PROFILES_DIR.glob("python-*.yaml") if PROFILES_DIR.exists() else [])],
     )
     def test_python_profile_merged_is_valid(self, profile_path):
         """Python profile + minimal repo config should pass schema validation."""
@@ -158,16 +138,11 @@ class TestProfileTemplates:
         schema = load_schema()
         errors = validate_config(merged, schema)
 
-        assert not errors, (
-            f"{profile_path.name} merged with minimal repo has errors: {errors}"
-        )
+        assert not errors, f"{profile_path.name} merged with minimal repo has errors: {errors}"
 
     @pytest.mark.parametrize(
         "profile_path",
-        [
-            pytest.param(p, id=p.name)
-            for p in (PROFILES_DIR.glob("java-*.yaml") if PROFILES_DIR.exists() else [])
-        ],
+        [pytest.param(p, id=p.name) for p in (PROFILES_DIR.glob("java-*.yaml") if PROFILES_DIR.exists() else [])],
     )
     def test_java_profile_merged_is_valid(self, profile_path):
         """Java profile + minimal repo config should pass schema validation."""
@@ -177,9 +152,7 @@ class TestProfileTemplates:
         schema = load_schema()
         errors = validate_config(merged, schema)
 
-        assert not errors, (
-            f"{profile_path.name} merged with minimal repo has errors: {errors}"
-        )
+        assert not errors, f"{profile_path.name} merged with minimal repo has errors: {errors}"
 
 
 class TestNoStaleReferences:
@@ -212,9 +185,7 @@ class TestNoStaleReferences:
         content = template_path.read_text(encoding="utf-8")
 
         for pattern in self.STALE_PATTERNS:
-            assert pattern not in content, (
-                f"{template_path} contains stale reference: {pattern}"
-            )
+            assert pattern not in content, f"{template_path} contains stale reference: {pattern}"
 
 
 class TestRepoTemplate:
@@ -224,9 +195,7 @@ class TestRepoTemplate:
 
     def test_repo_template_exists(self):
         """The repo-side .ci-hub.yml template should exist."""
-        assert self.REPO_TEMPLATE.exists(), (
-            f"Repo template not found at {self.REPO_TEMPLATE}"
-        )
+        assert self.REPO_TEMPLATE.exists(), f"Repo template not found at {self.REPO_TEMPLATE}"
 
     def test_repo_template_is_valid_yaml(self):
         """Repo template should be valid YAML."""
@@ -237,41 +206,57 @@ class TestRepoTemplate:
         assert isinstance(data, dict), "Repo template should be a mapping"
 
 
-class TestDispatchTemplates:
-    """Test dispatch workflow templates."""
+class TestCallerTemplates:
+    """Test repo caller workflow templates."""
 
-    JAVA_DISPATCH = TEMPLATES_DIR / "java" / "java-ci-dispatch.yml"
-    PYTHON_DISPATCH = TEMPLATES_DIR / "python" / "python-ci-dispatch.yml"
+    JAVA_CALLER = TEMPLATES_DIR / "repo" / "hub-java-ci.yml"
+    PYTHON_CALLER = TEMPLATES_DIR / "repo" / "hub-python-ci.yml"
 
-    def test_java_dispatch_template_exists(self):
-        """Java dispatch template should exist."""
-        assert self.JAVA_DISPATCH.exists(), (
-            f"Java dispatch template not found at {self.JAVA_DISPATCH}"
-        )
+    def test_java_caller_template_exists(self):
+        """Java caller template should exist."""
+        assert self.JAVA_CALLER.exists(), f"Java caller template not found at {self.JAVA_CALLER}"
 
-    def test_python_dispatch_template_exists(self):
-        """Python dispatch template should exist."""
-        assert self.PYTHON_DISPATCH.exists(), (
-            f"Python dispatch template not found at {self.PYTHON_DISPATCH}"
-        )
+    def test_python_caller_template_exists(self):
+        """Python caller template should exist."""
+        assert self.PYTHON_CALLER.exists(), f"Python caller template not found at {self.PYTHON_CALLER}"
 
-    def test_java_dispatch_is_valid_yaml(self):
-        """Java dispatch template should be valid YAML."""
-        if not self.JAVA_DISPATCH.exists():
-            pytest.skip("Java dispatch template not found")
+    def test_java_caller_is_valid_yaml(self):
+        """Java caller template should be valid YAML."""
+        if not self.JAVA_CALLER.exists():
+            pytest.skip("Java caller template not found")
 
-        data = load_yaml(self.JAVA_DISPATCH)
-        assert isinstance(data, dict), "Java dispatch should be a mapping"
+        data = load_yaml(self.JAVA_CALLER)
+        assert isinstance(data, dict), "Java caller should be a mapping"
         assert "on" in data or "jobs" in data, "Should look like a workflow"
 
-    def test_python_dispatch_is_valid_yaml(self):
-        """Python dispatch template should be valid YAML."""
-        if not self.PYTHON_DISPATCH.exists():
-            pytest.skip("Python dispatch template not found")
+    def test_python_caller_is_valid_yaml(self):
+        """Python caller template should be valid YAML."""
+        if not self.PYTHON_CALLER.exists():
+            pytest.skip("Python caller template not found")
 
-        data = load_yaml(self.PYTHON_DISPATCH)
-        assert isinstance(data, dict), "Python dispatch should be a mapping"
+        data = load_yaml(self.PYTHON_CALLER)
+        assert isinstance(data, dict), "Python caller should be a mapping"
         assert "on" in data or "jobs" in data, "Should look like a workflow"
+
+
+class TestLegacyDispatchTemplates:
+    """Ensure legacy dispatch templates stay archived."""
+
+    LEGACY_DIR = TEMPLATES_DIR / "legacy"
+    LEGACY_TEMPLATES = [
+        LEGACY_DIR / "java-ci-dispatch.yml",
+        LEGACY_DIR / "python-ci-dispatch.yml",
+    ]
+
+    def test_legacy_templates_archived(self):
+        """Legacy dispatch templates should live under templates/legacy."""
+        for path in self.LEGACY_TEMPLATES:
+            assert path.exists(), f"Legacy template not found at {path}"
+
+    def test_legacy_templates_not_active(self):
+        """Legacy dispatch templates should not exist in active paths."""
+        assert not (TEMPLATES_DIR / "java" / "java-ci-dispatch.yml").exists()
+        assert not (TEMPLATES_DIR / "python" / "python-ci-dispatch.yml").exists()
 
 
 class TestHubRunAllSummary:
@@ -306,11 +291,7 @@ class TestActualConfigs:
         "config_path",
         [
             pytest.param(p, id=p.stem)
-            for p in (
-                (ROOT / "config" / "repos").glob("*.yaml")
-                if (ROOT / "config" / "repos").exists()
-                else []
-            )
+            for p in ((ROOT / "config" / "repos").glob("*.yaml") if (ROOT / "config" / "repos").exists() else [])
         ],
     )
     def test_actual_config_is_valid(self, config_path):
@@ -415,9 +396,7 @@ class TestSyncTemplatesCommand:
         """Report OK when remote matches desired content."""
         from cihub.commands.templates import cmd_sync_templates
 
-        mock_fetch_remote_file.return_value = {
-            "content": "# Generated workflow content"
-        }
+        mock_fetch_remote_file.return_value = {"content": "# Generated workflow content"}
 
         args = argparse.Namespace(
             repo=None,
@@ -541,9 +520,7 @@ class TestSyncTemplatesCommand:
                     "default_branch": "main",
                 },
             ]
-            mock_fetch_remote_file.return_value = {
-                "content": "# Generated workflow content"
-            }
+            mock_fetch_remote_file.return_value = {"content": "# Generated workflow content"}
 
             args = argparse.Namespace(
                 repo=["owner/python-repo"],

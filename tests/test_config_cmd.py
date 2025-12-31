@@ -126,9 +126,7 @@ def write_repo_config(paths: PathConfig, repo: str, config: dict[str, Any]) -> N
 class TestLoadRepo:
     """Tests for the _load_repo helper function."""
 
-    def test_load_repo_success(
-        self, hub_paths: PathConfig, sample_repo_config: dict[str, Any]
-    ) -> None:
+    def test_load_repo_success(self, hub_paths: PathConfig, sample_repo_config: dict[str, Any]) -> None:
         """Load an existing repo config."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
         config = _load_repo(hub_paths, "testrepo")
@@ -296,9 +294,7 @@ class TestCmdConfigShow:
     ) -> None:
         """Show raw config without merging defaults."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="show",
@@ -321,9 +317,7 @@ class TestCmdConfigShow:
     ) -> None:
         """Show effective config merged with defaults."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="show",
@@ -338,13 +332,9 @@ class TestCmdConfigShow:
         assert "java" in parsed  # From defaults
         assert parsed["repo"]["owner"] == "testowner"  # From repo config
 
-    def test_show_repo_not_found(
-        self, hub_paths: PathConfig, capsys, monkeypatch
-    ) -> None:
+    def test_show_repo_not_found(self, hub_paths: PathConfig, capsys, monkeypatch) -> None:
         """Return error when repo config not found."""
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="nonexistent",
             subcommand="show",
@@ -374,9 +364,7 @@ class TestCmdConfigSet:
     ) -> None:
         """Set a simple string value."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="set",
@@ -387,9 +375,7 @@ class TestCmdConfigSet:
         result = cmd_config(args)
         assert result == 0
         # Verify the file was updated
-        updated = yaml.safe_load(
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-        )
+        updated = yaml.safe_load(Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8"))
         assert updated["repo"]["owner"] == "newowner"
         captured = capsys.readouterr()
         assert "[OK] Updated" in captured.err
@@ -402,9 +388,7 @@ class TestCmdConfigSet:
     ) -> None:
         """Set a deeply nested value."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="set",
@@ -414,9 +398,7 @@ class TestCmdConfigSet:
         )
         result = cmd_config(args)
         assert result == 0
-        updated = yaml.safe_load(
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-        )
+        updated = yaml.safe_load(Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8"))
         assert updated["python"]["tools"]["pytest"]["threshold"] == 80
 
     def test_set_boolean_value(
@@ -427,9 +409,7 @@ class TestCmdConfigSet:
     ) -> None:
         """Set a boolean value from YAML string."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="set",
@@ -439,9 +419,7 @@ class TestCmdConfigSet:
         )
         result = cmd_config(args)
         assert result == 0
-        updated = yaml.safe_load(
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-        )
+        updated = yaml.safe_load(Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8"))
         assert updated["python"]["tools"]["pytest"]["enabled"] is False
 
     def test_set_dry_run(
@@ -453,12 +431,8 @@ class TestCmdConfigSet:
     ) -> None:
         """Dry run shows config without writing."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        original_content = Path(hub_paths.repo_file("testrepo")).read_text(
-            encoding="utf-8"
-        )
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        original_content = Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="set",
@@ -469,10 +443,7 @@ class TestCmdConfigSet:
         result = cmd_config(args)
         assert result == 0
         # File should NOT be changed
-        assert (
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-            == original_content
-        )
+        assert Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8") == original_content
         captured = capsys.readouterr()
         # Should print the would-be config
         parsed = yaml.safe_load(captured.out)
@@ -498,9 +469,7 @@ class TestCmdConfigEnableDisable:
         # Set ruff to disabled first
         sample_repo_config["python"]["tools"]["ruff"]["enabled"] = False
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="enable",
@@ -509,9 +478,7 @@ class TestCmdConfigEnableDisable:
         )
         result = cmd_config(args)
         assert result == 0
-        updated = yaml.safe_load(
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-        )
+        updated = yaml.safe_load(Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8"))
         assert updated["python"]["tools"]["ruff"]["enabled"] is True
         captured = capsys.readouterr()
         assert "[OK] Updated" in captured.err
@@ -525,9 +492,7 @@ class TestCmdConfigEnableDisable:
     ) -> None:
         """Disable a Python tool."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="disable",
@@ -536,9 +501,7 @@ class TestCmdConfigEnableDisable:
         )
         result = cmd_config(args)
         assert result == 0
-        updated = yaml.safe_load(
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-        )
+        updated = yaml.safe_load(Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8"))
         assert updated["python"]["tools"]["pytest"]["enabled"] is False
 
     def test_enable_tool_java(
@@ -550,9 +513,7 @@ class TestCmdConfigEnableDisable:
         """Enable a Java tool."""
         java_repo_config["java"]["tools"]["jacoco"]["enabled"] = False
         write_repo_config(hub_paths, "javarepo", java_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="javarepo",
             subcommand="enable",
@@ -561,9 +522,7 @@ class TestCmdConfigEnableDisable:
         )
         result = cmd_config(args)
         assert result == 0
-        updated = yaml.safe_load(
-            Path(hub_paths.repo_file("javarepo")).read_text(encoding="utf-8")
-        )
+        updated = yaml.safe_load(Path(hub_paths.repo_file("javarepo")).read_text(encoding="utf-8"))
         assert updated["java"]["tools"]["jacoco"]["enabled"] is True
 
     def test_disable_tool_java(
@@ -574,9 +533,7 @@ class TestCmdConfigEnableDisable:
     ) -> None:
         """Disable a Java tool."""
         write_repo_config(hub_paths, "javarepo", java_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="javarepo",
             subcommand="disable",
@@ -585,9 +542,7 @@ class TestCmdConfigEnableDisable:
         )
         result = cmd_config(args)
         assert result == 0
-        updated = yaml.safe_load(
-            Path(hub_paths.repo_file("javarepo")).read_text(encoding="utf-8")
-        )
+        updated = yaml.safe_load(Path(hub_paths.repo_file("javarepo")).read_text(encoding="utf-8"))
         assert updated["java"]["tools"]["checkstyle"]["enabled"] is False
 
     def test_enable_dry_run(
@@ -600,12 +555,8 @@ class TestCmdConfigEnableDisable:
         """Dry run for enable shows config without writing."""
         sample_repo_config["python"]["tools"]["ruff"]["enabled"] = False
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        original_content = Path(hub_paths.repo_file("testrepo")).read_text(
-            encoding="utf-8"
-        )
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        original_content = Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="enable",
@@ -615,10 +566,7 @@ class TestCmdConfigEnableDisable:
         result = cmd_config(args)
         assert result == 0
         # File should NOT be changed
-        assert (
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-            == original_content
-        )
+        assert Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8") == original_content
         captured = capsys.readouterr()
         parsed = yaml.safe_load(captured.out)
         assert parsed["python"]["tools"]["ruff"]["enabled"] is True
@@ -632,9 +580,7 @@ class TestCmdConfigEnableDisable:
     ) -> None:
         """Return error for unknown tool."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="enable",
@@ -664,9 +610,7 @@ class TestCmdConfigEdit:
     ) -> None:
         """Return error when wizard dependencies not installed."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         monkeypatch.setattr("cihub.commands.config_cmd.HAS_WIZARD", False)
         args = argparse.Namespace(
             repo="testrepo",
@@ -687,9 +631,7 @@ class TestCmdConfigEdit:
     ) -> None:
         """Return 130 when wizard is cancelled."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         monkeypatch.setattr("cihub.commands.config_cmd.HAS_WIZARD", True)
 
         from cihub.wizard import WizardCancelled
@@ -697,9 +639,7 @@ class TestCmdConfigEdit:
         def mock_apply_wizard(paths, existing):
             raise WizardCancelled("User cancelled")
 
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd._apply_wizard", mock_apply_wizard
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd._apply_wizard", mock_apply_wizard)
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="edit",
@@ -719,9 +659,7 @@ class TestCmdConfigEdit:
     ) -> None:
         """Successfully update config via wizard."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         monkeypatch.setattr("cihub.commands.config_cmd.HAS_WIZARD", True)
 
         updated_config = sample_repo_config.copy()
@@ -730,9 +668,7 @@ class TestCmdConfigEdit:
         def mock_apply_wizard(paths, existing):
             return updated_config
 
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd._apply_wizard", mock_apply_wizard
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd._apply_wizard", mock_apply_wizard)
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="edit",
@@ -740,9 +676,7 @@ class TestCmdConfigEdit:
         )
         result = cmd_config(args)
         assert result == 0
-        saved = yaml.safe_load(
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-        )
+        saved = yaml.safe_load(Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8"))
         assert saved["repo"]["owner"] == "wizardowner"
         captured = capsys.readouterr()
         assert "[OK] Updated" in captured.err
@@ -756,12 +690,8 @@ class TestCmdConfigEdit:
     ) -> None:
         """Dry run for wizard shows config without writing."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        original_content = Path(hub_paths.repo_file("testrepo")).read_text(
-            encoding="utf-8"
-        )
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        original_content = Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         monkeypatch.setattr("cihub.commands.config_cmd.HAS_WIZARD", True)
 
         updated_config = sample_repo_config.copy()
@@ -770,9 +700,7 @@ class TestCmdConfigEdit:
         def mock_apply_wizard(paths, existing):
             return updated_config
 
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd._apply_wizard", mock_apply_wizard
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd._apply_wizard", mock_apply_wizard)
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="edit",
@@ -781,10 +709,7 @@ class TestCmdConfigEdit:
         result = cmd_config(args)
         assert result == 0
         # File should NOT be changed
-        assert (
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-            == original_content
-        )
+        assert Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8") == original_content
         captured = capsys.readouterr()
         parsed = yaml.safe_load(captured.out)
         assert parsed["repo"]["owner"] == "wizardowner"
@@ -824,9 +749,7 @@ class TestCmdConfigErrors:
     ) -> None:
         """Return error for unsupported subcommand."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         args = argparse.Namespace(
             repo="testrepo",
             subcommand="invalid",
@@ -855,9 +778,7 @@ class TestCmdConfigDefaultSubcommand:
     ) -> None:
         """None subcommand triggers edit/wizard mode."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
         monkeypatch.setattr("cihub.commands.config_cmd.HAS_WIZARD", False)
         args = argparse.Namespace(
             repo="testrepo",
@@ -888,9 +809,7 @@ class TestCmdConfigIntegration:
     ) -> None:
         """Test workflow: show -> set -> show."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
 
         # 1. Show original
         args = argparse.Namespace(
@@ -937,9 +856,7 @@ class TestCmdConfigIntegration:
     ) -> None:
         """Test workflow: disable -> enable."""
         write_repo_config(hub_paths, "testrepo", sample_repo_config)
-        monkeypatch.setattr(
-            "cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root)
-        )
+        monkeypatch.setattr("cihub.commands.config_cmd.hub_root", lambda: Path(hub_paths.root))
 
         # 1. Disable pytest
         args = argparse.Namespace(
@@ -950,9 +867,7 @@ class TestCmdConfigIntegration:
         )
         result = cmd_config(args)
         assert result == 0
-        config = yaml.safe_load(
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-        )
+        config = yaml.safe_load(Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8"))
         assert config["python"]["tools"]["pytest"]["enabled"] is False
 
         # 2. Enable pytest
@@ -964,7 +879,5 @@ class TestCmdConfigIntegration:
         )
         result = cmd_config(args)
         assert result == 0
-        config = yaml.safe_load(
-            Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8")
-        )
+        config = yaml.safe_load(Path(hub_paths.repo_file("testrepo")).read_text(encoding="utf-8"))
         assert config["python"]["tools"]["pytest"]["enabled"] is True

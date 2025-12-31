@@ -162,9 +162,7 @@ def build_tools_table(report: dict[str, Any], language: str) -> Iterable[str]:
             build_tool = env.get("build_tool") or report.get("build_tool") or "build"
             build_status = results.get("build")
             build_success = fmt_bool(build_status == "success")
-            lines.append(
-                f"| {category} | {build_tool} | true | true | {build_success} |"
-            )
+            lines.append(f"| {category} | {build_tool} | true | true | {build_success} |")
             continue
         configured = fmt_bool(tools_configured.get(key, False))
         ran = fmt_bool(tools_ran.get(key, False))
@@ -282,9 +280,7 @@ def build_java_metrics(report: dict[str, Any]) -> Iterable[str]:
     mutation_value = render_bar(mut) if pitest_ran else "-"
     mutation_detail = mut_detail if pitest_ran else "-"
     owasp_status = "scan complete" if owasp_ran else "-"
-    owasp_detail = (
-        f"{owasp_crit} crit, {owasp_high} high, {owasp_med} med" if owasp_ran else "-"
-    )
+    owasp_detail = f"{owasp_crit} crit, {owasp_high} high, {owasp_med} med" if owasp_ran else "-"
     spotbugs_detail = "Static analysis" if spotbugs_ran else "-"
     pmd_detail = "Code analysis" if pmd_ran else "-"
     checkstyle_detail = "Code style" if checkstyle_ran else "-"
@@ -450,18 +446,14 @@ def build_quality_gates(report: dict[str, Any], language: str) -> Iterable[str]:
         if tools_configured.get("checkstyle", False):
             issues = format_number(tool_metrics.get("checkstyle_issues"))
             max_issues = format_number(thresholds.get("max_checkstyle_errors"))
-            lines.append(
-                f"| Checkstyle | {gate_status(issues <= max_issues, 'Violations')} |"
-            )
+            lines.append(f"| Checkstyle | {gate_status(issues <= max_issues, 'Violations')} |")
         else:
             lines.append("| Checkstyle | SKIP |")
 
         if tools_configured.get("spotbugs", False):
             issues = format_number(tool_metrics.get("spotbugs_issues"))
             max_issues = format_number(thresholds.get("max_spotbugs_bugs"))
-            lines.append(
-                f"| SpotBugs | {gate_status(issues <= max_issues, 'Bugs found')} |"
-            )
+            lines.append(f"| SpotBugs | {gate_status(issues <= max_issues, 'Bugs found')} |")
         else:
             lines.append("| SpotBugs | SKIP |")
 
@@ -485,9 +477,7 @@ def build_quality_gates(report: dict[str, Any], language: str) -> Iterable[str]:
         if tools_configured.get("semgrep", False):
             findings = format_number(tool_metrics.get("semgrep_findings"))
             max_findings = format_number(thresholds.get("max_semgrep_findings"))
-            lines.append(
-                f"| Semgrep | {gate_status(findings <= max_findings, 'Findings')} |"
-            )
+            lines.append(f"| Semgrep | {gate_status(findings <= max_findings, 'Findings')} |")
         else:
             lines.append("| Semgrep | SKIP |")
 
@@ -560,9 +550,7 @@ def build_quality_gates(report: dict[str, Any], language: str) -> Iterable[str]:
         if tools_configured.get("semgrep", False):
             findings = format_number(tool_metrics.get("semgrep_findings"))
             max_findings = format_number(thresholds.get("max_semgrep_findings"))
-            lines.append(
-                f"| Semgrep | {gate_status(findings <= max_findings, 'Findings')} |"
-            )
+            lines.append(f"| Semgrep | {gate_status(findings <= max_findings, 'Findings')} |")
         else:
             lines.append("| Semgrep | SKIP |")
 

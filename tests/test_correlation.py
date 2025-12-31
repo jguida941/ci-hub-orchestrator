@@ -82,9 +82,7 @@ class TestExtractCorrelationIdFromArtifact:
         with patch("scripts.correlation.download_artifact") as mock_download:
             mock_download.return_value = artifact_dir
 
-            result = extract_correlation_id_from_artifact(
-                "https://fake-url/artifact.zip", "fake-token"
-            )
+            result = extract_correlation_id_from_artifact("https://fake-url/artifact.zip", "fake-token")
             assert result == "12345-1-test-config"
 
     def test_artifact_without_correlation_id(self, tmp_path: Path):
@@ -97,9 +95,7 @@ class TestExtractCorrelationIdFromArtifact:
         with patch("scripts.correlation.download_artifact") as mock_download:
             mock_download.return_value = artifact_dir
 
-            result = extract_correlation_id_from_artifact(
-                "https://fake-url/artifact.zip", "fake-token"
-            )
+            result = extract_correlation_id_from_artifact("https://fake-url/artifact.zip", "fake-token")
             assert result is None
 
     def test_download_failure(self):
@@ -107,9 +103,7 @@ class TestExtractCorrelationIdFromArtifact:
         with patch("scripts.correlation.download_artifact") as mock_download:
             mock_download.return_value = None
 
-            result = extract_correlation_id_from_artifact(
-                "https://fake-url/artifact.zip", "fake-token"
-            )
+            result = extract_correlation_id_from_artifact("https://fake-url/artifact.zip", "fake-token")
             assert result is None
 
     def test_invalid_json(self, tmp_path: Path):
@@ -121,9 +115,7 @@ class TestExtractCorrelationIdFromArtifact:
         with patch("scripts.correlation.download_artifact") as mock_download:
             mock_download.return_value = artifact_dir
 
-            result = extract_correlation_id_from_artifact(
-                "https://fake-url/artifact.zip", "fake-token"
-            )
+            result = extract_correlation_id_from_artifact("https://fake-url/artifact.zip", "fake-token")
             assert result is None
 
 
@@ -132,9 +124,7 @@ class TestFindRunByCorrelationId:
 
     def test_empty_correlation_id(self):
         """Returns None for empty correlation ID."""
-        result = find_run_by_correlation_id(
-            "owner", "repo", "workflow.yml", "", "token"
-        )
+        result = find_run_by_correlation_id("owner", "repo", "workflow.yml", "", "token")
         assert result is None
 
     def test_finds_matching_run(self, tmp_path: Path):
@@ -169,9 +159,7 @@ class TestFindRunByCorrelationId:
             return {}
 
         # Mock artifact extraction to return matching ID for run 222
-        with patch(
-            "scripts.correlation.extract_correlation_id_from_artifact"
-        ) as mock_extract:
+        with patch("scripts.correlation.extract_correlation_id_from_artifact") as mock_extract:
             mock_extract.return_value = "target-correlation-id"
 
             result = find_run_by_correlation_id(
@@ -206,9 +194,7 @@ class TestFindRunByCorrelationId:
                 return artifacts_111
             return {}
 
-        with patch(
-            "scripts.correlation.extract_correlation_id_from_artifact"
-        ) as mock_extract:
+        with patch("scripts.correlation.extract_correlation_id_from_artifact") as mock_extract:
             mock_extract.return_value = "different-correlation-id"
 
             result = find_run_by_correlation_id(
@@ -294,9 +280,7 @@ class TestFindRunByCorrelationId:
                 }
             return {}
 
-        with patch(
-            "scripts.correlation.extract_correlation_id_from_artifact"
-        ) as mock_extract:
+        with patch("scripts.correlation.extract_correlation_id_from_artifact") as mock_extract:
             mock_extract.return_value = "target-id"
 
             result = find_run_by_correlation_id(

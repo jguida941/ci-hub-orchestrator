@@ -169,9 +169,7 @@ class TestCmdInitJsonMode:
 
     def test_init_wizard_with_json_fails(self, tmp_path: Path) -> None:
         """Wizard mode with JSON returns error CommandResult."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -193,9 +191,7 @@ class TestCmdInitJsonMode:
 
     def test_init_force_without_apply_json(self, tmp_path: Path) -> None:
         """Force without apply in JSON mode returns error."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -217,9 +213,7 @@ class TestCmdInitJsonMode:
 
     def test_init_force_without_apply_non_json(self, tmp_path: Path, capsys) -> None:
         """Force without apply in non-JSON mode prints error."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -262,12 +256,8 @@ java:
 """
         (tmp_path / ".ci-hub.yml").write_text(config_content, encoding="utf-8")
         (tmp_path / ".github" / "workflows").mkdir(parents=True)
-        (tmp_path / ".github" / "workflows" / "hub-ci.yml").write_text(
-            "name: CI\n", encoding="utf-8"
-        )
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / ".github" / "workflows" / "hub-ci.yml").write_text("name: CI\n", encoding="utf-8")
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -310,12 +300,8 @@ java:
 """
         (tmp_path / ".ci-hub.yml").write_text(config_content, encoding="utf-8")
         (tmp_path / ".github" / "workflows").mkdir(parents=True)
-        (tmp_path / ".github" / "workflows" / "hub-ci.yml").write_text(
-            "name: CI\n", encoding="utf-8"
-        )
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / ".github" / "workflows" / "hub-ci.yml").write_text("name: CI\n", encoding="utf-8")
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -338,9 +324,7 @@ java:
 
     def test_init_json_mode_success(self, tmp_path: Path) -> None:
         """Init in JSON mode returns proper CommandResult."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -365,9 +349,7 @@ java:
 
     def test_init_json_mode_dry_run(self, tmp_path: Path) -> None:
         """Init dry run in JSON mode returns proper CommandResult."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -399,9 +381,7 @@ class TestCmdUpdateJsonMode:
 
     def test_update_force_without_apply_json(self, tmp_path: Path) -> None:
         """Force without apply in JSON mode returns error."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -422,9 +402,7 @@ class TestCmdUpdateJsonMode:
 
     def test_update_force_without_apply_non_json(self, tmp_path: Path, capsys) -> None:
         """Force without apply in non-JSON mode prints error."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -466,12 +444,8 @@ java:
 """
         (tmp_path / ".ci-hub.yml").write_text(config_content, encoding="utf-8")
         (tmp_path / ".github" / "workflows").mkdir(parents=True)
-        (tmp_path / ".github" / "workflows" / "hub-ci.yml").write_text(
-            "name: CI\n", encoding="utf-8"
-        )
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / ".github" / "workflows" / "hub-ci.yml").write_text("name: CI\n", encoding="utf-8")
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -513,12 +487,8 @@ java:
 """
         (tmp_path / ".ci-hub.yml").write_text(config_content, encoding="utf-8")
         (tmp_path / ".github" / "workflows").mkdir(parents=True)
-        (tmp_path / ".github" / "workflows" / "hub-ci.yml").write_text(
-            "name: CI\n", encoding="utf-8"
-        )
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / ".github" / "workflows" / "hub-ci.yml").write_text("name: CI\n", encoding="utf-8")
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -540,9 +510,7 @@ java:
 
     def test_update_json_mode_success(self, tmp_path: Path) -> None:
         """Update in JSON mode returns proper CommandResult."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -564,9 +532,7 @@ java:
 
     def test_update_json_mode_dry_run(self, tmp_path: Path) -> None:
         """Update dry run in JSON mode returns proper CommandResult."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -588,9 +554,7 @@ java:
 
     def test_update_missing_owner_warning_json(self, tmp_path: Path) -> None:
         """Update adds owner warning in JSON mode when owner unknown."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
         args = argparse.Namespace(
             repo=str(tmp_path),
             language=None,
@@ -609,9 +573,7 @@ java:
         assert result.exit_code == 0
         # Should have warning about missing owner
         if result.problems:
-            owner_warning = any(
-                "owner" in str(p.get("message", "")).lower() for p in result.problems
-            )
+            owner_warning = any("owner" in str(p.get("message", "")).lower() for p in result.problems)
             assert owner_warning
         assert result.data["owner"] == "unknown"
 
@@ -754,9 +716,7 @@ if given and settings and st:
                 HealthCheck.differing_executors,
             ],
         )
-        def test_overlay_values_take_precedence(
-            self, base: dict, overlay: dict
-        ) -> None:
+        def test_overlay_values_take_precedence(self, base: dict, overlay: dict) -> None:
             """Overlay values always take precedence."""
             from cihub.config.merge import deep_merge
 
@@ -775,14 +735,10 @@ class TestInitEdgeCases:
 
     def test_init_with_git_remote_detection(self, tmp_path: Path) -> None:
         """Init uses git remote when owner/name not provided."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
 
         with mock.patch("cihub.commands.init.get_git_remote") as mock_remote:
-            mock_remote.return_value = (
-                "https://github.com/detected-owner/detected-repo.git"
-            )
+            mock_remote.return_value = "https://github.com/detected-owner/detected-repo.git"
             with mock.patch("cihub.commands.init.parse_repo_from_remote") as mock_parse:
                 mock_parse.return_value = ("detected-owner", "detected-repo")
 
@@ -809,9 +765,7 @@ class TestInitEdgeCases:
 
     def test_init_with_git_branch_detection(self, tmp_path: Path) -> None:
         """Init uses git branch when branch not provided."""
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
 
         with mock.patch("cihub.commands.init.get_git_branch") as mock_branch:
             mock_branch.return_value = "develop"
@@ -862,9 +816,7 @@ java:
       enabled: false
 """
         (tmp_path / ".ci-hub.yml").write_text(config_content, encoding="utf-8")
-        (tmp_path / "pyproject.toml").write_text(
-            "[project]\nname='example'\n", encoding="utf-8"
-        )
+        (tmp_path / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
 
         args = argparse.Namespace(
             repo=str(tmp_path),
@@ -948,9 +900,7 @@ class TestGetEffectiveConfigForRepo:
 
         # Create defaults.yaml
         defaults_file = config_dir / "defaults.yaml"
-        defaults_file.write_text(
-            "language: python\npython:\n  version: '3.10'\n", encoding="utf-8"
-        )
+        defaults_file.write_text("language: python\npython:\n  version: '3.10'\n", encoding="utf-8")
 
         # Create repo config with owner subdirectory
         owner_dir = repos_dir / "owner"
@@ -978,15 +928,11 @@ class TestGetEffectiveConfigForRepo:
 
         # Create defaults.yaml
         defaults_file = config_dir / "defaults.yaml"
-        defaults_file.write_text(
-            "language: python\npython:\n  version: '3.10'\n", encoding="utf-8"
-        )
+        defaults_file.write_text("language: python\npython:\n  version: '3.10'\n", encoding="utf-8")
 
         # Create profile
         profile_file = profiles_dir / "strict.yaml"
-        profile_file.write_text(
-            "python:\n  tools:\n    ruff:\n      enabled: true\n", encoding="utf-8"
-        )
+        profile_file.write_text("python:\n  tools:\n    ruff:\n      enabled: true\n", encoding="utf-8")
 
         # Create repo config with owner subdirectory
         owner_dir = repos_dir / "owner"
@@ -995,9 +941,7 @@ class TestGetEffectiveConfigForRepo:
         repo_file.write_text("python:\n  version: '3.12'\n", encoding="utf-8")
 
         paths = PathConfig(str(tmp_path))
-        result = get_effective_config_for_repo(
-            paths, "owner/repo", profile_name="strict"
-        )
+        result = get_effective_config_for_repo(paths, "owner/repo", profile_name="strict")
 
         # Profile merged in
         assert result["python"]["tools"]["ruff"]["enabled"] is True

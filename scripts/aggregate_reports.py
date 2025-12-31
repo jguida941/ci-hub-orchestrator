@@ -17,9 +17,7 @@ from pathlib import Path
 from typing import Any
 
 
-def load_reports(
-    reports_dir: Path, schema_mode: str = "warn"
-) -> tuple[list[dict[str, Any]], int]:
+def load_reports(reports_dir: Path, schema_mode: str = "warn") -> tuple[list[dict[str, Any]], int]:
     """Load all report JSON files from the reports directory.
 
     Args:
@@ -45,18 +43,11 @@ def load_reports(
                 schema_version = report.get("schema_version")
                 if schema_version != "2.0":
                     if schema_mode == "strict":
-                        print(
-                            f"Skipping {report_file}: schema_version={schema_version}, "
-                            "expected '2.0'"
-                        )
+                        print(f"Skipping {report_file}: schema_version={schema_version}, expected '2.0'")
                         skipped += 1
                         continue
                     else:
-                        print(
-                            "Warning: "
-                            f"{report_file} has schema_version={schema_version}, "
-                            "expected '2.0'"
-                        )
+                        print(f"Warning: {report_file} has schema_version={schema_version}, expected '2.0'")
 
                 reports.append(report)
         except (json.JSONDecodeError, OSError) as e:
@@ -73,11 +64,7 @@ def detect_language(report: dict[str, Any]) -> str:
         return "python"
     # Fallback to tools_ran inspection
     tools_ran = report.get("tools_ran", {})
-    if (
-        tools_ran.get("jacoco")
-        or tools_ran.get("checkstyle")
-        or tools_ran.get("spotbugs")
-    ):
+    if tools_ran.get("jacoco") or tools_ran.get("checkstyle") or tools_ran.get("spotbugs"):
         return "java"
     if tools_ran.get("pytest") or tools_ran.get("ruff") or tools_ran.get("bandit"):
         return "python"
@@ -94,7 +81,7 @@ def get_status(report: dict[str, Any]) -> str:
 
 def generate_summary(reports: list[dict[str, Any]]) -> dict[str, Any]:
     """Generate a summary from all reports."""
-    summary = {
+    summary: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "schema_version": "2.0",
         "total_repos": len(reports),
@@ -143,7 +130,7 @@ def generate_summary(reports: list[dict[str, Any]]) -> dict[str, Any]:
         summary["tests"]["total_failed"] += tests_failed
 
         # Repo details with schema 2.0 fields
-        repo_detail = {
+        repo_detail: dict[str, Any] = {
             "name": repo_name,
             "branch": report.get("branch", "unknown"),
             "language": lang,
@@ -187,14 +174,10 @@ def generate_summary(reports: list[dict[str, Any]]) -> dict[str, Any]:
 
     # Calculate averages
     if summary["coverage"]["count"] > 0:
-        summary["coverage"]["average"] = round(
-            summary["coverage"]["total"] / summary["coverage"]["count"], 1
-        )
+        summary["coverage"]["average"] = round(summary["coverage"]["total"] / summary["coverage"]["count"], 1)
 
     if summary["mutation"]["count"] > 0:
-        summary["mutation"]["average"] = round(
-            summary["mutation"]["total"] / summary["mutation"]["count"], 1
-        )
+        summary["mutation"]["average"] = round(summary["mutation"]["total"] / summary["mutation"]["count"], 1)
 
     # Add tool stats to summary
     if tool_stats:
@@ -365,10 +348,7 @@ def main():
         "--schema-mode",
         choices=["warn", "strict"],
         default="warn",
-        help=(
-            "Schema validation mode: 'warn' logs warning but includes report, "
-            "'strict' skips non-2.0 reports"
-        ),
+        help=("Schema validation mode: 'warn' logs warning but includes report, 'strict' skips non-2.0 reports"),
     )
 
     args = parser.parse_args()

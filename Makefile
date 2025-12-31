@@ -14,11 +14,11 @@ test: ## Run pytest suite
 
 .PHONY: lint
 lint: ## Run ruff lint
-	ruff check .
+	ruff check cihub/ tests/ scripts/
 
 .PHONY: format
 format: ## Run ruff formatter
-	ruff format .
+	ruff format cihub/ tests/ scripts/
 
 .PHONY: typecheck
 typecheck: ## Run mypy on core code

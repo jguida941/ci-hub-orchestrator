@@ -65,9 +65,7 @@ def mock_get_connected_repos():
         yield m
 
 
-def make_urlopen_response(
-    data: dict[str, Any], status: int = 200, scopes: str = "repo"
-):
+def make_urlopen_response(data: dict[str, Any], status: int = 200, scopes: str = "repo"):
     """Create a mock urlopen response."""
 
     class MockResponse:
@@ -171,9 +169,7 @@ class TestTokenVerification:
     ) -> None:
         """Verify valid token against GitHub API."""
         with mock.patch("cihub.commands.secrets.safe_urlopen") as mock_urlopen:
-            mock_urlopen.return_value = make_urlopen_response(
-                {"login": "testuser"}, scopes="repo, workflow"
-            )
+            mock_urlopen.return_value = make_urlopen_response({"login": "testuser"}, scopes="repo, workflow")
             args = argparse.Namespace(
                 hub_repo="owner/hub",
                 token="ghp_valid_token",  # noqa: S106
@@ -348,9 +344,7 @@ class TestSecretSetting:
         captured = capsys.readouterr()
         assert "[OK] owner/hub" in captured.out
 
-    def test_set_secret_failure(
-        self, mock_resolve_executable, mock_get_connected_repos, capsys
-    ) -> None:
+    def test_set_secret_failure(self, mock_resolve_executable, mock_get_connected_repos, capsys) -> None:
         """Handle gh secret set failure."""
         with mock.patch("subprocess.run") as mock_run:
             mock_run.return_value = mock.Mock(returncode=1, stderr="permission denied")
@@ -409,16 +403,12 @@ class TestNvdKeySetup:
             captured = capsys.readouterr()
             assert "whitespace" in captured.err
 
-    def test_nvd_verify_success(
-        self, mock_subprocess, mock_resolve_executable, capsys
-    ) -> None:
+    def test_nvd_verify_success(self, mock_subprocess, mock_resolve_executable, capsys) -> None:
         """Verify valid NVD key."""
         with mock.patch("cihub.commands.secrets.get_connected_repos") as mock_repos:
             mock_repos.return_value = ["owner/java-repo"]
             with mock.patch("cihub.commands.secrets.safe_urlopen") as mock_urlopen:
-                mock_urlopen.return_value = make_urlopen_response(
-                    {"resultsPerPage": 1}, status=200
-                )
+                mock_urlopen.return_value = make_urlopen_response({"resultsPerPage": 1}, status=200)
                 args = argparse.Namespace(nvd_key="valid-nvd-key-12345", verify=True)
                 result = cmd_setup_nvd(args)
                 assert result == 0
@@ -452,9 +442,7 @@ class TestNvdKeySetup:
             captured = capsys.readouterr()
             assert "No Java repos found" in captured.out
 
-    def test_nvd_set_on_java_repos(
-        self, mock_subprocess, mock_resolve_executable, capsys
-    ) -> None:
+    def test_nvd_set_on_java_repos(self, mock_subprocess, mock_resolve_executable, capsys) -> None:
         """Set NVD key on Java repos."""
         with mock.patch("cihub.commands.secrets.get_connected_repos") as mock_repos:
             mock_repos.return_value = ["owner/java-repo1", "owner/java-repo2"]
@@ -524,9 +512,7 @@ class TestSecretsJsonMode:
         assert result.exit_code == 1
         assert "whitespace" in result.summary
 
-    def test_setup_secrets_verify_failure_json_mode(
-        self, mock_resolve_executable, mock_get_connected_repos
-    ) -> None:
+    def test_setup_secrets_verify_failure_json_mode(self, mock_resolve_executable, mock_get_connected_repos) -> None:
         """JSON mode returns CommandResult on verify failure."""
         from cihub.cli import CommandResult
 
@@ -577,9 +563,7 @@ class TestSecretsJsonMode:
             assert isinstance(result, CommandResult)
             assert result.exit_code == 1
 
-    def test_setup_secrets_set_failure_json_mode(
-        self, mock_resolve_executable, mock_get_connected_repos
-    ) -> None:
+    def test_setup_secrets_set_failure_json_mode(self, mock_resolve_executable, mock_get_connected_repos) -> None:
         """JSON mode returns CommandResult on secret set failure."""
         from cihub.cli import CommandResult
 
