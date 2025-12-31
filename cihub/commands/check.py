@@ -115,6 +115,57 @@ def _run_process(name: str, cmd: list[str], cwd: Path) -> CommandResult:
     )
 
 
+def _run_zizmor(cwd: Path) -> CommandResult:
+    """Run zizmor with proper filtering and helpful suggestions."""
+    cmd = ["zizmor", ".github/workflows/", "--min-severity", "high"]
+    try:
+        proc = subprocess.run(  # noqa: S603
+            cmd,
+            cwd=str(cwd),
+            text=True,
+            capture_output=True,
+        )
+    except FileNotFoundError:
+        return CommandResult(
+            exit_code=EXIT_FAILURE,
+            summary="zizmor not found",
+            problems=[{"severity": "error", "message": "zizmor not installed"}],
+            suggestions=[{"message": "Install: pip install zizmor"}],
+        )
+
+    if proc.returncode == 0:
+        return CommandResult(exit_code=EXIT_SUCCESS, summary="ok")
+
+    # Parse output to count findings and check for auto-fix availability
+    output = (proc.stdout or "") + (proc.stderr or "")
+    finding_count = proc.returncode  # zizmor exit code = number of findings
+    has_autofix = "this finding has an auto-fix" in output
+
+    problems = [
+        {
+            "severity": "error",
+            "message": f"zizmor found {finding_count} high-severity workflow issues",
+            "detail": _tail_output(output),
+        }
+    ]
+
+    suggestions = []
+    if has_autofix:
+        suggestions.append({
+            "message": "Auto-fix available: zizmor .github/workflows --fix=safe"
+        })
+    suggestions.append({
+        "message": "See https://docs.zizmor.sh/audits/ for remediation guidance"
+    })
+
+    return CommandResult(
+        exit_code=EXIT_FAILURE,
+        summary=f"found {finding_count} issues (auto-fix available)" if has_autofix else f"found {finding_count} issues",
+        problems=problems,
+        suggestions=suggestions,
+    )
+
+
 def _install_tool(tool: str) -> tuple[bool, str]:
     if tool in PIP_INSTALL_TOOLS:
         cmd = [sys.executable, "-m", "pip", "install", PIP_INSTALL_TOOLS[tool]]
@@ -256,6 +307,11 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
                     detail = problem.get("detail") or problem.get("message")
                     if detail:
                         print(detail)
+                # Print suggestions for failed checks
+                for suggestion in getattr(outcome, "suggestions", []) or []:
+                    msg = suggestion.get("message", "")
+                    if msg:
+                        print(f"  💡 {msg}")
 
     # ========== FAST MODE (always runs) ==========
     preflight_args = argparse.Namespace(json=True, full=True)
@@ -401,12 +457,11 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
 
     # ========== FULL MODE (--full or --all) ==========
     if run_full:
-        # Zizmor workflow security
+        # Zizmor workflow security (with severity filtering + auto-fix hints)
         add_step(
             "zizmor",
-            run_optional(
-                "zizmor",
-                ["zizmor", ".github/workflows/"],
+            _run_zizmor(root) if shutil.which("zizmor") else _missing_tool_result(
+                "zizmor", required=require_optional
             ),
         )
 

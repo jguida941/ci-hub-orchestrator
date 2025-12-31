@@ -231,4 +231,4 @@ kubectl describe policyreport -n your-namespace
 - [ADR-0012: Kyverno Policies](../adr/0012-kyverno-policies.md) - Decision rationale
 - [Kyverno Documentation](https://kyverno.io/docs/) - Official docs
 - [GitHub Actions Security: pull_request_target](https://securitylab.github.com/research/github-actions-preventing-pwn-requests/) - The vulnerability `block-pull-request-target` prevents
-- [Cosign Keyless Signing](https://docs.sigstore.dev/cosign/keyless/) - For `verify-images` policy
+- [Cosign Keyless Signing](https://docs.sigstore.dev/cosign/signing/overview/) - For `verify-images` policy

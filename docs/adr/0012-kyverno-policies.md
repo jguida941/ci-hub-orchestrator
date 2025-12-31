@@ -79,4 +79,4 @@ Available inputs:
 
 - [Kyverno Documentation](https://kyverno.io/docs/)
 - [GitHub Actions Security: pull_request_target](https://securitylab.github.com/research/github-actions-preventing-pwn-requests/)
-- [Cosign Keyless Signing](https://docs.sigstore.dev/cosign/keyless/)
+- [Cosign Keyless Signing](https://docs.sigstore.dev/cosign/signing/overview/)

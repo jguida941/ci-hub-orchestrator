@@ -32,6 +32,7 @@ def _run_check(monkeypatch, **flags) -> CommandResult:
     monkeypatch.setattr(check_module, "cmd_adr", _stub_success)
     monkeypatch.setattr(check_module, "_run_process", _stub_success)
     monkeypatch.setattr(check_module, "_run_optional", _stub_success)
+    monkeypatch.setattr(check_module, "_run_zizmor", _stub_success)
 
     args = SimpleNamespace(
         json=True,
