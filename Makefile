@@ -67,7 +67,11 @@ check: ## Run fast checks (cihub check)
 .PHONY: verify
 verify: ## Run full pre-push gate and install missing tools
 	python -m cihub check --all --install-missing --require-optional
-	python -m cihub sync-templates --check
+	python -m cihub verify --remote
+
+.PHONY: verify-integration
+verify-integration: ## Clone connected repos and run cihub ci (slow)
+	python -m cihub verify --remote --integration --install-deps
 
 .PHONY: sync-templates-check
 sync-templates-check: ## Check caller/template drift

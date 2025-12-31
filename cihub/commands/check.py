@@ -468,7 +468,7 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
             "validate-templates",
             _run_process(
                 "validate-templates",
-                ["pytest", "tests/test_templates.py", "-v", "--tb=short"],
+                [sys.executable, "-m", "pytest", "tests/test_templates.py", "-v", "--tb=short"],
                 root,
             ),
         )

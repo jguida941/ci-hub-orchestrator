@@ -239,6 +239,15 @@ python -m cihub check --all
 # Install missing optional tools and fail if any are missing
 python -m cihub check --all --install-missing --require-optional
 
+# Verify workflow/template contracts
+python -m cihub verify
+
+# Remote template drift (requires gh auth)
+python -m cihub verify --remote
+
+# Full integration sweep (slow, requires gh auth)
+python -m cihub verify --remote --integration --install-deps
+
 # Pre-push shortcut (full gate + template drift check)
 make verify
 ```
@@ -256,7 +265,7 @@ make verify
 
 \* Optional tools can be auto-installed with `--install-missing`. Use `--require-optional` to fail if any are missing.
 
-Note: `make verify` runs `cihub sync-templates --check`, which requires GitHub auth (`gh auth login`).
+Note: `make verify` runs `cihub verify --remote`, which requires GitHub auth (`gh auth login`).
 
 ### CI Parity Rule
 
@@ -264,7 +273,7 @@ If something fails on GitHub CI but passes locally, either:
 1. Add it to `cihub check`, or
 2. Document it as CI-only (SARIF upload, reviewdog, dependency-review, etc.)
 
-Run `cihub check --all` before pushing to catch issues early.
+Run `make verify` (or `cihub check --all` + `cihub verify --remote`) before pushing to catch issues early.
 
 ### Make Shortcuts (Alternative)
 
@@ -278,6 +287,8 @@ make docs-check   # docs drift
 make links        # broken link check
 make smoke        # full smoke test on scaffold
 make check        # Runs cihub check
+make verify       # Full pre-push gate (remote drift check)
+make verify-integration  # Clone repos and run cihub ci (slow)
 ```
 
 ### Notes

@@ -152,6 +152,10 @@ python -m cihub hub-ci --help
 
 ```bash
 python -m cihub check
+python -m cihub verify
+python -m cihub verify --remote
+python -m cihub verify --remote --integration --install-deps
+make verify
 ```
 
 Advanced options:

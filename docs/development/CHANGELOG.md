@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-12-31 - Workflow Contract Verification
+
+### CLI
+- Added `cihub verify` to validate caller templates and reusable workflow inputs match.
+- `make verify` now runs the contract check before syncing templates.
+- Added `cihub verify --remote` (template drift via GitHub API) and `--integration` (clone + run `cihub ci`).
+- Added `make verify-integration` for a full integration sweep.
+
+### Tests
+- Added workflow contract tests to prevent template/workflow drift.
+
 ## 2025-12-31 - Workflow Security & Verification Fixes
 
 ### Security

@@ -698,6 +698,12 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
     return handler(args)
 
 
+def cmd_verify(args: argparse.Namespace) -> int | CommandResult:
+    from cihub.commands.verify import cmd_verify as handler
+
+    return handler(args)
+
+
 def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
     from cihub.commands.ci import cmd_ci as handler
 
@@ -1242,6 +1248,44 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run all checks (audit + security + full + mutation)",
     )
     check.set_defaults(func=cmd_check)
+
+    verify = subparsers.add_parser("verify", help="Verify workflow/template contracts")
+    add_json_flag(verify)
+    verify.add_argument(
+        "--remote",
+        action="store_true",
+        help="Check connected repos for template drift (requires gh auth)",
+    )
+    verify.add_argument(
+        "--integration",
+        action="store_true",
+        help="Clone connected repos and run cihub ci (slow, requires gh auth)",
+    )
+    verify.add_argument(
+        "--repo",
+        action="append",
+        help="Target repo (owner/name). Repeatable.",
+    )
+    verify.add_argument(
+        "--include-disabled",
+        action="store_true",
+        help="Include repos with dispatch_enabled=false",
+    )
+    verify.add_argument(
+        "--install-deps",
+        action="store_true",
+        help="Install repo dependencies during integration runs",
+    )
+    verify.add_argument(
+        "--workdir",
+        help="Optional base directory for cloned repos (integration mode)",
+    )
+    verify.add_argument(
+        "--keep",
+        action="store_true",
+        help="Keep cloned repos on disk (integration mode)",
+    )
+    verify.set_defaults(func=cmd_verify)
 
     ci = subparsers.add_parser("ci", help="Run CI based on .ci-hub.yml")
     add_json_flag(ci)

@@ -1,7 +1,7 @@
 # CI/CD Hub - Execution Plan
 
 **Status:** Canonical plan for active work
-**Last Updated:** 2025-12-30
+**Last Updated:** 2025-12-31
 
 ---
 
@@ -96,6 +96,7 @@ These are references, not competing plans.
 - [x] `cihub adr new <title>` — Create ADR from template with auto-number
 - [x] `cihub adr list` — List all ADRs with status
 - [x] `cihub adr check` — Validate ADRs reference valid files
+- [x] `cihub verify` — Contract check for caller templates and reusable workflows (optional remote/integration modes)
 - [ ] `cihub config validate` (or `cihub validate --hub`) — Validate hub configs (resolves validate ambiguity)
 - [ ] `cihub audit` — Umbrella: docs check + links + adr check + config validate
 - [x] Add `make links` target
