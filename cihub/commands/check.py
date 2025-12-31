@@ -151,16 +151,16 @@ def _run_zizmor(cwd: Path) -> CommandResult:
 
     suggestions = []
     if has_autofix:
-        suggestions.append({
-            "message": "Auto-fix available: zizmor .github/workflows --fix=safe"
-        })
-    suggestions.append({
-        "message": "See https://docs.zizmor.sh/audits/ for remediation guidance"
-    })
+        suggestions.append({"message": "Auto-fix available: zizmor .github/workflows --fix=safe"})
+    suggestions.append({"message": "See https://docs.zizmor.sh/audits/ for remediation guidance"})
+
+    summary = f"found {finding_count} issues"
+    if has_autofix:
+        summary += " (auto-fix available)"
 
     return CommandResult(
         exit_code=EXIT_FAILURE,
-        summary=f"found {finding_count} issues (auto-fix available)" if has_autofix else f"found {finding_count} issues",
+        summary=summary,
         problems=problems,
         suggestions=suggestions,
     )
@@ -460,9 +460,7 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
         # Zizmor workflow security (with severity filtering + auto-fix hints)
         add_step(
             "zizmor",
-            _run_zizmor(root) if shutil.which("zizmor") else _missing_tool_result(
-                "zizmor", required=require_optional
-            ),
+            _run_zizmor(root) if shutil.which("zizmor") else _missing_tool_result("zizmor", required=require_optional),
         )
 
         # Template validation
