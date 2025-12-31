@@ -109,7 +109,7 @@ Located in `scripts/` - standalone utilities.
 | `validate_config.py`          | Validate against schema       | `python scripts/validate_config.py config/repos/fixtures-python-passing.yaml`                   |
 | `apply_profile.py`            | Merge profile onto config     | `python scripts/apply_profile.py templates/profiles/python-fast.yaml config/repos/my-repo.yaml` |
 | `aggregate_reports.py`        | Build dashboard from reports  | `python scripts/aggregate_reports.py --output dashboard.html`                                   |
-| `run_aggregation.py`          | Orchestrator aggregation (CI) | Used by hub-orchestrator.yml                                                                    |
+| `run_aggregation.py`          | Deprecated shim for aggregation | Use `python -m cihub report aggregate`                                                         |
 | `run_cli_integration.py`      | CLI integration tests         | `python scripts/run_cli_integration.py --fixtures-path /path/to/ci-cd-hub-fixtures`             |
 | `check_quarantine_imports.py` | Ensure no quarantine imports  | CI guardrail                                                                                    |
 | `verify_hub_matrix_keys.py`   | Validate workflow matrices    | CI guardrail                                                                                    |

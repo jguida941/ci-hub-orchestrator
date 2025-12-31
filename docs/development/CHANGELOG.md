@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## 2025-12-31 - Badge CLI Integration
+
+### CLI
+- Added `cihub hub-ci badges` to generate or validate badge JSON from workflow artifacts.
+
+## 2025-12-31 - Hub Aggregation Moved Into CLI
+
+### CLI
+- Added `cihub report aggregate` for hub orchestrator aggregation.
+- Added `cihub report aggregate --reports-dir` for hub-run-all aggregation without GitHub API access.
+- Deprecated `scripts/run_aggregation.py` (shim now delegates to CLI).
+
+### Workflows
+- `hub-orchestrator.yml` now calls `python -m cihub report aggregate` instead of inline Python.
+
 ## 2025-12-31 - Workflow Contract Verification
 
 ### CLI

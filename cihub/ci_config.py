@@ -73,3 +73,47 @@ def load_ci_config(repo_path: Path) -> dict[str, Any]:
     if isinstance(repo_info, dict) and repo_info.get("language"):
         merged["language"] = repo_info["language"]
     return merged
+
+
+def load_hub_config(config_basename: str, repo_path: Path | None = None) -> dict[str, Any]:
+    """Load config from hub's config/repos/<basename>.yaml.
+
+    This is used by hub-run-all.yml to load config from the hub instead of
+    the target repo's .ci-hub.yml. Optionally merges in repo's .ci-hub.yml
+    with lower priority (hub config takes precedence for protected keys).
+
+    Args:
+        config_basename: Base name of the config file (e.g., 'fixtures-java-maven-pass')
+        repo_path: Optional path to target repo for merging its .ci-hub.yml
+    """
+    hub = hub_root()
+    defaults_path = hub / "config" / "defaults.yaml"
+    defaults = load_yaml_file(defaults_path) if defaults_path.exists() else {}
+    if not defaults:
+        defaults = FALLBACK_DEFAULTS
+
+    hub_config_path = hub / "config" / "repos" / f"{config_basename}.yaml"
+    if not hub_config_path.exists():
+        raise FileNotFoundError(f"Hub config not found: {hub_config_path}")
+
+    hub_config = load_yaml_file(hub_config_path)
+    merged = deep_merge(defaults, hub_config)
+
+    # Optionally merge repo's .ci-hub.yml (but hub config wins for protected keys)
+    if repo_path:
+        local_path = repo_path / ".ci-hub.yml"
+        if local_path.exists():
+            local_config = load_yaml_file(local_path)
+            # Block repo-local from overriding protected keys (hub controls these)
+            repo_block = local_config.get("repo", {})
+            if isinstance(repo_block, dict):
+                for key in ("owner", "name", "language", "dispatch_workflow", "dispatch_enabled"):
+                    repo_block.pop(key, None)
+                local_config["repo"] = repo_block
+            # Merge local config with lower priority (hub wins)
+            merged = deep_merge(local_config, merged)
+
+    repo_info = merged.get("repo", {})
+    if isinstance(repo_info, dict) and repo_info.get("language"):
+        merged["language"] = repo_info["language"]
+    return merged

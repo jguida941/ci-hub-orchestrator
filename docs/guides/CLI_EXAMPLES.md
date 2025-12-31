@@ -57,6 +57,8 @@ cat /path/to/repo/.cihub/summary.md
 python -m cihub report build --repo /path/to/repo
 python -m cihub report summary --report /path/to/repo/.cihub/report.json
 python -m cihub report outputs --report /path/to/repo/.cihub/report.json
+python -m cihub report aggregate --dispatch-dir dispatch-artifacts --output hub-report.json
+python -m cihub report aggregate --reports-dir reports --output hub-report.json
 ```
 
 ---

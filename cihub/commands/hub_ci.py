@@ -6,8 +6,10 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
+import tempfile
 from importlib import util
 from pathlib import Path
 from typing import Any
@@ -54,12 +56,17 @@ def _resolve_summary_path(path_value: str | None, github_summary: bool) -> Path 
     return None
 
 
-def _run_command(cmd: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+def _run_command(
+    cmd: list[str],
+    cwd: Path,
+    env: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
         cmd,
         cwd=str(cwd),
         text=True,
         capture_output=True,
+        env=env,
     )
 
 
@@ -111,6 +118,34 @@ def _extract_count(line: str, emoji: str) -> int:
     if match:
         return int(match.group(1))
     return 0
+
+
+def _compare_badges(expected_dir: Path, actual_dir: Path) -> list[str]:
+    issues: list[str] = []
+    if not expected_dir.exists():
+        return [f"missing badges directory: {expected_dir}"]
+
+    expected = {p.name: p for p in expected_dir.glob("*.json")}
+    actual = {p.name: p for p in actual_dir.glob("*.json")}
+
+    missing = sorted(set(expected) - set(actual))
+    extra = sorted(set(actual) - set(expected))
+    for name in missing:
+        issues.append(f"missing: {name}")
+    for name in extra:
+        issues.append(f"extra: {name}")
+
+    for name in sorted(set(expected) & set(actual)):
+        try:
+            expected_data = json.loads(expected[name].read_text(encoding="utf-8"))
+            actual_data = json.loads(actual[name].read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError) as exc:
+            issues.append(f"invalid json: {name} ({exc})")
+            continue
+        if expected_data != actual_data:
+            issues.append(f"diff: {name}")
+
+    return issues
 
 
 def cmd_mutmut(args: argparse.Namespace) -> int:
@@ -185,6 +220,63 @@ def cmd_mutmut(args: argparse.Namespace) -> int:
         return EXIT_FAILURE
     summary += f"\n**PASSED**: Score {score}% meets {args.min_score}% threshold\n"
     _append_summary(summary, summary_path)
+    return EXIT_SUCCESS
+
+
+def cmd_badges(args: argparse.Namespace) -> int:
+    root = hub_root()
+    env = os.environ.copy()
+    env["UPDATE_BADGES"] = "true"
+
+    output_dir = Path(args.output_dir).resolve() if args.output_dir else None
+    if output_dir:
+        env["BADGE_OUTPUT_DIR"] = str(output_dir)
+
+    if args.ruff_issues is not None:
+        env["RUFF_ISSUES"] = str(args.ruff_issues)
+    if args.mutation_score is not None:
+        env["MUTATION_SCORE"] = str(args.mutation_score)
+    if args.mypy_errors is not None:
+        env["MYPY_ERRORS"] = str(args.mypy_errors)
+    if args.black_issues is not None:
+        env["BLACK_ISSUES"] = str(args.black_issues)
+    if args.black_status:
+        env["BLACK_STATUS"] = args.black_status
+    if args.zizmor_sarif:
+        env["ZIZMOR_SARIF"] = str(Path(args.zizmor_sarif).resolve())
+
+    artifacts_dir = Path(args.artifacts_dir).resolve() if args.artifacts_dir else None
+    if artifacts_dir:
+        bandit = artifacts_dir / "bandit-results" / "bandit.json"
+        pip_audit = artifacts_dir / "pip-audit-results" / "pip-audit.json"
+        zizmor = artifacts_dir / "zizmor-sarif" / "zizmor.sarif"
+        if bandit.exists():
+            shutil.copyfile(bandit, root / "bandit.json")
+        if pip_audit.exists():
+            shutil.copyfile(pip_audit, root / "pip-audit.json")
+        if zizmor.exists():
+            shutil.copyfile(zizmor, root / "zizmor.sarif")
+
+    if args.check:
+        with tempfile.TemporaryDirectory(prefix="cihub-badges-") as tmpdir:
+            env["BADGE_OUTPUT_DIR"] = tmpdir
+            proc = _run_command([sys.executable, "scripts/python_ci_badges.py"], root, env=env)
+            if proc.returncode != 0:
+                print(proc.stdout or proc.stderr)
+                return EXIT_FAILURE
+            issues = _compare_badges(root / "badges", Path(tmpdir))
+            if issues:
+                print("Badge drift detected:")
+                for issue in issues:
+                    print(f"- {issue}")
+                return EXIT_FAILURE
+            print("Badges are up to date.")
+            return EXIT_SUCCESS
+
+    proc = _run_command([sys.executable, "scripts/python_ci_badges.py"], root, env=env)
+    if proc.returncode != 0:
+        print(proc.stdout or proc.stderr)
+        return EXIT_FAILURE
     return EXIT_SUCCESS
 
 
@@ -559,6 +651,7 @@ def cmd_hub_ci(args: argparse.Namespace) -> int:
         "ruff": cmd_ruff,
         "black": cmd_black,
         "mutmut": cmd_mutmut,
+        "badges": cmd_badges,
         "bandit": cmd_bandit,
         "pip-audit": cmd_pip_audit,
         "zizmor-check": cmd_zizmor_check,

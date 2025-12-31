@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from cihub.ci_config import load_ci_config
+from cihub.ci_config import load_ci_config, load_hub_config
 from cihub.ci_report import (
     RunContext,
     build_java_report,
@@ -591,7 +591,13 @@ def cmd_ci(args: argparse.Namespace) -> int | CommandResult:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        config = load_ci_config(repo_path)
+        config_from_hub = getattr(args, "config_from_hub", None)
+        if config_from_hub:
+            # Load config from hub's config/repos/<basename>.yaml (for hub-run-all.yml)
+            config = load_hub_config(config_from_hub, repo_path)
+        else:
+            # Load config from repo's .ci-hub.yml (normal mode)
+            config = load_ci_config(repo_path)
     except Exception as exc:
         message = f"Failed to load config: {exc}"
         if json_mode:

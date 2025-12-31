@@ -9,6 +9,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from cihub.aggregation import run_aggregation, run_reports_aggregation
 from cihub.ci_config import load_ci_config
 from cihub.ci_report import (
     RunContext,
@@ -118,6 +119,72 @@ def _load_tool_outputs(tool_dir: Path) -> dict[str, dict[str, Any]]:
 
 def cmd_report(args: argparse.Namespace) -> int | CommandResult:
     json_mode = getattr(args, "json", False)
+    if args.subcommand == "aggregate":
+        summary_file = Path(args.summary_file) if args.summary_file else None
+        if summary_file is None:
+            summary_env = os.environ.get("GITHUB_STEP_SUMMARY")
+            if summary_env:
+                summary_file = Path(summary_env)
+
+        total_repos = args.total_repos or int(os.environ.get("TOTAL_REPOS", 0) or 0)
+        hub_run_id = args.hub_run_id or os.environ.get("HUB_RUN_ID", os.environ.get("GITHUB_RUN_ID", ""))
+        hub_event = args.hub_event or os.environ.get("HUB_EVENT", os.environ.get("GITHUB_EVENT_NAME", ""))
+
+        reports_dir = getattr(args, "reports_dir", None)
+        if reports_dir:
+            exit_code = run_reports_aggregation(
+                reports_dir=Path(reports_dir),
+                output_file=Path(args.output),
+                summary_file=summary_file,
+                defaults_file=Path(args.defaults_file),
+                hub_run_id=hub_run_id,
+                hub_event=hub_event,
+                total_repos=total_repos,
+                strict=bool(args.strict),
+            )
+            if json_mode:
+                summary = "Aggregation complete" if exit_code == EXIT_SUCCESS else "Aggregation failed"
+                return CommandResult(
+                    exit_code=exit_code,
+                    summary=summary,
+                    artifacts={"report": str(args.output), "summary": str(summary_file) if summary_file else ""},
+                )
+            return exit_code
+
+        token = args.token
+        token_env = args.token_env or "HUB_DISPATCH_TOKEN"
+        if not token:
+            token = os.environ.get(token_env)
+        if not token and token_env != "GITHUB_TOKEN":
+            token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            message = f"Missing token (expected {token_env} or GITHUB_TOKEN)"
+            if json_mode:
+                return CommandResult(exit_code=EXIT_FAILURE, summary=message)
+            print(message)
+            return EXIT_FAILURE
+
+        exit_code = run_aggregation(
+            dispatch_dir=Path(args.dispatch_dir),
+            output_file=Path(args.output),
+            summary_file=summary_file,
+            defaults_file=Path(args.defaults_file),
+            token=token,
+            hub_run_id=hub_run_id,
+            hub_event=hub_event,
+            total_repos=total_repos,
+            strict=bool(args.strict),
+            timeout_sec=int(args.timeout),
+        )
+
+        if json_mode:
+            summary = "Aggregation complete" if exit_code == EXIT_SUCCESS else "Aggregation failed"
+            return CommandResult(
+                exit_code=exit_code,
+                summary=summary,
+                artifacts={"report": str(args.output), "summary": str(summary_file) if summary_file else ""},
+            )
+        return exit_code
     if args.subcommand == "outputs":
         report_path = Path(args.report)
         try:

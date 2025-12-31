@@ -1086,6 +1086,12 @@ def cmd_hub_ci(args: argparse.Namespace) -> int | CommandResult:
     return handler(args)
 
 
+def cmd_discover(args: argparse.Namespace) -> int | CommandResult:
+    from cihub.commands.discover import cmd_discover as handler
+
+    return handler(args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="cihub", description="CI/CD Hub CLI")
     parser.add_argument("--version", action="version", version=f"cihub {__version__}")
@@ -1293,6 +1299,11 @@ def build_parser() -> argparse.ArgumentParser:
     ci.add_argument("--workdir", help="Override workdir/subdir")
     ci.add_argument("--correlation-id", help="Hub correlation id")
     ci.add_argument(
+        "--config-from-hub",
+        metavar="BASENAME",
+        help="Load config from hub's config/repos/<BASENAME>.yaml (for hub-run-all)",
+    )
+    ci.add_argument(
         "--output-dir",
         default=".cihub",
         help="Output directory for reports (default: .cihub)",
@@ -1362,6 +1373,50 @@ def build_parser() -> argparse.ArgumentParser:
     report_outputs.add_argument("--report", required=True, help="Path to report.json")
     report_outputs.add_argument("--output", help="Path to write outputs (defaults to GITHUB_OUTPUT)")
     report_outputs.set_defaults(func=cmd_report)
+
+    report_aggregate = report_sub.add_parser("aggregate", help="Aggregate hub reports across repos")
+    add_json_flag(report_aggregate)
+    report_aggregate.add_argument(
+        "--reports-dir",
+        help="Directory containing downloaded report artifacts (hub-run-all mode)",
+    )
+    report_aggregate.add_argument(
+        "--dispatch-dir",
+        default="dispatch-artifacts",
+        help="Directory containing dispatch metadata artifacts",
+    )
+    report_aggregate.add_argument(
+        "--output",
+        default="hub-report.json",
+        help="Path to write aggregated report JSON",
+    )
+    report_aggregate.add_argument("--summary-file", help="Path to write summary markdown")
+    report_aggregate.add_argument(
+        "--defaults-file",
+        default="config/defaults.yaml",
+        help="Defaults file for threshold checks",
+    )
+    report_aggregate.add_argument("--token", help="GitHub token for artifact access")
+    report_aggregate.add_argument(
+        "--token-env",
+        default="HUB_DISPATCH_TOKEN",
+        help="Env var name to read token from (default: HUB_DISPATCH_TOKEN)",
+    )
+    report_aggregate.add_argument("--total-repos", type=int, help="Total expected repos")
+    report_aggregate.add_argument("--hub-run-id", help="Override hub run id")
+    report_aggregate.add_argument("--hub-event", help="Override hub event name")
+    report_aggregate.add_argument(
+        "--timeout",
+        type=int,
+        default=1800,
+        help="Polling timeout in seconds (default: 1800)",
+    )
+    report_aggregate.add_argument(
+        "--strict",
+        action="store_true",
+        help="Fail if any repo fails or thresholds exceeded",
+    )
+    report_aggregate.set_defaults(func=cmd_report)
 
     docs = subparsers.add_parser("docs", help="Generate reference documentation")
     docs_sub = docs.add_subparsers(dest="subcommand", required=True)
@@ -1438,6 +1493,30 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write outputs to GITHUB_OUTPUT",
     )
     config_outputs.set_defaults(func=cmd_config_outputs)
+
+    # Discover command - generates matrix for hub-run-all.yml
+    discover = subparsers.add_parser(
+        "discover", help="Generate repo matrix for hub-run-all.yml"
+    )
+    add_json_flag(discover)
+    discover.add_argument(
+        "--hub-root",
+        help="Path to hub-release directory (default: auto-detect)",
+    )
+    discover.add_argument(
+        "--repos",
+        help="Filter to specific repos (comma-separated)",
+    )
+    discover.add_argument(
+        "--run-group",
+        help="Filter by run group (comma-separated: full,smoke,fixtures)",
+    )
+    discover.add_argument(
+        "--github-output",
+        action="store_true",
+        help="Write matrix and count to GITHUB_OUTPUT",
+    )
+    discover.set_defaults(func=cmd_discover)
 
     hub_ci = subparsers.add_parser("hub-ci", help="Hub production CI helpers")
     hub_ci.set_defaults(func=cmd_hub_ci)
@@ -1530,6 +1609,28 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Append summary to GITHUB_STEP_SUMMARY",
     )
+
+    hub_ci_badges = hub_ci_sub.add_parser("badges", help="Generate or validate CI badges")
+    hub_ci_badges.add_argument(
+        "--check",
+        action="store_true",
+        help="Validate badges match current metrics",
+    )
+    hub_ci_badges.add_argument("--output-dir", help="Output directory for badges")
+    hub_ci_badges.add_argument(
+        "--artifacts-dir",
+        help="Directory containing bandit/pip-audit/zizmor artifacts",
+    )
+    hub_ci_badges.add_argument("--ruff-issues", type=int, help="Ruff issue count")
+    hub_ci_badges.add_argument("--mutation-score", type=float, help="Mutation score")
+    hub_ci_badges.add_argument("--mypy-errors", type=int, help="Mypy error count")
+    hub_ci_badges.add_argument("--black-issues", type=int, help="Black issue count")
+    hub_ci_badges.add_argument(
+        "--black-status",
+        choices=["clean", "failed", "n/a"],
+        help="Black formatter status",
+    )
+    hub_ci_badges.add_argument("--zizmor-sarif", help="Path to zizmor SARIF file")
 
     hub_ci_summary = hub_ci_sub.add_parser("summary", help="Generate hub CI summary")
     hub_ci_summary.add_argument("--summary", help="Write summary to file")

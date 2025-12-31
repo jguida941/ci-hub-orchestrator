@@ -9,6 +9,12 @@
 
 Single source of truth for what we are doing now. Other docs can provide depth, but this file owns priorities, scope, and sequencing.
 
+## Current Focus (ADR-0035)
+
+- [ ] Implement triage bundles + priority output + LLM prompt pack.
+- [ ] Implement registry CLI + versioning/rollback.
+- [x] Make aggregate reports resilient to failed repos (render partial summaries instead of aborting).
+
 ## Canonical Sources of Truth
 
 1. **Code** (`cihub/`, `schema/`, `.github/workflows/`) overrides docs on conflicts.
@@ -97,6 +103,7 @@ These are references, not competing plans.
 - [x] `cihub adr list` — List all ADRs with status
 - [x] `cihub adr check` — Validate ADRs reference valid files
 - [x] `cihub verify` — Contract check for caller templates and reusable workflows (optional remote/integration modes)
+- [x] `cihub hub-ci badges` — Generate/validate CI badges from workflow artifacts.
 - [ ] `cihub config validate` (or `cihub validate --hub`) — Validate hub configs (resolves validate ambiguity)
 - [ ] `cihub audit` — Umbrella: docs check + links + adr check + config validate
 - [x] Add `make links` target
@@ -118,6 +125,30 @@ These are references, not competing plans.
 - [x] Add `docs/guides/CLI_EXAMPLES.md` with runnable command examples.
 - [x] Update AGENTS.md rule: "If GitHub CI fails but local checks passed, add it to `cihub check` or document as CI-only."
 - [ ] Evaluate `act` integration for local workflow simulation (document limitations; optional).
+
+### 8) Triage, Registry, and LLM Bundles (New)
+
+- [ ] Define `cihub-triage-v1` schema with severity/blocker fields and stable versioning.
+- [ ] Implement `cihub triage` to emit:
+  - `.cihub/triage.json` (full bundle)
+  - `.cihub/priority.json` (sorted failures)
+  - `.cihub/triage.md` (LLM prompt pack)
+  - `.cihub/history.jsonl` (append-only run log)
+- [ ] Standardize artifact layout under `.cihub/artifacts/<tool>/` with a small manifest.
+- [ ] Normalize core outputs to standard formats (SARIF, Stryker mutation, pytest-json/CTRF, Cobertura/lcov, CycloneDX/SPDX).
+- [ ] Add severity map defaults (0-10) with category + fixability flags.
+- [ ] Add `cihub fix --safe` (deterministic auto-fixes only).
+- [ ] Add `cihub assist --prompt` (LLM-ready prompt pack from triage bundle).
+- [ ] Define registry format and CLI (`cihub registry list/show/set/diff/sync`). NOTE: this will add `config/registry.json` (Ask First).
+- [ ] Add drift detection by cohort (language + profile + hub) and report variance against expected thresholds.
+- [ ] Add registry versioning + rollback (immutable version history).
+- [ ] Add triage schema validation (`cihub triage --validate-schema`).
+- [ ] Add retention policies (`cihub triage prune --days N`).
+- [ ] Add aggregate pass rules (composite gating).
+- [ ] Add post-mortem logging for drift incidents.
+- [ ] Add continuous reconciliation (opt-in auto-sync).
+- [ ] Add RBAC guidance (defer to GitHub permissions for MVP).
+- [ ] Add DORA metrics derived from history (optional).
 
 ---
 

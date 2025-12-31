@@ -157,7 +157,7 @@ All summaries must be written via `GITHUB_STEP_SUMMARY`. Do not mix mechanisms.
 - Parses `results`, `tool_metrics`, `tools_ran` objects.
 - Field names are hardcoded.
 
-### run_aggregation.py
+### cihub report aggregate
 - Extracts metrics from `report.json` using exact field names.
 - Maps `tools_ran` boolean flags to determine which tools executed.
 
@@ -401,8 +401,8 @@ These scripts parse report.json and/or artifacts - verify compatibility:
 |----------------------------------------|-----------------------|----------------------------------------|--------------------------|
 | `scripts/validate_summary.py`          | summary + report.json | `tools_ran`, mappings                  | ⚠️ Needs updates         |
 | `scripts/aggregate_reports.py`         | report.json           | `results`, `tool_metrics`, `tools_ran` | ✅ OK                     |
-| `scripts/run_aggregation.py`           | report.json           | Same as above                          | ✅ OK                     |
-| `hub-orchestrator.yml` (inline Python) | report.json           | All fields                             | ⚠️ Check `tools_success` |
+| `cihub report aggregate`              | report.json           | Same as above                          | ✅ OK                     |
+| `hub-orchestrator.yml` (CLI command)  | report.json           | All fields                             | ✅ OK                     |
 
 ---
 
@@ -535,7 +535,7 @@ tools_ran = report.get("tools_ran", {})
 
 ---
 
-### run_aggregation.py (scripts/run_aggregation.py)
+### cihub report aggregate
 
 **Purpose**: Hub orchestrator aggregation - downloads artifacts, polls runs, validates correlation IDs.
 
@@ -568,14 +568,14 @@ All metrics above plus `tools_ran` dict.
 
 **What would break if plan is implemented**:
 - Nothing for current metrics
-- If `tools_configured` / `tools_success` added to report, this script won't break but won't use them either
-- To track success status in aggregate, need to add `tools_success` parsing
+- If `tools_configured` / `tools_success` added to report, aggregation won't break but won't use them
+- To track success status in aggregate, add `tools_success` parsing
 
 ---
 
-### hub-orchestrator.yml Inline Python (lines 1006-1121)
+### hub-orchestrator.yml Aggregation Step (CLI)
 
-**Purpose**: Generates aggregate summary markdown for orchestrator runs.
+**Purpose**: Runs `python -m cihub report aggregate` and writes the GitHub step summary.
 
 **Summary format generated** (different from child workflows):
 
@@ -592,7 +592,7 @@ All metrics above plus `tools_ran` dict.
 **Note**: This is a DIFFERENT format than the unified 5-column Tools Enabled table in the plan. Orchestrator shows aggregate metrics per-repo, not per-tool breakdown.
 
 **What would break if plan is implemented**:
-- If we try to unify orchestrator summary format with child workflow format, this inline Python needs rewrite
+- If we try to unify orchestrator summary format with child workflow format, the CLI aggregation template needs rewrite
 - Recommendation: Keep orchestrator as separate aggregate view
 
 ---
@@ -645,7 +645,7 @@ All metrics above plus `tools_ran` dict.
 │       └── Reads: report.json files                                  │
 │       └── Generates: dashboard.html or summary.json                 │
 │                                                                     │
-│  run_aggregation.py (orchestrator)                                  │
+│  cihub report aggregate (orchestrator)                              │
 │       └── Reads: dispatch metadata + report.json from child runs    │
 │       └── Generates: hub-report.json + GITHUB_STEP_SUMMARY          │
 │                                                                     │
@@ -1008,15 +1008,15 @@ for report in reports:
 summary["tool_stats"] = tool_stats
 ```
 
-### Solution 5: Update run_aggregation.py
+### Solution 5: Update cihub report aggregate
 
-**Add to extract_metrics_from_report** (after line 251):
+**Add to extract_metrics_from_report** (aggregation module):
 ```python
 run_status["tools_configured"] = report_data.get("tools_configured", {})
 run_status["tools_success"] = report_data.get("tools_success", {})
 ```
 
-**Add to create_run_status** (after line 162):
+**Add to create_run_status** (aggregation module):
 ```python
 "tools_configured": {},
 "tools_success": {},
@@ -1160,7 +1160,7 @@ def generate_tool_aggregate_table(results: list[dict]) -> str:
    - Add tool_stats to summary output
    - Update HTML dashboard with tool aggregate view
 
-2. **Update run_aggregation.py**
+2. **Update cihub report aggregate**
    - Parse new fields
    - Add `generate_tool_aggregate_table()` function
    - Include in GITHUB_STEP_SUMMARY
@@ -1168,7 +1168,7 @@ def generate_tool_aggregate_table(results: list[dict]) -> str:
 ### Phase 3: Unify Orchestrator Format
 **Goal**: Orchestrator emits same format as child workflows.
 
-1. **Update hub-orchestrator.yml**
+1. **Update hub-orchestrator.yml (CLI aggregate output)**
    - Add Tools Summary (Aggregate) table
    - Keep per-repo metrics table (but after Tools Summary)
    - Use consistent section headers

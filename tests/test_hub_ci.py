@@ -137,6 +137,34 @@ class TestExtractCount:
         assert _extract_count("", "🎉") == 0
 
 
+class TestCompareBadges:
+    """Tests for _compare_badges helper."""
+
+    def test_reports_missing_badges_dir(self, tmp_path: Path) -> None:
+        from cihub.commands.hub_ci import _compare_badges
+
+        issues = _compare_badges(tmp_path / "missing", tmp_path)
+        assert "missing badges directory" in issues[0]
+
+    def test_detects_missing_extra_and_diff(self, tmp_path: Path) -> None:
+        from cihub.commands.hub_ci import _compare_badges
+
+        expected = tmp_path / "expected"
+        actual = tmp_path / "actual"
+        expected.mkdir()
+        actual.mkdir()
+
+        (expected / "same.json").write_text('{"value": 1}')
+        (actual / "same.json").write_text('{"value": 2}')
+        (expected / "missing.json").write_text('{"value": 3}')
+        (actual / "extra.json").write_text('{"value": 4}')
+
+        issues = _compare_badges(expected, actual)
+        assert "diff: same.json" in issues
+        assert "missing: missing.json" in issues
+        assert "extra: extra.json" in issues
+
+
 class TestCountPipAuditVulns:
     """Tests for _count_pip_audit_vulns helper."""
 
@@ -228,6 +256,115 @@ class TestCmdBlack:
         )
         result = cmd_black(args)
         assert result == EXIT_SUCCESS
+
+
+class TestCmdBadges:
+    """Tests for cmd_badges command."""
+
+    @mock.patch("cihub.commands.hub_ci._compare_badges")
+    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.hub_root")
+    def test_check_mode_success(
+        self,
+        mock_root: mock.Mock,
+        mock_run: mock.Mock,
+        mock_compare: mock.Mock,
+        tmp_path: Path,
+    ) -> None:
+        from cihub.commands.hub_ci import cmd_badges
+        from cihub.exit_codes import EXIT_SUCCESS
+
+        mock_root.return_value = tmp_path
+        (tmp_path / "badges").mkdir()
+        mock_run.return_value = mock.Mock(returncode=0)
+        mock_compare.return_value = []
+
+        args = argparse.Namespace(
+            check=True,
+            output_dir=None,
+            artifacts_dir=None,
+            ruff_issues=None,
+            mutation_score=None,
+            mypy_errors=None,
+            black_issues=None,
+            black_status=None,
+            zizmor_sarif=None,
+        )
+        result = cmd_badges(args)
+
+        assert result == EXIT_SUCCESS
+        assert mock_run.call_count == 1
+        env = mock_run.call_args.kwargs["env"]
+        assert env["UPDATE_BADGES"] == "true"
+        assert "BADGE_OUTPUT_DIR" in env
+
+    @mock.patch("cihub.commands.hub_ci._compare_badges")
+    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.hub_root")
+    def test_check_mode_detects_drift(
+        self,
+        mock_root: mock.Mock,
+        mock_run: mock.Mock,
+        mock_compare: mock.Mock,
+        tmp_path: Path,
+    ) -> None:
+        from cihub.commands.hub_ci import cmd_badges
+        from cihub.exit_codes import EXIT_FAILURE
+
+        mock_root.return_value = tmp_path
+        (tmp_path / "badges").mkdir()
+        mock_run.return_value = mock.Mock(returncode=0)
+        mock_compare.return_value = ["diff: ruff.json"]
+
+        args = argparse.Namespace(
+            check=True,
+            output_dir=None,
+            artifacts_dir=None,
+            ruff_issues=None,
+            mutation_score=None,
+            mypy_errors=None,
+            black_issues=None,
+            black_status=None,
+            zizmor_sarif=None,
+        )
+        result = cmd_badges(args)
+
+        assert result == EXIT_FAILURE
+
+    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.hub_root")
+    def test_updates_badges_with_output_dir(
+        self,
+        mock_root: mock.Mock,
+        mock_run: mock.Mock,
+        tmp_path: Path,
+    ) -> None:
+        from cihub.commands.hub_ci import cmd_badges
+        from cihub.exit_codes import EXIT_SUCCESS
+
+        mock_root.return_value = tmp_path
+        mock_run.return_value = mock.Mock(returncode=0)
+
+        output_dir = tmp_path / "badges-out"
+        args = argparse.Namespace(
+            check=False,
+            output_dir=str(output_dir),
+            artifacts_dir=None,
+            ruff_issues=0,
+            mutation_score=88.5,
+            mypy_errors=2,
+            black_issues=None,
+            black_status=None,
+            zizmor_sarif=None,
+        )
+        result = cmd_badges(args)
+
+        assert result == EXIT_SUCCESS
+        env = mock_run.call_args.kwargs["env"]
+        assert env["BADGE_OUTPUT_DIR"] == str(output_dir.resolve())
+        assert env["RUFF_ISSUES"] == "0"
+        assert env["MUTATION_SCORE"] == "88.5"
+        assert env["MYPY_ERRORS"] == "2"
 
     @mock.patch("cihub.commands.hub_ci._run_command")
     def test_counts_would_reformat(self, mock_run: mock.Mock, capsys) -> None:
