@@ -194,8 +194,15 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
         _run_optional("yamllint", ["yamllint", "config/", "templates/"], root),
     )
 
-    # Tests
-    add_step("test", _run_process("test", [sys.executable, "-m", "pytest", "tests/"], root))
+    # Tests (with coverage gate matching CI)
+    add_step(
+        "test",
+        _run_process(
+            "test",
+            [sys.executable, "-m", "pytest", "tests/", "--cov=cihub", "--cov=scripts", "--cov-fail-under=70"],
+            root,
+        ),
+    )
 
     # Workflow lint (actionlint auto-discovers .github/workflows when run from repo root)
     add_step(

@@ -712,8 +712,8 @@ jobs:
   scorecard:
     name: OpenSSF Scorecard
     runs-on: ubuntu-latest
-    # Only run on main branch pushes and scheduled runs
-    if: github.event_name != 'pull_request'
+    # Only run on default branch (scorecard requires it)
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     permissions:
       contents: read
       security-events: write
