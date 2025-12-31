@@ -61,8 +61,13 @@ smoke: ## Run smoke test on a scaffolded repo
 	python -m cihub smoke --full $$(mktemp -d)/smoke-test
 
 .PHONY: check
-check: ## Run all checks (pre-push)
+check: ## Run fast checks (cihub check)
 	python -m cihub check
+
+.PHONY: verify
+verify: ## Run full pre-push gate and install missing tools
+	python -m cihub check --all --install-missing --require-optional
+	python -m cihub sync-templates --check
 
 .PHONY: sync-templates-check
 sync-templates-check: ## Check caller/template drift

@@ -24,6 +24,7 @@ CI/CD Hub is a CLI tool and workflow wrapper for running CI across many repos. T
 - Local check (fast): `python -m cihub check`
 - Local check (full): `python -m cihub check --full`
 - Local check (all): `python -m cihub check --all`
+- Pre-push verify: `make verify`
 - Template sync (check): `python -m cihub sync-templates --check`
 - Repo init: `python -m cihub init`
 - Detect language: `python -m cihub detect`
@@ -42,6 +43,9 @@ cihub check --mutation   # + mutmut (~15min)
 cihub check --all        # Everything
 ```
 
+Use `--install-missing` to prompt for installing missing optional tools and
+`--require-optional` to fail if any are missing.
+
 ## Testing Notes
 
 - Run `pytest tests/` for CLI and config changes.
@@ -52,7 +56,7 @@ cihub check --all        # Everything
 
 - CLI or schema changes: `python -m cihub docs generate` and `python -m cihub docs check`.
 - Template callers or hub workflow changes: `python -m cihub sync-templates --check` (requires GH auth) and `pytest tests/test_templates.py`.
-- Local validation before push: `python -m cihub check --all`.
+- Local validation before push: `make verify` (installs missing tools, runs full checks, and sync-templates check).
 
 ## Project Structure
 

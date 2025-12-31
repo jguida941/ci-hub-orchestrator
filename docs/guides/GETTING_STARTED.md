@@ -236,21 +236,27 @@ python -m cihub check --full
 # Everything including mutation testing (~15min)
 python -m cihub check --all
 
-# * = optional tool, skipped gracefully if not installed
+# Install missing optional tools and fail if any are missing
+python -m cihub check --all --install-missing --require-optional
+
+# Pre-push shortcut (full gate + template drift check)
+make verify
 ```
 
 ### What Each Tier Runs
 
 | Tier | Checks Included |
 |------|-----------------|
-| **Default** | preflight, ruff lint, ruff format, black, mypy, yamllint*, pytest, actionlint*, docs-check, smoke |
+| **Default** | preflight, ruff lint, ruff format, mypy, yamllint*, pytest, actionlint*, docs-check, smoke |
 | **--audit** | + docs-links, adr-check, validate-configs, validate-profiles |
 | **--security** | + bandit, pip-audit, gitleaks*, trivy* |
 | **--full** | + zizmor*, validate-templates, verify-matrix-keys, license-check |
 | **--mutation** | + mutmut (very slow, opt-in only) |
 | **--all** | Everything above (unique set, no duplicates) |
 
-\* Optional tools are skipped with a warning if not installed.
+\* Optional tools can be auto-installed with `--install-missing`. Use `--require-optional` to fail if any are missing.
+
+Note: `make verify` runs `cihub sync-templates --check`, which requires GitHub auth (`gh auth login`).
 
 ### CI Parity Rule
 

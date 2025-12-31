@@ -7,6 +7,8 @@ Tiered check modes:
 - --full: + validation (templates, matrix, license, zizmor) ~3min
 - --mutation: + mutmut (~15min, opt-in only)
 - --all: Everything (unique set, no duplicates)
+- --install-missing: Prompt to install missing optional tools
+- --require-optional: Fail if optional tools are missing
 """
 
 from __future__ import annotations
@@ -26,13 +28,24 @@ from cihub.commands.preflight import cmd_preflight
 from cihub.commands.smoke import cmd_smoke
 from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS
 
-# Optional tools that are skipped gracefully if not installed
-OPTIONAL_TOOLS: dict[str, str] = {
-    "zizmor": "brew install zizmor",
+# Optional tools that can be auto-installed when requested.
+OPTIONAL_TOOL_HINTS: dict[str, str] = {
+    "zizmor": "python -m pip install zizmor",
     "gitleaks": "brew install gitleaks",
     "trivy": "brew install trivy",
     "actionlint": "brew install actionlint",
-    "yamllint": "pip install yamllint",
+    "yamllint": "python -m pip install yamllint",
+}
+
+PIP_INSTALL_TOOLS: dict[str, str] = {
+    "yamllint": "yamllint",
+    "zizmor": "zizmor",
+}
+
+BREW_INSTALL_TOOLS: dict[str, str] = {
+    "actionlint": "actionlint",
+    "gitleaks": "gitleaks",
+    "trivy": "trivy",
 }
 
 
@@ -102,17 +115,76 @@ def _run_process(name: str, cmd: list[str], cwd: Path) -> CommandResult:
     )
 
 
-def _run_optional(name: str, cmd: list[str], cwd: Path) -> CommandResult:
-    """Run an optional tool, skipping gracefully if not installed."""
+def _install_tool(tool: str) -> tuple[bool, str]:
+    if tool in PIP_INSTALL_TOOLS:
+        cmd = [sys.executable, "-m", "pip", "install", PIP_INSTALL_TOOLS[tool]]
+    elif tool in BREW_INSTALL_TOOLS:
+        if shutil.which("brew") is None:
+            return False, "brew not found"
+        cmd = ["brew", "install", BREW_INSTALL_TOOLS[tool]]
+    else:
+        return False, "no installer configured"
+
+    proc = subprocess.run(  # noqa: S603
+        cmd,
+        text=True,
+        capture_output=True,
+    )
+    ok = proc.returncode == 0
+    detail = _tail_output((proc.stdout or "") + (proc.stderr or ""))
+    return ok, detail
+
+
+def _missing_tool_result(
+    tool: str,
+    *,
+    required: bool,
+    detail: str | None = None,
+) -> CommandResult:
+    hint = OPTIONAL_TOOL_HINTS.get(tool, f"install {tool}")
+    summary = f"missing {tool}" if required else f"skipped (missing {tool})"
+    problems = []
+    if required:
+        problems.append(
+            {
+                "severity": "error",
+                "message": f"{tool} not installed",
+                "detail": detail or "",
+                "command": tool,
+            }
+        )
+    return CommandResult(
+        exit_code=EXIT_FAILURE if required else EXIT_SUCCESS,
+        summary=summary,
+        problems=problems,
+        suggestions=[{"message": f"Install: {hint}"}],
+    )
+
+
+def _run_optional(
+    name: str,
+    cmd: list[str],
+    cwd: Path,
+    *,
+    install_missing: bool,
+    require_optional: bool,
+    interactive: bool,
+) -> CommandResult:
+    """Run an optional tool, with optional install + required gating."""
     tool = cmd[0]
     if shutil.which(tool) is None:
-        install_hint = OPTIONAL_TOOLS.get(tool, f"install {tool}")
-        return CommandResult(
-            exit_code=EXIT_SUCCESS,  # Don't fail for missing optional tools
-            summary=f"skipped (missing {tool})",
-            problems=[],
-            suggestions=[{"message": f"To enable: {install_hint}"}],
-        )
+        if install_missing and interactive:
+            response = input(f"{tool} not found. Install now? [y/N] ").strip().lower()
+            if response in {"y", "yes"}:
+                ok, detail = _install_tool(tool)
+                if not ok:
+                    return _missing_tool_result(tool, required=require_optional, detail=detail)
+            else:
+                return _missing_tool_result(tool, required=require_optional)
+
+        if shutil.which(tool) is None:
+            return _missing_tool_result(tool, required=require_optional)
+
     return _run_process(name, cmd, cwd)
 
 
@@ -132,9 +204,24 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
     - --full: + validation (templates, matrix, license, zizmor)
     - --mutation: + mutmut (very slow, opt-in only)
     - --all: Everything (unique set)
+    - --install-missing: Prompt to install missing optional tools
+    - --require-optional: Fail if optional tools are missing
     """
     json_mode = getattr(args, "json", False)
     root = hub_root()
+    install_missing = bool(getattr(args, "install_missing", False))
+    require_optional = bool(getattr(args, "require_optional", False))
+    interactive = bool(install_missing and not json_mode and sys.stdin.isatty())
+
+    def run_optional(name: str, cmd: list[str]) -> CommandResult:
+        return _run_optional(
+            name,
+            cmd,
+            root,
+            install_missing=install_missing,
+            require_optional=require_optional,
+            interactive=interactive,
+        )
 
     # Parse flags - --all enables everything
     run_all = getattr(args, "all", False)
@@ -191,7 +278,7 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
     # YAML lint (optional tool)
     add_step(
         "yamllint",
-        _run_optional("yamllint", ["yamllint", "config/", "templates/"], root),
+        run_optional("yamllint", ["yamllint", "config/", "templates/"]),
     )
 
     # Tests (with coverage gate matching CI)
@@ -207,7 +294,7 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
     # Workflow lint (actionlint auto-discovers .github/workflows when run from repo root)
     add_step(
         "actionlint",
-        _run_optional("actionlint", ["actionlint"], root),
+        run_optional("actionlint", ["actionlint"]),
     )
 
     # Docs check
@@ -287,18 +374,16 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
         )
         add_step(
             "gitleaks",
-            _run_optional(
+            run_optional(
                 "gitleaks",
                 ["gitleaks", "detect", "--source", ".", "--no-git"],
-                root,
             ),
         )
         add_step(
             "trivy",
-            _run_optional(
+            run_optional(
                 "trivy",
                 ["trivy", "fs", ".", "--severity", "CRITICAL,HIGH", "--exit-code", "1"],
-                root,
             ),
         )
 
@@ -307,10 +392,9 @@ def cmd_check(args: argparse.Namespace) -> int | CommandResult:
         # Zizmor workflow security
         add_step(
             "zizmor",
-            _run_optional(
+            run_optional(
                 "zizmor",
                 ["zizmor", ".github/workflows/"],
-                root,
             ),
         )
 

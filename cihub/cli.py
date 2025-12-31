@@ -1205,6 +1205,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Keep generated fixtures on disk",
     )
+    check.add_argument(
+        "--install-missing",
+        action="store_true",
+        help="Prompt to install missing optional tools",
+    )
+    check.add_argument(
+        "--require-optional",
+        action="store_true",
+        help="Fail if optional tools are missing",
+    )
     # Tiered check modes
     check.add_argument(
         "--audit",

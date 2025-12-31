@@ -127,8 +127,8 @@ options:
 ```
 usage: cihub check [-h] [--json] [--smoke-repo SMOKE_REPO]
                    [--smoke-subdir SMOKE_SUBDIR] [--install-deps] [--relax]
-                   [--keep] [--audit] [--security] [--full] [--mutation]
-                   [--all]
+                   [--keep] [--install-missing] [--require-optional] [--audit]
+                   [--security] [--full] [--mutation] [--all]
 
 options:
   -h, --help            show this help message and exit
@@ -141,6 +141,8 @@ options:
   --install-deps        Install repo dependencies during smoke test
   --relax               Relax tool toggles and thresholds during smoke test
   --keep                Keep generated fixtures on disk
+  --install-missing     Prompt to install missing optional tools
+  --require-optional    Fail if optional tools are missing
   --audit               Add drift detection checks (links, adr, configs)
   --security            Add security checks (bandit, pip-audit, trivy,
                         gitleaks)
