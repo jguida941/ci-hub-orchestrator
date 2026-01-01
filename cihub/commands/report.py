@@ -9,7 +9,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from cihub.aggregation import run_aggregation, run_reports_aggregation
 from cihub.ci_config import load_ci_config
 from cihub.ci_report import (
     RunContext,
@@ -25,7 +24,12 @@ from cihub.cli import (
 )
 from cihub.exit_codes import EXIT_FAILURE, EXIT_SUCCESS, EXIT_USAGE
 from cihub.reporting import render_summary_from_path
-from cihub.services import ValidationRules, validate_report
+from cihub.services import (
+    ValidationRules,
+    aggregate_from_dispatch,
+    aggregate_from_reports_dir,
+    validate_report,
+)
 
 
 def _tool_enabled(config: dict[str, Any], tool: str, language: str) -> bool:
@@ -237,22 +241,26 @@ def cmd_report(args: argparse.Namespace) -> int | CommandResult:
 
         reports_dir = getattr(args, "reports_dir", None)
         if reports_dir:
-            exit_code = run_reports_aggregation(
+            result = aggregate_from_reports_dir(
                 reports_dir=Path(reports_dir),
                 output_file=Path(args.output),
-                summary_file=summary_file,
                 defaults_file=Path(args.defaults_file),
                 hub_run_id=hub_run_id,
                 hub_event=hub_event,
                 total_repos=total_repos,
+                summary_file=summary_file,
                 strict=bool(args.strict),
             )
+            exit_code = EXIT_SUCCESS if result.success else EXIT_FAILURE
             if json_mode:
-                summary = "Aggregation complete" if exit_code == EXIT_SUCCESS else "Aggregation failed"
+                summary = "Aggregation complete" if result.success else "Aggregation failed"
                 return CommandResult(
                     exit_code=exit_code,
                     summary=summary,
-                    artifacts={"report": str(args.output), "summary": str(summary_file) if summary_file else ""},
+                    artifacts={
+                        "report": str(result.report_path) if result.report_path else "",
+                        "summary": str(result.summary_path) if result.summary_path else "",
+                    },
                 )
             return exit_code
 
@@ -269,25 +277,29 @@ def cmd_report(args: argparse.Namespace) -> int | CommandResult:
             print(message)
             return EXIT_FAILURE
 
-        exit_code = run_aggregation(
+        result = aggregate_from_dispatch(
             dispatch_dir=Path(args.dispatch_dir),
             output_file=Path(args.output),
-            summary_file=summary_file,
             defaults_file=Path(args.defaults_file),
             token=token,
             hub_run_id=hub_run_id,
             hub_event=hub_event,
             total_repos=total_repos,
+            summary_file=summary_file,
             strict=bool(args.strict),
             timeout_sec=int(args.timeout),
         )
+        exit_code = EXIT_SUCCESS if result.success else EXIT_FAILURE
 
         if json_mode:
-            summary = "Aggregation complete" if exit_code == EXIT_SUCCESS else "Aggregation failed"
+            summary = "Aggregation complete" if result.success else "Aggregation failed"
             return CommandResult(
                 exit_code=exit_code,
                 summary=summary,
-                artifacts={"report": str(args.output), "summary": str(summary_file) if summary_file else ""},
+                artifacts={
+                    "report": str(result.report_path) if result.report_path else "",
+                    "summary": str(result.summary_path) if result.summary_path else "",
+                },
             )
         return exit_code
     if args.subcommand == "outputs":

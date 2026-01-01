@@ -3,6 +3,11 @@
 This module provides stable APIs for CLI, GUI, and programmatic access.
 """
 
+from cihub.services.aggregation import (
+    AggregationResult,
+    aggregate_from_dispatch,
+    aggregate_from_reports_dir,
+)
 from cihub.services.discovery import (
     DiscoveryFilters,
     DiscoveryResult,
@@ -29,4 +34,8 @@ __all__ = [
     "ValidationResult",
     "validate_report",
     "validate_report_file",
+    # Aggregation
+    "AggregationResult",
+    "aggregate_from_dispatch",
+    "aggregate_from_reports_dir",
 ]

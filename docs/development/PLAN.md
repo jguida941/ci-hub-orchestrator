@@ -135,7 +135,7 @@ These are references, not competing plans.
   - include effective-success merging for summary/tool status
   - avoid duplicate maps/logic between service and CLI
 - [x] Wire `cihub report validate` to the service and keep CLI-only output/verbosity in the adapter.
-- [ ] Add aggregation service (Phase 5A pattern) and wire CLI adapter.
+- [x] Add aggregation service (Phase 5A pattern) and wire CLI adapter.
 
 ### 9) Triage, Registry, and LLM Bundles (New)
 
