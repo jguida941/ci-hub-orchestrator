@@ -11,6 +11,7 @@ repo:
   default_branch: main
   dispatch_enabled: true
   dispatch_workflow: hub-ci.yml  # Reusable workflow caller
+  use_central_runner: false
 
 java:
   version: "21"
