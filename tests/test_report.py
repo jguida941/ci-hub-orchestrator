@@ -61,10 +61,11 @@ class TestGetRepoName:
         assert result == "myorg/myrepo"
 
     def test_parses_from_git_remote(self, tmp_path: Path) -> None:
+        # Patch at helpers module where functions are looked up
         with (
             patch.dict(os.environ, {}, clear=True),
-            patch("cihub.commands.report.get_git_remote") as mock_remote,
-            patch("cihub.commands.report.parse_repo_from_remote") as mock_parse,
+            patch("cihub.commands.report.helpers.get_git_remote") as mock_remote,
+            patch("cihub.commands.report.helpers.parse_repo_from_remote") as mock_parse,
         ):
             os.environ.pop("GITHUB_REPOSITORY", None)
             mock_remote.return_value = "git@github.com:parsed/repo.git"
@@ -73,9 +74,10 @@ class TestGetRepoName:
         assert result == "parsed/repo"
 
     def test_returns_empty_when_no_info(self, tmp_path: Path) -> None:
+        # Patch at helpers module where function is looked up
         with (
             patch.dict(os.environ, {}, clear=True),
-            patch("cihub.commands.report.get_git_remote") as mock_remote,
+            patch("cihub.commands.report.helpers.get_git_remote") as mock_remote,
         ):
             os.environ.pop("GITHUB_REPOSITORY", None)
             mock_remote.return_value = None
@@ -423,10 +425,11 @@ class TestCmdReportBuild:
             json=True,
         )
 
+        # Patch at build module where functions are looked up
         with (
-            patch("cihub.commands.report.load_ci_config") as mock_load,
-            patch("cihub.commands.report.build_python_report") as mock_build,
-            patch("cihub.commands.report.render_summary_from_path") as mock_render,
+            patch("cihub.commands.report.build.load_ci_config") as mock_load,
+            patch("cihub.commands.report.build.build_python_report") as mock_build,
+            patch("cihub.commands.report.build.render_summary_from_path") as mock_render,
         ):
             mock_load.return_value = {"language": "python"}
             mock_build.return_value = {"summary": {"status": "passed"}}
@@ -453,10 +456,11 @@ class TestCmdReportBuild:
             json=True,
         )
 
+        # Patch at build module where functions are looked up
         with (
-            patch("cihub.commands.report.load_ci_config") as mock_load,
-            patch("cihub.commands.report.build_java_report") as mock_build,
-            patch("cihub.commands.report.render_summary_from_path") as mock_render,
+            patch("cihub.commands.report.build.load_ci_config") as mock_load,
+            patch("cihub.commands.report.build.build_java_report") as mock_build,
+            patch("cihub.commands.report.build.render_summary_from_path") as mock_render,
         ):
             mock_load.return_value = {"language": "java", "java": {"build_tool": "maven"}}
             mock_build.return_value = {"summary": {"status": "passed"}}
@@ -482,7 +486,8 @@ class TestCmdReportBuild:
             json=True,
         )
 
-        with patch("cihub.commands.report.load_ci_config") as mock_load:
+        # Patch at build module where function is looked up
+        with patch("cihub.commands.report.build.load_ci_config") as mock_load:
             mock_load.return_value = {"language": "ruby"}
             result = cmd_report(args)
 
@@ -502,7 +507,8 @@ class TestCmdReportBuild:
             json=True,
         )
 
-        with patch("cihub.commands.report.load_ci_config") as mock_load:
+        # Patch at build module where function is looked up
+        with patch("cihub.commands.report.build.load_ci_config") as mock_load:
             mock_load.side_effect = Exception("Config missing")
             result = cmd_report(args)
 
@@ -535,10 +541,11 @@ class TestCmdReportBuild:
             json=False,
         )
 
+        # Patch at build module where functions are looked up
         with (
-            patch("cihub.commands.report.load_ci_config") as mock_load,
-            patch("cihub.commands.report.build_python_report") as mock_build,
-            patch("cihub.commands.report.render_summary_from_path") as mock_render,
+            patch("cihub.commands.report.build.load_ci_config") as mock_load,
+            patch("cihub.commands.report.build.build_python_report") as mock_build,
+            patch("cihub.commands.report.build.render_summary_from_path") as mock_render,
         ):
             mock_load.return_value = {"language": "python"}
             mock_build.return_value = {}
