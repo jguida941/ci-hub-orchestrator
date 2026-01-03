@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import py_compile
 import re
 import shutil
@@ -64,6 +65,14 @@ def _resolve_summary_path(path_value: str | None, github_summary: bool) -> Path 
         env_path = os.environ.get("GITHUB_STEP_SUMMARY")
         return Path(env_path) if env_path else None
     return None
+
+
+def _append_github_path(path_value: Path) -> None:
+    env_path = os.environ.get("GITHUB_PATH")
+    if not env_path:
+        return
+    with open(env_path, "a", encoding="utf-8") as handle:
+        handle.write(f"{path_value}\n")
 
 
 def _bool_str(value: bool) -> str:
@@ -938,6 +947,66 @@ def cmd_kyverno_install(args: argparse.Namespace) -> int:
     output_path = _resolve_output_path(args.output, args.github_output)
     _write_outputs({"path": str(bin_path)}, output_path)
     print(f"kyverno installed at {bin_path}")
+    return EXIT_SUCCESS
+
+
+def _trivy_asset_name(version: str) -> str:
+    system = platform.system().lower()
+    machine = platform.machine().lower()
+    if system == "linux":
+        if machine in {"x86_64", "amd64"}:
+            suffix = "Linux-64bit"
+        elif machine in {"aarch64", "arm64"}:
+            suffix = "Linux-ARM64"
+        else:
+            raise ValueError(f"Unsupported Linux architecture: {machine}")
+    elif system == "darwin":
+        if machine in {"x86_64", "amd64"}:
+            suffix = "macOS-64bit"
+        elif machine in {"arm64", "aarch64"}:
+            suffix = "macOS-ARM64"
+        else:
+            raise ValueError(f"Unsupported macOS architecture: {machine}")
+    else:
+        raise ValueError(f"Unsupported platform: {system}")
+    return f"trivy_{version}_{suffix}.tar.gz"
+
+
+def cmd_trivy_install(args: argparse.Namespace) -> int:
+    version = args.version.lstrip("v")
+    try:
+        tar_name = _trivy_asset_name(version)
+    except ValueError as exc:
+        print(f"Failed to resolve trivy asset: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
+
+    url = f"https://github.com/aquasecurity/trivy/releases/download/v{version}/{tar_name}"
+    dest_dir = Path(args.dest).resolve()
+    tar_path = dest_dir / tar_name
+
+    try:
+        _download_file(url, tar_path)
+    except OSError as exc:
+        print(f"Failed to download trivy: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
+
+    try:
+        bin_path = _extract_tarball_member(tar_path, "trivy", dest_dir)
+    except (OSError, tarfile.TarError, KeyError) as exc:
+        print(f"Failed to extract trivy: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
+    finally:
+        try:
+            tar_path.unlink()
+        except OSError:
+            pass
+
+    if args.github_path:
+        _append_github_path(dest_dir)
+
+    output_path = _resolve_output_path(args.output, args.github_output)
+    _write_outputs({"path": str(bin_path)}, output_path)
+    print(f"trivy installed at {bin_path}")
     return EXIT_SUCCESS
 
 
@@ -1848,6 +1917,7 @@ def cmd_hub_ci(args: argparse.Namespace) -> int:
         "docker-compose-check": cmd_docker_compose_check,
         "codeql-build": cmd_codeql_build,
         "kyverno-install": cmd_kyverno_install,
+        "trivy-install": cmd_trivy_install,
         "kyverno-validate": cmd_kyverno_validate,
         "kyverno-test": cmd_kyverno_test,
         "smoke-java-build": cmd_smoke_java_build,

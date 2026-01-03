@@ -269,9 +269,6 @@ jobs:
       contents: read
     env:
       PYTHON_VERSION: '3.12'
-      CIHUB_BANDIT_FAIL_HIGH: ${{ needs.hub-ci-config.outputs.bandit_fail_high }}
-      CIHUB_BANDIT_FAIL_MEDIUM: ${{ needs.hub-ci-config.outputs.bandit_fail_medium }}
-      CIHUB_BANDIT_FAIL_LOW: ${{ needs.hub-ci-config.outputs.bandit_fail_low }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
@@ -302,6 +299,9 @@ jobs:
       contents: read
     env:
       PYTHON_VERSION: '3.12'
+      CIHUB_BANDIT_FAIL_HIGH: ${{ needs.hub-ci-config.outputs.bandit_fail_high }}
+      CIHUB_BANDIT_FAIL_MEDIUM: ${{ needs.hub-ci-config.outputs.bandit_fail_medium }}
+      CIHUB_BANDIT_FAIL_LOW: ${{ needs.hub-ci-config.outputs.bandit_fail_low }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
