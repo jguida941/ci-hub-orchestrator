@@ -17,19 +17,23 @@ def cmd_detect(args: argparse.Namespace) -> int | CommandResult:
     try:
         language, reasons = resolve_language(repo_path, args.language)
     except ValueError as exc:
+        error_result = CommandResult(
+            exit_code=EXIT_FAILURE,
+            summary=str(exc),
+            problems=[
+                {
+                    "severity": "error",
+                    "message": str(exc),
+                    "code": "CIHUB-DETECT-001",
+                }
+            ],
+        )
         if json_mode:
-            return CommandResult(
-                exit_code=EXIT_FAILURE,
-                summary=str(exc),
-                problems=[
-                    {
-                        "severity": "error",
-                        "message": str(exc),
-                        "code": "CIHUB-DETECT-001",
-                    }
-                ],
-            )
-        raise
+            return error_result
+        # Print user-friendly error to stderr and return exit code
+        import sys
+        print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
     payload: dict[str, Any] = {"language": language}
     if args.explain:
         payload["reasons"] = reasons

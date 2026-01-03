@@ -1,0 +1,193 @@
+# serializer version: 1
+# name: TestConfigOutputSnapshots.test_discover_matrix_structure
+  dict({
+    'raw_output_lines': 1013,
+  })
+# ---
+# name: TestErrorOutputSnapshots.test_detect_error_message
+  dict({
+    'mentions_language': True,
+    'starts_with_error': True,
+  })
+# ---
+# name: TestErrorOutputSnapshots.test_validate_json_error_structure
+  dict({
+    'has_exit_code': True,
+    'has_problems': True,
+    'has_status': True,
+    'status_value': 'failure',
+  })
+# ---
+# name: TestHelpSnapshots.test_detect_help_snapshot
+  list([
+    'usage: cihub detect [-h] [--json] --repo REPO [--language {java,python}]',
+    '[--explain]',
+    'options:',
+    '-h, --help            show this help message and exit',
+    '--json                Output machine-readable JSON',
+    '--repo REPO           Path to repo',
+    '--language {java,python}',
+    'Override detection',
+    '--explain             Show detection reasons',
+  ])
+# ---
+# name: TestHelpSnapshots.test_init_help_snapshot
+  list([
+    'usage: cihub init [-h] [--json] --repo REPO [--language {java,python}]',
+    '[--owner OWNER] [--name NAME] [--branch BRANCH]',
+    '[--subdir SUBDIR] [--workdir SUBDIR] [--fix-pom] [--apply]',
+    '[--force] [--wizard] [--dry-run]',
+    'options:',
+    '-h, --help            show this help message and exit',
+    '--json                Output machine-readable JSON',
+    '--repo REPO           Path to repo',
+    '--language {java,python}',
+    'Override detection',
+    '--owner OWNER         Repo owner (GitHub user/org)',
+    '--name NAME           Repo name',
+    '--branch BRANCH       Default branch (e.g., main)',
+    '--subdir SUBDIR       Subdirectory for monorepos (repo.subdir)',
+    '--workdir SUBDIR      Alias for --subdir',
+    '--fix-pom             Fix pom.xml for Java repos (adds missing',
+    'plugins/dependencies)',
+    '--apply               Write files (default: dry-run)',
+    '--force               Override repo_side_execution guardrails',
+    '--wizard              Run interactive wizard (requires cihub[wizard])',
+    '--dry-run             Print output instead of writing',
+  ])
+# ---
+# name: TestHelpSnapshots.test_main_help_snapshot
+  list([
+    'usage: cihub [-h] [--version]',
+    '{detect,preflight,doctor,scaffold,smoke,smoke-validate,check,verify,ci,run,report,docs,adr,config-outputs,discover,dispatch,hub-ci,new,init,update,validate,setup-secrets,setup-nvd,fix-pom,fix-deps,sync-templates,config}',
+    '...',
+    'CI/CD Hub CLI',
+    'positional arguments:',
+    '{detect,preflight,doctor,scaffold,smoke,smoke-validate,check,verify,ci,run,report,docs,adr,config-outputs,discover,dispatch,hub-ci,new,init,update,validate,setup-secrets,setup-nvd,fix-pom,fix-deps,sync-templates,config}',
+    'detect              Detect repo language and tools',
+    'preflight           Check environment readiness',
+    'doctor              Alias for preflight',
+    'scaffold            Generate a minimal fixture project',
+    'smoke               Run a local smoke test',
+    'smoke-validate      Validate smoke test setup/results',
+    'check               Run local validation checks',
+    'verify              Verify workflow/template contracts',
+    'ci                  Run CI based on .ci-hub.yml',
+    'run                 Run one tool and emit JSON output',
+    'report              Build reports and summaries',
+    'docs                Generate reference documentation',
+    'adr                 Manage Architecture Decision Records',
+    'config-outputs      Emit config outputs for GitHub Actions',
+    'discover            Generate repo matrix for hub-run-all.yml',
+    'dispatch            Workflow dispatch helpers for hub orchestration',
+    'hub-ci              Hub production CI helpers',
+    'new                 Create hub-side repo config',
+    'init                Generate .ci-hub.yml and hub-ci.yml',
+    'update              Refresh hub-ci.yml and .ci-hub.yml',
+    'validate            Validate .ci-hub.yml against schema',
+    'setup-secrets       Set HUB_DISPATCH_TOKEN on hub and connected repos',
+    'setup-nvd           Set NVD_API_KEY on Java repos for OWASP Dependency',
+    'Check',
+    'fix-pom             Add missing Maven plugins/dependencies to pom.xml for',
+    'Java repos',
+    'fix-deps            Add missing Maven dependencies for Java repos',
+    'sync-templates      Sync caller workflow templates to dispatch-enabled',
+    'repos',
+    'config              Manage hub-side repo configs (config/repos/*.yaml)',
+    'options:',
+    '-h, --help            show this help message and exit',
+    "--version             show program's version number and exit",
+  ])
+# ---
+# name: TestHelpSnapshots.test_report_help_snapshot
+  list([
+    'usage: cihub report [-h] [--json]',
+    '{build,summary,outputs,aggregate,validate,dashboard,security-summary,smoke-summary,kyverno-summary,orchestrator-summary}',
+    '...',
+    'positional arguments:',
+    '{build,summary,outputs,aggregate,validate,dashboard,security-summary,smoke-summary,kyverno-summary,orchestrator-summary}',
+    'build               Build report.json from tool outputs',
+    'summary             Render summary from report.json',
+    'outputs             Write workflow outputs from report.json',
+    'aggregate           Aggregate hub reports across repos',
+    'validate            Validate report.json structure and content',
+    'dashboard           Generate HTML or JSON dashboard from aggregated',
+    'reports',
+    'security-summary    Render hub security summaries',
+    'smoke-summary       Render smoke test summaries',
+    'kyverno-summary     Render Kyverno summaries',
+    'orchestrator-summary',
+    'Render orchestrator summaries',
+    'options:',
+    '-h, --help            show this help message and exit',
+    '--json                Output machine-readable JSON',
+  ])
+# ---
+# name: TestJsonOutputSnapshots.test_detect_json_structure
+  dict({
+    'data_keys': list([
+      'language',
+    ]),
+    'top_keys': list([
+      'artifacts',
+      'command',
+      'data',
+      'duration_ms',
+      'exit_code',
+      'files_generated',
+      'files_modified',
+      'problems',
+      'status',
+      'suggestions',
+      'summary',
+    ]),
+  })
+# ---
+# name: TestJsonOutputSnapshots.test_init_json_structure
+  dict({
+    'has_artifacts': True,
+    'has_files_generated': True,
+    'top_keys': list([
+      'artifacts',
+      'command',
+      'data',
+      'duration_ms',
+      'exit_code',
+      'files_generated',
+      'files_modified',
+      'problems',
+      'status',
+      'suggestions',
+      'summary',
+    ]),
+  })
+# ---
+# name: TestReportSchemaSnapshots.test_report_schema_fields
+  dict({
+    'required_keys': list([
+      'branch',
+      'python_version',
+      'repository',
+      'results',
+      'schema_version',
+      'tool_metrics',
+      'tools_configured',
+      'tools_ran',
+      'tools_success',
+    ]),
+    'results_keys': list([
+      'coverage',
+      'tests_failed',
+      'tests_passed',
+    ]),
+  })
+# ---
+# name: TestScaffoldOutputSnapshots.test_scaffold_list_output
+  list([
+    'python-pyproject: Minimal Python project with pyproject.toml',
+    'python-setup: Minimal Python project with setup.py',
+    'java-maven: Minimal Java project using Maven',
+    'java-gradle: Minimal Java project using Gradle',
+    'monorepo: Monorepo with java/ and python/ subdirs',
+  ])
+# ---

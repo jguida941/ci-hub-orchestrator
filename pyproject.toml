@@ -21,6 +21,8 @@ dev = [
     # Testing
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "pytest-benchmark>=5.0.0",
+    "syrupy>=5.0.0",
     "mutmut>=2.4.0",
     # Linting & Formatting
     "ruff>=0.8.0",

@@ -2588,6 +2588,29 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         result = args.func(args)
+    except (FileNotFoundError, ValueError, PermissionError, OSError) as exc:
+        # Expected user errors - show friendly message, return failure
+        if getattr(args, "json", False):
+            problems = [
+                {
+                    "severity": "error",
+                    "message": str(exc),
+                    "code": "CIHUB-USER-ERROR",
+                }
+            ]
+            payload = CommandResult(
+                exit_code=EXIT_FAILURE,
+                summary=str(exc),
+                problems=problems,
+            ).to_payload(
+                command,
+                "failure",
+                int((time.perf_counter() - start) * 1000),
+            )
+            print(json.dumps(payload, indent=2))
+        else:
+            print(f"Error: {exc}", file=sys.stderr)
+        return EXIT_FAILURE
     except Exception as exc:  # noqa: BLE001 - surface in JSON mode
         if getattr(args, "json", False):
             problems = [
