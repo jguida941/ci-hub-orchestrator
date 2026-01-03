@@ -10,14 +10,21 @@ import pytest
 
 from cihub.services.ci_engine import (
     _apply_force_all_tools,
+    _build_context,
     _collect_codecov_files,
     _detect_java_project_type,
+    _evaluate_java_gates,
+    _evaluate_python_gates,
     _get_env_name,
     _get_env_value,
     _get_repo_name,
+    _install_python_dependencies,
     _notify,
     _resolve_workdir,
     _run_codecov_upload,
+    _run_dep_command,
+    _run_java_tools,
+    _run_python_tools,
     _send_email,
     _send_slack,
     _set_tool_enabled,
@@ -488,3 +495,316 @@ class TestNotify:
             _notify(False, config, report, problems, env)
         # Email was sent via SMTP
         mock_smtp.assert_called_once()
+
+
+class TestRunDepCommand:
+    """Tests for _run_dep_command function."""
+
+    def test_success_returns_true(self, tmp_path: Path) -> None:
+        problems: list = []
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        with patch("subprocess.run", return_value=mock_proc):
+            result = _run_dep_command(["echo", "hello"], tmp_path, "test", problems)
+        assert result is True
+        assert len(problems) == 0
+
+    def test_failure_returns_false_and_adds_problem(self, tmp_path: Path) -> None:
+        problems: list = []
+        mock_proc = MagicMock()
+        mock_proc.returncode = 1
+        mock_proc.stderr = "error occurred"
+        mock_proc.stdout = ""
+        with patch("subprocess.run", return_value=mock_proc):
+            result = _run_dep_command(["false"], tmp_path, "test cmd", problems)
+        assert result is False
+        assert len(problems) == 1
+        assert "test cmd failed" in problems[0]["message"]
+
+
+class TestInstallPythonDependencies:
+    """Tests for _install_python_dependencies function."""
+
+    def test_skips_when_install_disabled(self, tmp_path: Path) -> None:
+        config = {"python": {"dependencies": {"install": False}}}
+        problems: list = []
+        _install_python_dependencies(config, tmp_path, problems)
+        assert len(problems) == 0
+
+    def test_runs_custom_commands(self, tmp_path: Path) -> None:
+        config = {"python": {"dependencies": {"commands": ["pip install pytest"]}}}
+        problems: list = []
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        with patch("subprocess.run", return_value=mock_proc):
+            _install_python_dependencies(config, tmp_path, problems)
+        assert len(problems) == 0
+
+    def test_installs_requirements_txt(self, tmp_path: Path) -> None:
+        (tmp_path / "requirements.txt").write_text("pytest\n")
+        config: dict = {}
+        problems: list = []
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        with patch("subprocess.run", return_value=mock_proc) as mock_run:
+            _install_python_dependencies(config, tmp_path, problems)
+        # Should have called pip install -r requirements.txt
+        assert mock_run.called
+
+    def test_installs_pyproject_toml(self, tmp_path: Path) -> None:
+        (tmp_path / "pyproject.toml").write_text("[project]\nname = 'test'\n")
+        config: dict = {}
+        problems: list = []
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        with patch("subprocess.run", return_value=mock_proc) as mock_run:
+            _install_python_dependencies(config, tmp_path, problems)
+        assert mock_run.called
+
+
+class TestRunPythonTools:
+    """Tests for _run_python_tools function."""
+
+    def test_runs_enabled_tools(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import ToolResult
+
+        workdir = tmp_path / "repo"
+        workdir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        config = {
+            "python": {
+                "tools": {"ruff": {"enabled": True}}
+            }
+        }
+        problems: list = []
+
+        mock_result = ToolResult(tool="ruff", ran=True, success=True, metrics={"ruff_errors": 0})
+        with patch("cihub.services.ci_engine.run_ruff", return_value=mock_result):
+            outputs, ran, success = _run_python_tools(config, tmp_path, "repo", output_dir, problems)
+
+        assert ran.get("ruff") is True
+        assert success.get("ruff") is True
+
+    def test_warns_for_unsupported_tool(self, tmp_path: Path) -> None:
+        workdir = tmp_path / "repo"
+        workdir.mkdir()
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        config = {
+            "python": {
+                "tools": {"codeql": {"enabled": True}}  # codeql has no runner
+            }
+        }
+        problems: list = []
+
+        _run_python_tools(config, tmp_path, "repo", output_dir, problems)
+
+        # Should have warned about unsupported tool
+        unsupported_warnings = [p for p in problems if "not supported" in p["message"]]
+        assert len(unsupported_warnings) == 1
+
+    def test_raises_for_missing_workdir(self, tmp_path: Path) -> None:
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        config: dict = {}
+        problems: list = []
+
+        with pytest.raises(FileNotFoundError):
+            _run_python_tools(config, tmp_path, "nonexistent", output_dir, problems)
+
+
+class TestRunJavaTools:
+    """Tests for _run_java_tools function."""
+
+    def test_runs_java_build(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import ToolResult
+
+        workdir = tmp_path / "repo"
+        workdir.mkdir()
+        (workdir / "pom.xml").write_text("<project/>")
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        config = {
+            "java": {"tools": {"jacoco": {"enabled": False}}}
+        }
+        problems: list = []
+
+        mock_build = ToolResult(tool="build", ran=True, success=True, metrics={})
+        with patch("cihub.services.ci_engine.run_java_build", return_value=mock_build):
+            outputs, ran, success = _run_java_tools(config, tmp_path, "repo", output_dir, "maven", problems)
+
+        assert "build" in outputs
+
+    def test_raises_for_missing_workdir(self, tmp_path: Path) -> None:
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        config: dict = {}
+        problems: list = []
+
+        with pytest.raises(FileNotFoundError):
+            _run_java_tools(config, tmp_path, "nonexistent", output_dir, "maven", problems)
+
+
+class TestBuildContext:
+    """Tests for _build_context function."""
+
+    def test_builds_context_from_config(self, tmp_path: Path) -> None:
+        # default_branch from config is used when GITHUB_REF_NAME is not set
+        config = {
+            "repo": {"owner": "myorg", "name": "myrepo", "default_branch": "main"}
+        }
+        with patch.dict(os.environ, {}, clear=True):
+            with patch("cihub.services.ci_engine.get_git_branch", return_value="develop"):
+                ctx = _build_context(tmp_path, config, ".", None)
+
+        # Config default_branch takes precedence over git_branch when no env var
+        assert ctx.branch == "main"
+        assert ctx.workdir == "."
+
+    def test_uses_github_env_vars(self, tmp_path: Path) -> None:
+        config: dict = {}
+        env = {
+            "GITHUB_REPOSITORY": "org/repo",
+            "GITHUB_REF_NAME": "feature-branch",
+            "GITHUB_RUN_ID": "12345",
+            "GITHUB_SHA": "abc123",
+        }
+        with patch.dict(os.environ, env, clear=True):
+            ctx = _build_context(tmp_path, config, "src", "corr-123")
+
+        assert ctx.branch == "feature-branch"
+        assert ctx.run_id == "12345"
+        assert ctx.commit == "abc123"
+        assert ctx.correlation_id == "corr-123"
+
+
+class TestEvaluatePythonGates:
+    """Tests for _evaluate_python_gates function."""
+
+    def test_detects_test_failures(self) -> None:
+        report = {"results": {"tests_failed": 5}}
+        thresholds: dict = {}
+        tools_configured = {"pytest": True}
+        config: dict = {}
+
+        failures = _evaluate_python_gates(report, thresholds, tools_configured, config)
+
+        assert "pytest failures detected" in failures
+
+    def test_detects_coverage_below_threshold(self) -> None:
+        report = {"results": {"coverage": 60}}
+        thresholds = {"coverage_min": 80}
+        tools_configured = {"pytest": True}
+        config: dict = {}
+
+        failures = _evaluate_python_gates(report, thresholds, tools_configured, config)
+
+        assert any("coverage 60%" in f for f in failures)
+
+    def test_detects_mutation_score_below_threshold(self) -> None:
+        report = {"results": {"mutation_score": 50}}
+        thresholds = {"mutation_score_min": 70}
+        tools_configured = {"mutmut": True}
+        config: dict = {}
+
+        failures = _evaluate_python_gates(report, thresholds, tools_configured, config)
+
+        assert any("mutation score 50%" in f for f in failures)
+
+    def test_detects_ruff_errors(self) -> None:
+        report = {"tool_metrics": {"ruff_errors": 10}}
+        thresholds = {"max_ruff_errors": 0}
+        tools_configured = {"ruff": True}
+        config = {"python": {"tools": {"ruff": {"fail_on_error": True}}}}
+
+        failures = _evaluate_python_gates(report, thresholds, tools_configured, config)
+
+        assert any("ruff errors" in f for f in failures)
+
+    def test_detects_bandit_high_vulns(self) -> None:
+        report = {"tool_metrics": {"bandit_high": 3}}
+        thresholds = {"max_high_vulns": 0}
+        tools_configured = {"bandit": True}
+        config = {"python": {"tools": {"bandit": {"fail_on_high": True}}}}
+
+        failures = _evaluate_python_gates(report, thresholds, tools_configured, config)
+
+        assert any("bandit high" in f for f in failures)
+
+    def test_no_failures_when_all_pass(self) -> None:
+        report = {"results": {"coverage": 90, "tests_failed": 0}, "tool_metrics": {"ruff_errors": 0}}
+        thresholds = {"coverage_min": 80}
+        tools_configured = {"pytest": True, "ruff": True}
+        config: dict = {}
+
+        failures = _evaluate_python_gates(report, thresholds, tools_configured, config)
+
+        assert len(failures) == 0
+
+
+class TestEvaluateJavaGates:
+    """Tests for _evaluate_java_gates function."""
+
+    def test_detects_test_failures(self) -> None:
+        report = {"results": {"tests_failed": 2}}
+        thresholds: dict = {}
+        tools_configured: dict = {}
+        config: dict = {}
+
+        failures = _evaluate_java_gates(report, thresholds, tools_configured, config)
+
+        assert "test failures detected" in failures
+
+    def test_detects_coverage_below_threshold(self) -> None:
+        report = {"results": {"coverage": 50}}
+        thresholds = {"coverage_min": 70}
+        tools_configured = {"jacoco": True}
+        config: dict = {}
+
+        failures = _evaluate_java_gates(report, thresholds, tools_configured, config)
+
+        assert any("coverage 50%" in f for f in failures)
+
+    def test_detects_checkstyle_issues(self) -> None:
+        report = {"tool_metrics": {"checkstyle_issues": 15}}
+        thresholds = {"max_checkstyle_errors": 0}
+        tools_configured = {"checkstyle": True}
+        config = {"java": {"tools": {"checkstyle": {"fail_on_violation": True}}}}
+
+        failures = _evaluate_java_gates(report, thresholds, tools_configured, config)
+
+        assert any("checkstyle issues" in f for f in failures)
+
+    def test_detects_spotbugs_issues(self) -> None:
+        report = {"tool_metrics": {"spotbugs_issues": 5}}
+        thresholds = {"max_spotbugs_bugs": 0}
+        tools_configured = {"spotbugs": True}
+        config = {"java": {"tools": {"spotbugs": {"fail_on_error": True}}}}
+
+        failures = _evaluate_java_gates(report, thresholds, tools_configured, config)
+
+        assert any("spotbugs issues" in f for f in failures)
+
+    def test_detects_owasp_vulns(self) -> None:
+        report = {"tool_metrics": {"owasp_critical": 1, "owasp_high": 2}}
+        thresholds = {"max_critical_vulns": 0, "max_high_vulns": 0}
+        tools_configured = {"owasp": True}
+        config: dict = {}
+
+        failures = _evaluate_java_gates(report, thresholds, tools_configured, config)
+
+        assert any("owasp critical/high" in f for f in failures)
+
+    def test_no_failures_when_all_pass(self) -> None:
+        report = {"results": {"coverage": 85, "tests_failed": 0}, "tool_metrics": {}}
+        thresholds = {"coverage_min": 70}
+        tools_configured = {"jacoco": True}
+        config: dict = {}
+
+        failures = _evaluate_java_gates(report, thresholds, tools_configured, config)
+
+        assert len(failures) == 0
