@@ -4,14 +4,12 @@ import argparse
 import base64
 import json
 import re
-import shutil
 import subprocess
 import sys
 import textwrap
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -23,8 +21,20 @@ from cihub.config.io import load_yaml_file
 from cihub.config.merge import deep_merge
 from cihub.config.normalize import normalize_config
 from cihub.exit_codes import EXIT_FAILURE, EXIT_INTERNAL_ERROR, EXIT_SUCCESS
-
-GIT_REMOTE_RE = re.compile(r"(?:github\.com[:/])(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$")
+from cihub.types import CommandResult  # noqa: E402 - re-export for compatibility
+from cihub.utils import (  # noqa: E402 - re-exports for compatibility
+    GIT_REMOTE_RE,
+    fetch_remote_file,
+    get_git_branch,
+    get_git_remote,
+    gh_api_json,
+    hub_root,
+    parse_repo_from_remote,
+    resolve_executable,
+    update_remote_file,
+    validate_repo_path,
+    validate_subdir,
+)
 
 JAVA_TOOL_PLUGINS = {
     "jacoco": ("org.jacoco", "jacoco-maven-plugin"),
@@ -40,39 +50,8 @@ JAVA_TOOL_DEPENDENCIES = {
 }
 
 
-@dataclass
-class CommandResult:
-    """Structured command result for JSON output."""
-
-    exit_code: int = 0
-    summary: str = ""
-    problems: list[dict[str, Any]] = field(default_factory=list)
-    suggestions: list[dict[str, Any]] = field(default_factory=list)
-    files_generated: list[str] = field(default_factory=list)
-    files_modified: list[str] = field(default_factory=list)
-    artifacts: dict[str, Any] = field(default_factory=dict)
-    data: dict[str, Any] = field(default_factory=dict)
-
-    def to_payload(self, command: str, status: str, duration_ms: int) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "command": command,
-            "status": status,
-            "exit_code": self.exit_code,
-            "duration_ms": duration_ms,
-            "summary": self.summary,
-            "artifacts": self.artifacts,
-            "problems": self.problems,
-            "suggestions": self.suggestions,
-            "files_generated": self.files_generated,
-            "files_modified": self.files_modified,
-        }
-        if self.data:
-            payload["data"] = self.data
-        return payload
-
-
-def hub_root() -> Path:
-    return Path(__file__).resolve().parents[1]
+# CommandResult imported from cihub.types (re-exported for backward compatibility)
+# hub_root imported from cihub.utils (re-exported for backward compatibility)
 
 
 def write_text(path: Path, content: str, dry_run: bool, emit: bool = True) -> None:
@@ -166,61 +145,9 @@ def elem_text(elem: ET.Element | None) -> str:
     return text.strip()
 
 
-def resolve_executable(name: str) -> str:
-    return shutil.which(name) or name
-
-
-def validate_repo_path(repo_path: Path) -> Path:
-    """Validate and canonicalize a repository path.
-
-    Prevents path traversal attacks and ensures the path is a valid directory.
-
-    Args:
-        repo_path: The path to validate.
-
-    Returns:
-        The canonicalized path.
-
-    Raises:
-        ValueError: If the path is invalid or not a directory.
-    """
-    # Resolve to absolute path (handles symlinks)
-    resolved = repo_path.resolve()
-
-    # Ensure it's a directory
-    if not resolved.is_dir():
-        raise ValueError(f"Repository path is not a valid directory: {repo_path}")
-
-    return resolved
-
-
-def validate_subdir(subdir: str) -> str:
-    """Validate a subdirectory path to prevent path traversal.
-
-    Args:
-        subdir: The subdirectory path to validate.
-
-    Returns:
-        The validated subdirectory path.
-
-    Raises:
-        ValueError: If the path contains traversal sequences.
-    """
-    if not subdir:
-        return subdir
-
-    # Normalize the path
-    normalized = Path(subdir).as_posix()
-
-    # Check for path traversal attempts
-    if ".." in normalized.split("/"):
-        raise ValueError(f"Invalid subdirectory (path traversal detected): {subdir}")
-
-    # Ensure it's a relative path
-    if normalized.startswith("/"):
-        raise ValueError(f"Subdirectory must be a relative path: {subdir}")
-
-    return subdir
+# resolve_executable imported from cihub.utils (re-exported for backward compatibility)
+# validate_repo_path imported from cihub.utils (re-exported for backward compatibility)
+# validate_subdir imported from cihub.utils (re-exported for backward compatibility)
 
 
 def parse_xml_text(text: str) -> ET.Element:
@@ -570,48 +497,9 @@ def insert_dependencies_into_pom(pom_text: str, dependency_block: str) -> tuple[
     return pom_text[:project_close] + deps_block + pom_text[project_close:], True
 
 
-def parse_repo_from_remote(url: str) -> tuple[str | None, str | None]:
-    match = GIT_REMOTE_RE.search(url)
-    if not match:
-        return None, None
-    return match.group("owner"), match.group("repo")
-
-
-def get_git_remote(repo_path: Path) -> str | None:
-    try:
-        # Validate repo path to prevent path traversal
-        validated_path = validate_repo_path(repo_path)
-        git_bin = resolve_executable("git")
-        output = subprocess.check_output(  # noqa: S603
-            [
-                git_bin,
-                "-C",
-                str(validated_path),
-                "config",
-                "--get",
-                "remote.origin.url",
-            ],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )  # noqa: S603
-        return output.strip() or None
-    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
-        return None
-
-
-def get_git_branch(repo_path: Path) -> str | None:
-    try:
-        # Validate repo path to prevent path traversal
-        validated_path = validate_repo_path(repo_path)
-        git_bin = resolve_executable("git")
-        output = subprocess.check_output(  # noqa: S603
-            [git_bin, "-C", str(validated_path), "symbolic-ref", "--short", "HEAD"],
-            stderr=subprocess.DEVNULL,
-            text=True,
-        )  # noqa: S603
-        return output.strip() or None
-    except (subprocess.CalledProcessError, FileNotFoundError, ValueError):
-        return None
+# parse_repo_from_remote imported from cihub.utils (re-exported for backward compatibility)
+# get_git_remote imported from cihub.utils (re-exported for backward compatibility)
+# get_git_branch imported from cihub.utils (re-exported for backward compatibility)
 
 
 def build_repo_config(
@@ -976,64 +864,9 @@ def render_dispatch_workflow(language: str, dispatch_workflow: str) -> str:
     raise ValueError(f"Unsupported dispatch_workflow: {dispatch_workflow}")
 
 
-def gh_api_json(path: str, method: str = "GET", payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    gh_bin = resolve_executable("gh")
-    cmd = [gh_bin, "api"]
-    if method != "GET":
-        cmd += ["-X", method]
-    cmd.append(path)
-    input_data = None
-    if payload is not None:
-        cmd += ["--input", "-"]
-        input_data = json.dumps(payload)
-    result = subprocess.run(  # noqa: S603
-        cmd,
-        input=input_data,
-        capture_output=True,
-        text=True,
-    )  # noqa: S603
-    if result.returncode != 0:
-        msg = result.stderr.strip() or result.stdout.strip()
-        raise RuntimeError(msg or "gh api failed")
-    if not result.stdout.strip():
-        return {}
-    data = json.loads(result.stdout)
-    if not isinstance(data, dict):
-        raise RuntimeError("gh api returned non-object JSON")
-    return data
-
-
-def fetch_remote_file(repo: str, path: str, branch: str) -> dict[str, str] | None:
-    api_path = f"/repos/{repo}/contents/{path}?ref={branch}"
-    try:
-        data = gh_api_json(api_path)
-    except RuntimeError as exc:
-        msg = str(exc)
-        if "Not Found" in msg or "404" in msg:
-            return None
-        raise
-    if "content" not in data or "sha" not in data:
-        return None
-    content = base64.b64decode(data["content"]).decode("utf-8")
-    return {"sha": data["sha"], "content": content}
-
-
-def update_remote_file(
-    repo: str,
-    path: str,
-    branch: str,
-    content: str,
-    message: str,
-    sha: str | None = None,
-) -> None:
-    payload: dict[str, Any] = {
-        "message": message,
-        "content": base64.b64encode(content.encode("utf-8")).decode("utf-8"),
-        "branch": branch,
-    }
-    if sha:
-        payload["sha"] = sha
-    gh_api_json(f"/repos/{repo}/contents/{path}", method="PUT", payload=payload)
+# gh_api_json imported from cihub.utils (re-exported for backward compatibility)
+# fetch_remote_file imported from cihub.utils (re-exported for backward compatibility)
+# update_remote_file imported from cihub.utils (re-exported for backward compatibility)
 
 
 def delete_remote_file(
