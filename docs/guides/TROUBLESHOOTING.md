@@ -414,14 +414,14 @@ exclude_dirs = tests,docs
        docker:
          compose_file: docker-compose.yml
    ```
-2. Increase timeout:
+3. Increase timeout:
    ```yaml
    java:
      tools:
        docker:
          health_timeout: 600  # 10 minutes
    ```
-3. Disable Docker if not needed:
+4. Disable Docker if not needed:
    ```yaml
    java:
      tools:
