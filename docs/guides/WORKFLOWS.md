@@ -229,7 +229,7 @@ See [CONFIG.md](../reference/CONFIG.md) for the full config field list, and `.gi
 - Environment: `java_version`, `build_tool`, `workdir`, `artifact_prefix`, `retention_days`
 - Tool flags: `run_*` (jacoco, checkstyle, spotbugs, owasp, pitest, jqwik, pmd, semgrep, trivy, codeql, docker)
 - Thresholds: `coverage_min`, `mutation_score_min`, `owasp_cvss_fail`, `trivy_cvss_fail`, `max_*` (vulns, checkstyle errors, spotbugs bugs, pmd violations, semgrep findings)
-- Docker: `run_docker`, `docker_compose_file`, `docker_health_endpoint`
+- Docker: `run_docker` (compose/health settings come from `java.tools.docker` in `.ci-hub.yml`)
 
 ### Outputs and Artifacts
 - Artifacts: test reports, coverage reports, and tool-specific outputs
@@ -238,8 +238,8 @@ See [CONFIG.md](../reference/CONFIG.md) for the full config field list, and `.gi
 ### Notes
 - Some tools require Maven or Gradle plugins configured in the repo (especially JaCoCo and PITest)
 - **CodeQL**: `run_codeql` runs `github/codeql-action` (SARIF upload enabled), and `cihub ci` records CodeQL status for summaries.
-- **Docker testing**: `run_docker` uses `docker-compose.yml` (or `compose_file`) plus an optional `health_endpoint`; ensure the compose file exists. Inputs are available in the reusable workflow but removed from caller templates (GitHub's 25 input limit). Separate `hub-*-docker.yml` templates planned for Docker integration testing.
-- **Gates**: `codeql.fail_on_error` and `docker.fail_on_error` control whether failures hard-stop the run.
+- **Docker testing**: `run_docker` uses `docker-compose.yml` (or `compose_file`) plus an optional `health_endpoint`; ensure the compose file exists. Separate `hub-*-docker.yml` templates are planned for Docker integration testing.
+- **Gates**: `codeql.fail_on_error` and `docker.fail_on_error` control whether failures hard-stop the run. Use `docker.fail_on_missing_compose` to decide whether a missing compose file fails or is just a warning.
 
 ---
 
@@ -267,7 +267,7 @@ See [CONFIG.md](../reference/CONFIG.md) for the full config field list, and `.gi
 - The workflow installs dependencies from `requirements.txt`, `requirements-dev.txt`, and `pyproject.toml` if present
 - **CodeQL**: `run_codeql` runs `github/codeql-action` (SARIF upload enabled), and `cihub ci` records CodeQL status for summaries.
 - **Docker testing**: `run_docker` uses `docker-compose.yml` (or `compose_file`) plus an optional `health_endpoint`; ensure the compose file exists.
-- **Gates**: `codeql.fail_on_error` and `docker.fail_on_error` control whether failures hard-stop the run.
+- **Gates**: `codeql.fail_on_error` and `docker.fail_on_error` control whether failures hard-stop the run. Use `docker.fail_on_missing_compose` to decide whether a missing compose file fails or is just a warning.
 
 ---
 

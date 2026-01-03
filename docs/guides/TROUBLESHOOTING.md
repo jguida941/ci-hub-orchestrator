@@ -369,12 +369,14 @@ exclude_dirs = tests,docs
 
 **Symptom:** `hub-report.json` missing coverage/mutation for some repos.
 
-**Cause:** Artifact not found or download failed.
+**Cause:** Artifact not found or download failed (often missing token scope).
 
 **Fix:**
-1. Check target workflow uploaded `ci-report` artifact
-2. Verify artifact naming matches expected pattern
-3. Check target workflow completed successfully
+1. Ensure `HUB_DISPATCH_TOKEN` has `actions:read` on target repos (cross-repo artifact access)
+2. Check target workflow uploaded `ci-report` artifact (step runs `if: always()` in the reusable workflow)
+3. Verify artifact naming matches expected pattern (ends with `ci-report`)
+4. Confirm target repo uses the latest workflow tag (stale templates can omit uploads)
+5. If the summary shows `MISSING`, the aggregator could not fetch the report artifact
 
 ---
 

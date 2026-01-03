@@ -239,7 +239,7 @@ Tools gracefully skip when preconditions aren't met:
 
 - `run_codeql` now runs `github/codeql-action` in reusable workflows; `cihub ci` records CodeQL status for summaries.
 - `run_docker` runs Docker Compose via `cihub ci` (uses `compose_file` + optional `health_endpoint`).
-- Added `codeql.fail_on_error` and `docker.fail_on_error` gates to control hard-fail behavior.
+- Added `codeql.fail_on_error`, `docker.fail_on_error`, and `docker.fail_on_missing_compose` gates to control hard-fail behavior.
 
 ### 6. Java Maven Plugin Execution
 

@@ -16,13 +16,16 @@ All notable changes to this project will be documented in this file.
 - Added hub CI bandit gate toggles (`hub_ci.tools.bandit_fail_high/medium/low`).
 - Documented normalize-only config pipeline for workflow input generation.
 - Added Python docker config fields (`compose_file`, `health_endpoint`, `health_timeout`) for parity with Java.
-- Added `codeql.fail_on_error` and `docker.fail_on_error` gates for strict failure control.
+- Added `codeql.fail_on_error`, `docker.fail_on_error`, and `docker.fail_on_missing_compose` gates for strict failure control.
 
 ### Workflows
 - Added `trivy_cvss_fail` input to `python-ci.yml` and passthrough from `hub-ci.yml`.
 - Install Trivy in `python-ci.yml`/`java-ci.yml` when `run_trivy` is enabled.
 - Wired hub CI bandit severity env toggles into `hub-production-ci.yml`.
 - Run CodeQL in `python-ci.yml`/`java-ci.yml` when `run_codeql` is enabled (SARIF upload via CodeQL action).
+ 
+### Aggregation
+- Mark missing report artifacts as `missing_report` so summaries show `MISSING` instead of empty metrics.
 
 ### Docs
 - Updated ADRs and workflow docs for split CVSS thresholds and services boundary.

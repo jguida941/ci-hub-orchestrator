@@ -14,7 +14,7 @@ from urllib import request
 import yaml
 
 from cihub.correlation import find_run_by_correlation_id, validate_correlation_id
-from cihub.reporting import detect_language
+from cihub.reporting import detect_language, render_summary
 
 
 class GitHubAPI:
@@ -626,6 +626,24 @@ def generate_summary_markdown(
         ]
     )
 
+    # Add detailed per-repo summaries (same format as Run All Repos)
+    repos_with_reports = [r for r in results if r.get("_report_data")]
+    if repos_with_reports:
+        lines.extend(["", "---", "", "# Per-Repo Details", ""])
+        for entry in repos_with_reports:
+            config = entry.get("config", "unknown")
+            report_data = entry.get("_report_data", {})
+            lines.append(f"<details><summary><strong>{config}</strong></summary>")
+            lines.append("")
+            try:
+                detailed_summary = render_summary(report_data, include_metrics=True)
+                lines.append(detailed_summary)
+            except Exception as exc:
+                lines.append(f"*Error rendering summary: {exc}*")
+            lines.append("")
+            lines.append("</details>")
+            lines.append("")
+
     return "\n".join(lines)
 
 
@@ -718,6 +736,8 @@ def run_aggregation(
                 corr = report_data.get("hub_correlation_id", expected_corr)
                 run_status["correlation_id"] = corr
                 extract_metrics_from_report(report_data, run_status)
+                # Store full report for detailed summary generation
+                run_status["_report_data"] = report_data
             else:
                 run_status["status"] = "missing_report"
                 run_status["conclusion"] = "failure"
@@ -728,6 +748,9 @@ def run_aggregation(
     missing = max(total_repos - dispatched, 0)
     missing_run_id = len([e for e in results if not e.get("run_id")])
 
+    # Strip _report_data from runs for JSON output (too large), but keep for summary
+    runs_for_json = [{k: v for k, v in r.items() if k != "_report_data"} for r in results]
+
     report: dict[str, Any] = {
         "hub_run_id": hub_run_id,
         "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -735,7 +758,7 @@ def run_aggregation(
         "total_repos": total_repos,
         "dispatched_repos": dispatched,
         "missing_dispatch_metadata": missing,
-        "runs": results,
+        "runs": runs_for_json,
     }
 
     aggregated = aggregate_results(results)
@@ -856,11 +879,16 @@ def run_reports_aggregation(
 
         run_status = _run_status_from_report(report_data, report_path, reports_dir)
         extract_metrics_from_report(report_data, run_status)
+        # Store full report for detailed summary generation
+        run_status["_report_data"] = report_data
         results.append(run_status)
 
     processed = len(results)
     missing = max(total_repos - processed, 0)
     missing_run_id = len([e for e in results if not e.get("run_id")])
+
+    # Strip _report_data from runs for JSON output (too large), but keep for summary
+    runs_for_json = [{k: v for k, v in r.items() if k != "_report_data"} for r in results]
 
     report: dict[str, Any] = {
         "hub_run_id": hub_run_id,
@@ -869,7 +897,7 @@ def run_reports_aggregation(
         "total_repos": total_repos,
         "dispatched_repos": processed,
         "missing_dispatch_metadata": missing,
-        "runs": results,
+        "runs": runs_for_json,
     }
 
     aggregated = aggregate_results(results)
