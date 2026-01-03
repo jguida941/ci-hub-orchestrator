@@ -338,3 +338,120 @@ class TestFormatEditor:
         assert len(result) == 2
         assert result[0]["message"] == "Error 1"
         assert result[1]["message"] == "Error 2"
+
+
+class TestDiagnosticMutationKillers:
+    """Additional tests specifically to kill common mutations."""
+
+    def test_to_dict_file_is_string_not_path(self) -> None:
+        """Verify file is converted to string in to_dict()."""
+        diag = Diagnostic(message="Test", file=TEST_FILE)
+        result = diag.to_dict()
+        assert isinstance(result["file"], str)
+        assert result["file"] == str(TEST_FILE)
+
+    def test_to_dict_empty_data_excluded(self) -> None:
+        """Empty data dict is NOT included in to_dict()."""
+        diag = Diagnostic(message="Test", data={})
+        result = diag.to_dict()
+        assert "data" not in result
+
+    def test_to_dict_non_empty_data_included(self) -> None:
+        """Non-empty data dict IS included in to_dict()."""
+        diag = Diagnostic(message="Test", data={"key": "value"})
+        result = diag.to_dict()
+        assert "data" in result
+        assert result["data"] == {"key": "value"}
+
+    def test_from_dict_default_severity(self) -> None:
+        """from_dict uses ERROR as default severity."""
+        data = {"message": "Test"}
+        diag = Diagnostic.from_dict(data)
+        assert diag.severity == DiagnosticSeverity.ERROR
+
+    def test_from_dict_empty_data_default(self) -> None:
+        """from_dict uses empty dict for missing data."""
+        data = {"message": "Test"}
+        diag = Diagnostic.from_dict(data)
+        assert diag.data == {}
+
+    def test_format_console_location_with_line_only(self) -> None:
+        """Console format with file and line but no column."""
+        diag = Diagnostic(message="Error", file=TEST_FILE, line=10)
+        result = format_console([diag])
+        assert f"{TEST_FILE}:10 -" in result
+        # Should NOT have column
+        assert ":10:" not in result.replace(":10 -", "")
+
+    def test_format_console_empty_strings_for_no_code_source(self) -> None:
+        """Console format with no code/source produces no extra brackets."""
+        diag = Diagnostic(message="Error")
+        result = format_console([diag])
+        assert "[ERROR]" in result
+        assert "Error" in result
+        # Should not have empty brackets like "() " or "[] "
+        assert "() " not in result
+        assert "[] Error" not in result
+
+    def test_format_editor_severity_values(self) -> None:
+        """All LSP severity values are correct numbers."""
+        for sev, expected_num in [
+            (DiagnosticSeverity.ERROR, 1),
+            (DiagnosticSeverity.WARNING, 2),
+            (DiagnosticSeverity.INFO, 3),
+            (DiagnosticSeverity.HINT, 4),
+        ]:
+            diag = Diagnostic(message="Test", severity=sev)
+            result = format_editor([diag])
+            assert result[0]["severity"] == expected_num
+
+    def test_format_editor_line_minus_one(self) -> None:
+        """LSP line numbers are 0-based (line - 1)."""
+        diag = Diagnostic(message="Test", line=1)
+        result = format_editor([diag])
+        assert result[0]["range"]["start"]["line"] == 0  # 1 - 1 = 0
+
+        diag = Diagnostic(message="Test", line=100)
+        result = format_editor([diag])
+        assert result[0]["range"]["start"]["line"] == 99  # 100 - 1 = 99
+
+    def test_format_editor_column_minus_one(self) -> None:
+        """LSP column numbers are 0-based (column - 1)."""
+        diag = Diagnostic(message="Test", line=1, column=1)
+        result = format_editor([diag])
+        assert result[0]["range"]["start"]["character"] == 0  # 1 - 1 = 0
+
+        diag = Diagnostic(message="Test", line=1, column=50)
+        result = format_editor([diag])
+        assert result[0]["range"]["start"]["character"] == 49  # 50 - 1 = 49
+
+    def test_format_editor_end_line_minus_one(self) -> None:
+        """LSP end line is 0-based (end_line - 1)."""
+        diag = Diagnostic(message="Test", line=1, end_line=5)
+        result = format_editor([diag])
+        assert result[0]["range"]["end"]["line"] == 4  # 5 - 1 = 4
+
+    def test_format_editor_end_column_minus_one(self) -> None:
+        """LSP end column is 0-based (end_column - 1)."""
+        diag = Diagnostic(message="Test", line=1, end_line=5, end_column=20)
+        result = format_editor([diag])
+        assert result[0]["range"]["end"]["character"] == 19  # 20 - 1 = 19
+
+    def test_format_editor_no_line_no_range(self) -> None:
+        """No range when line is None."""
+        diag = Diagnostic(message="Test")
+        result = format_editor([diag])
+        assert "range" not in result[0]
+
+    def test_format_editor_file_becomes_uri(self) -> None:
+        """File path has file:// prefix."""
+        diag = Diagnostic(message="Test", file=TEST_FILE)
+        result = format_editor([diag])
+        assert result[0]["uri"].startswith("file://")
+        assert str(TEST_FILE) in result[0]["uri"]
+
+    def test_format_editor_no_file_no_uri(self) -> None:
+        """No URI when file is None."""
+        diag = Diagnostic(message="Test")
+        result = format_editor([diag])
+        assert "uri" not in result[0]

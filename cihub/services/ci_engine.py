@@ -28,6 +28,7 @@ from cihub.ci_runner import (
     run_bandit,
     run_black,
     run_checkstyle,
+    run_docker,
     run_isort,
     run_jacoco,
     run_java_build,
@@ -126,6 +127,7 @@ PYTHON_RUNNERS = {
     "sbom": run_sbom,
     "semgrep": run_semgrep,
     "trivy": run_trivy,
+    "docker": run_docker,
 }
 
 JAVA_RUNNERS = {
@@ -138,6 +140,7 @@ JAVA_RUNNERS = {
     "semgrep": run_semgrep,
     "trivy": run_trivy,
     "sbom": run_sbom,
+    "docker": run_docker,
 }
 
 
@@ -734,6 +737,18 @@ def _run_python_tools(
             continue
         runner = PYTHON_RUNNERS.get(tool)
         if runner is None:
+            if tool == "codeql":
+                external = _parse_env_bool(os.environ.get("CIHUB_CODEQL_RAN"))
+                if external:
+                    success = _parse_env_bool(os.environ.get("CIHUB_CODEQL_SUCCESS"))
+                    if success is None:
+                        success = True
+                    result = ToolResult(tool=tool, ran=True, success=success)
+                    tool_outputs[tool] = result.to_payload()
+                    tools_ran[tool] = True
+                    tools_success[tool] = success
+                    result.write_json(tool_output_dir / f"{tool}.json")
+                    continue
             problems.append(
                 {
                     "severity": "warning",
@@ -757,6 +772,14 @@ def _run_python_tools(
                     sbom_cfg = {}
                 sbom_format = sbom_cfg.get("format", "cyclonedx")
                 result = runner(workdir_path, output_dir, sbom_format)  # type: ignore[operator]
+            elif tool == "docker":
+                docker_cfg = config.get("python", {}).get("tools", {}).get("docker", {}) or {}
+                if not isinstance(docker_cfg, dict):
+                    docker_cfg = {}
+                compose_file = docker_cfg.get("compose_file", "docker-compose.yml")
+                health_endpoint = docker_cfg.get("health_endpoint")
+                health_timeout = docker_cfg.get("health_timeout", 300)
+                result = runner(workdir_path, output_dir, compose_file, health_endpoint, health_timeout)  # type: ignore[operator]
             else:
                 result = runner(workdir_path, output_dir)  # type: ignore[operator]
         except FileNotFoundError as exc:
@@ -771,6 +794,14 @@ def _run_python_tools(
         tool_outputs[tool] = result.to_payload()
         tools_ran[tool] = result.ran
         tools_success[tool] = result.success
+        if tool == "docker" and result.metrics.get("docker_missing_compose"):
+            problems.append(
+                {
+                    "severity": "warning",
+                    "message": "Docker compose file not found; docker tool skipped",
+                    "code": "CIHUB-CI-DOCKER-MISSING",
+                }
+            )
         result.write_json(tool_output_dir / f"{tool}.json")
 
     if _tool_enabled(config, "hypothesis", "python"):
@@ -814,6 +845,18 @@ def _run_java_tools(
             continue
         runner = JAVA_RUNNERS.get(tool)
         if runner is None:
+            if tool == "codeql":
+                external = _parse_env_bool(os.environ.get("CIHUB_CODEQL_RAN"))
+                if external:
+                    success = _parse_env_bool(os.environ.get("CIHUB_CODEQL_SUCCESS"))
+                    if success is None:
+                        success = True
+                    result = ToolResult(tool=tool, ran=True, success=success)
+                    tool_outputs[tool] = result.to_payload()
+                    tools_ran[tool] = True
+                    tools_success[tool] = success
+                    result.write_json(tool_output_dir / f"{tool}.json")
+                    continue
             problems.append(
                 {
                     "severity": "warning",
@@ -840,6 +883,14 @@ def _run_java_tools(
                     sbom_cfg = {}
                 sbom_format = sbom_cfg.get("format", "cyclonedx")
                 result = runner(workdir_path, output_dir, sbom_format)  # type: ignore[operator]
+            elif tool == "docker":
+                docker_cfg = config.get("java", {}).get("tools", {}).get("docker", {}) or {}
+                if not isinstance(docker_cfg, dict):
+                    docker_cfg = {}
+                compose_file = docker_cfg.get("compose_file", "docker-compose.yml")
+                health_endpoint = docker_cfg.get("health_endpoint")
+                health_timeout = docker_cfg.get("health_timeout", 300)
+                result = runner(workdir_path, output_dir, compose_file, health_endpoint, health_timeout)  # type: ignore[operator]
             else:
                 result = runner(workdir_path, output_dir)  # type: ignore[operator]
         except FileNotFoundError as exc:
@@ -855,6 +906,14 @@ def _run_java_tools(
         tool_outputs[tool] = result.to_payload()
         tools_ran[tool] = result.ran
         tools_success[tool] = result.success
+        if tool == "docker" and result.metrics.get("docker_missing_compose"):
+            problems.append(
+                {
+                    "severity": "warning",
+                    "message": "Docker compose file not found; docker tool skipped",
+                    "code": "CIHUB-CI-DOCKER-MISSING",
+                }
+            )
         result.write_json(tool_output_dir / f"{tool}.json")
 
     if _tool_enabled(config, "jqwik", "java"):
@@ -1155,7 +1214,19 @@ def run_ci(
 
         tools_configured = {tool: _tool_enabled(config, tool, "python") for tool in PYTHON_TOOLS}
         thresholds = resolve_thresholds(config, "python")
-        context = _build_context(repo_path, config, run_workdir, correlation_id)
+        docker_cfg = config.get("python", {}).get("tools", {}).get("docker", {}) or {}
+        if not isinstance(docker_cfg, dict):
+            docker_cfg = {}
+        docker_compose = docker_cfg.get("compose_file", "docker-compose.yml") if tools_configured.get("docker") else None
+        docker_health = docker_cfg.get("health_endpoint") if tools_configured.get("docker") else None
+        context = _build_context(
+            repo_path,
+            config,
+            run_workdir,
+            correlation_id,
+            docker_compose_file=docker_compose,
+            docker_health_endpoint=docker_health,
+        )
         report = build_python_report(
             config,
             tool_outputs,

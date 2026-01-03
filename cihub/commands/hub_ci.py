@@ -16,9 +16,10 @@ import sys
 import tarfile
 import tempfile
 import urllib.request
-import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any
+
+import defusedxml.ElementTree as ET  # Secure XML parsing (prevents XXE)
 
 from cihub import badges as badge_tools
 from cihub.cli import hub_root
@@ -1616,6 +1617,93 @@ def _env_result(name: str) -> str:
     return os.environ.get(name, "skipped")
 
 
+def _bar(value: int) -> str:
+    """Render a visual progress bar using Unicode block characters."""
+    if value < 0:
+        value = 0
+    filled = min(20, max(0, value // 5))
+    return f"{'█' * filled}{'░' * (20 - filled)}"
+
+
+def cmd_pytest_summary(args: argparse.Namespace) -> int:
+    """Generate a summary for pytest results matching smoke test format."""
+    summary_path = _resolve_summary_path(args.summary, args.github_summary)
+
+    # Parse test-results.xml (JUnit format)
+    tests_total = 0
+    tests_passed = 0
+    tests_failed = 0
+    tests_skipped = 0
+
+    junit_path = Path(args.junit_xml)
+    if junit_path.exists():
+        try:
+            tree = ET.parse(junit_path)
+            root = tree.getroot()
+            # Handle both <testsuite> and <testsuites> root elements
+            if root.tag == "testsuites":
+                suites = root.findall("testsuite")
+            else:
+                suites = [root]
+
+            for suite in suites:
+                tests_total += int(suite.get("tests", 0))
+                tests_failed += int(suite.get("failures", 0)) + int(suite.get("errors", 0))
+                tests_skipped += int(suite.get("skipped", 0))
+
+            tests_passed = tests_total - tests_failed - tests_skipped
+        except ET.ParseError as e:
+            print(f"Warning: Failed to parse {junit_path}: {e}", file=sys.stderr)
+
+    # Parse coverage.xml (Cobertura format)
+    coverage_pct = 0
+    lines_covered = 0
+    lines_total = 0
+
+    coverage_path = Path(args.coverage_xml)
+    if coverage_path.exists():
+        try:
+            tree = ET.parse(coverage_path)
+            root = tree.getroot()
+            # Cobertura format: line-rate is a decimal (0.0 to 1.0)
+            line_rate = float(root.get("line-rate", 0))
+            coverage_pct = int(line_rate * 100)
+            lines_covered = int(root.get("lines-covered", 0))
+            lines_total = int(root.get("lines-valid", 0))
+        except ET.ParseError as e:
+            print(f"Warning: Failed to parse {coverage_path}: {e}", file=sys.stderr)
+
+    # Determine status
+    tests_pass = tests_total > 0 and tests_failed == 0
+    coverage_threshold = args.coverage_min
+    coverage_pass = coverage_pct >= coverage_threshold
+
+    # Generate summary matching smoke test format
+    lines = [
+        "## Unit Tests Summary",
+        "",
+        "| Metric | Result | Status |",
+        "|--------|--------|--------|",
+        f"| **Unit Tests** | {tests_passed} passed | {'PASS' if tests_pass else 'FAIL'} |",
+        f"| **Test Failures** | {tests_failed} failed | {'WARN' if tests_failed > 0 else 'PASS'} |",
+        f"| **Tests Skipped** | {tests_skipped} skipped | {'INFO' if tests_skipped > 0 else 'PASS'} |",
+        f"| **Coverage (pytest-cov)** | {coverage_pct}% {_bar(coverage_pct)} | {'PASS' if coverage_pass else 'WARN'} |",
+        "",
+        f"**Coverage Details:** {lines_covered:,} / {lines_total:,} lines covered",
+        "",
+        "### Test Results",
+        f"**{'PASS' if tests_pass and coverage_pass else 'FAIL'}** - "
+        + (
+            f"All {tests_total} tests passed with {coverage_pct}% coverage"
+            if tests_pass and coverage_pass
+            else f"{tests_failed} test(s) failed or coverage below {coverage_threshold}%"
+        ),
+    ]
+
+    _append_summary("\n".join(lines), summary_path)
+    return EXIT_SUCCESS if tests_pass else EXIT_FAILURE
+
+
 def cmd_summary(args: argparse.Namespace) -> int:
     summary_path = _resolve_summary_path(args.summary, args.github_summary)
     repo = os.environ.get("GH_REPOSITORY", "")
@@ -1945,6 +2033,7 @@ def cmd_hub_ci(args: argparse.Namespace) -> int:
         "validate-profiles": cmd_validate_profiles,
         "license-check": cmd_license_check,
         "gitleaks-summary": cmd_gitleaks_summary,
+        "pytest-summary": cmd_pytest_summary,
         "summary": cmd_summary,
         "enforce": cmd_enforce,
         "verify-matrix-keys": cmd_verify_matrix_keys,

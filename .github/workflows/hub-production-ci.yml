@@ -299,9 +299,6 @@ jobs:
       contents: read
     env:
       PYTHON_VERSION: '3.12'
-      CIHUB_BANDIT_FAIL_HIGH: ${{ needs.hub-ci-config.outputs.bandit_fail_high }}
-      CIHUB_BANDIT_FAIL_MEDIUM: ${{ needs.hub-ci-config.outputs.bandit_fail_medium }}
-      CIHUB_BANDIT_FAIL_LOW: ${{ needs.hub-ci-config.outputs.bandit_fail_low }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0
@@ -393,6 +390,10 @@ jobs:
       - name: Run tests with coverage
         run: python -m pytest tests/ -v --cov=cihub --cov=scripts --cov-report=xml --cov-report=term-missing --cov-fail-under=${{ needs.hub-ci-config.outputs.coverage_min }} --junitxml=test-results.xml
 
+      - name: Generate test summary
+        if: always()
+        run: python -m cihub hub-ci pytest-summary --coverage-min ${{ needs.hub-ci-config.outputs.coverage_min }} --github-summary
+
       - name: Upload coverage
         uses: codecov/codecov-action@18283e04ce6e62d37312384ff67231eb8fd56d24 # v5.4.3
         if: always()
@@ -471,6 +472,9 @@ jobs:
       contents: read
     env:
       PYTHON_VERSION: '3.12'
+      CIHUB_BANDIT_FAIL_HIGH: ${{ needs.hub-ci-config.outputs.bandit_fail_high }}
+      CIHUB_BANDIT_FAIL_MEDIUM: ${{ needs.hub-ci-config.outputs.bandit_fail_medium }}
+      CIHUB_BANDIT_FAIL_LOW: ${{ needs.hub-ci-config.outputs.bandit_fail_low }}
     steps:
       - name: Harden Runner
         uses: step-security/harden-runner@0634a2670c59f64b4a01f0f96f84700a4088b9f0 # v2.12.0

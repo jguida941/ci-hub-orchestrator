@@ -2317,6 +2317,33 @@ def build_parser() -> argparse.ArgumentParser:
 
     hub_ci_sub.add_parser("badges-commit", help="Commit and push badge updates")
 
+    hub_ci_pytest_summary = hub_ci_sub.add_parser(
+        "pytest-summary",
+        help="Generate pytest test results summary",
+    )
+    hub_ci_pytest_summary.add_argument(
+        "--junit-xml",
+        default="test-results.xml",
+        help="Path to pytest JUnit XML file",
+    )
+    hub_ci_pytest_summary.add_argument(
+        "--coverage-xml",
+        default="coverage.xml",
+        help="Path to coverage XML file",
+    )
+    hub_ci_pytest_summary.add_argument(
+        "--coverage-min",
+        type=int,
+        default=70,
+        help="Minimum coverage percentage (default: 70)",
+    )
+    hub_ci_pytest_summary.add_argument("--summary", help="Write summary to file")
+    hub_ci_pytest_summary.add_argument(
+        "--github-summary",
+        action="store_true",
+        help="Append summary to GITHUB_STEP_SUMMARY",
+    )
+
     hub_ci_summary = hub_ci_sub.add_parser("summary", help="Generate hub CI summary")
     hub_ci_summary.add_argument("--summary", help="Write summary to file")
     hub_ci_summary.add_argument(
