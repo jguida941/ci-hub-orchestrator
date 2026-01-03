@@ -305,6 +305,45 @@ make verify-integration  # Clone repos and run cihub ci (slow)
 repo .ci-hub.yml  →  hub config/repos/<repo>.yaml  →  hub config/defaults.yaml
 ```
 
+### Tool Configuration Syntax
+
+Tools can be configured in two ways - **shorthand** (simple) or **full** (with options):
+
+```yaml
+# Shorthand syntax - just enable/disable
+python:
+  tools:
+    pytest: true          # enabled with defaults
+    mutmut: false         # disabled
+    ruff: true
+
+# Full syntax - with custom settings
+python:
+  tools:
+    pytest:
+      enabled: true
+      min_coverage: 80    # custom threshold
+    ruff:
+      enabled: true
+      max_errors: 5       # allow up to 5 errors
+    mutmut:
+      enabled: false
+
+# Mixed - use shorthand for simple toggles, full for customization
+python:
+  tools:
+    pytest:
+      enabled: true
+      min_coverage: 85
+    ruff: true            # shorthand
+    bandit: true          # shorthand
+    mutmut: false         # shorthand
+```
+
+The shorthand `tool: true` is equivalent to `tool: { enabled: true }`.
+Both formats work for all Python and Java tools.
+Shorthand is normalized at load time, so default tool settings stay in effect unless overridden.
+
 ### Key Commands
 
 **Setup & Validation**

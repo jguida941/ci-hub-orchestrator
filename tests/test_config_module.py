@@ -735,9 +735,9 @@ class TestBuildEffectiveConfig:
         result = build_effective_config(defaults, profile=profile, repo_config=repo_config)
 
         assert result["java"]["version"] == "21"
-        assert result["java"]["tools"]["jacoco"] is True
-        assert result["java"]["tools"]["checkstyle"] is False
-        assert result["java"]["tools"]["pmd"] is True
+        assert result["java"]["tools"]["jacoco"]["enabled"] is True
+        assert result["java"]["tools"]["checkstyle"]["enabled"] is False
+        assert result["java"]["tools"]["pmd"]["enabled"] is True
 
     def test_defaults_deeply_copied(self):
         """Defaults are deeply copied, not shallow copied."""
@@ -806,8 +806,8 @@ class TestConfigIntegration:
         # Verify merge result
         assert effective["repo"]["name"] == "my-repo"
         assert effective["java"]["version"] == "21"
-        assert effective["java"]["tools"]["jacoco"] is True
-        assert effective["java"]["tools"]["semgrep"] is True
+        assert effective["java"]["tools"]["jacoco"]["enabled"] is True
+        assert effective["java"]["tools"]["semgrep"]["enabled"] is True
 
     def test_list_and_load_all_repos(self, tmp_path: Path):
         """Test listing repos and loading each one."""

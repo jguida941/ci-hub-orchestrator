@@ -146,251 +146,173 @@
       "additionalProperties": false,
       "properties": {
         "checkstyle": {
-          "additionalProperties": false,
-          "properties": {
-            "config_file": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_on_violation": {
-              "default": true,
-              "type": "boolean"
-            },
-            "max_errors": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "config_file": { "type": ["string", "null"] },
+                "enabled": { "default": true, "type": "boolean" },
+                "fail_on_violation": { "default": true, "type": "boolean" },
+                "max_errors": { "default": 0, "minimum": 0, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "codeql": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "languages": {
-              "default": [
-                "java"
-              ],
-              "items": {
-                "type": "string"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" },
+                "languages": { "default": ["java"], "items": { "type": "string" }, "type": "array" }
               },
-              "type": "array"
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "docker": {
-          "additionalProperties": false,
-          "properties": {
-            "compose_file": {
-              "default": "docker-compose.yml",
-              "type": "string"
-            },
-            "dockerfile": {
-              "default": "Dockerfile",
-              "type": "string"
-            },
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "health_endpoint": {
-              "default": "/actuator/health",
-              "type": "string"
-            },
-            "health_timeout": {
-              "default": 300,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "compose_file": { "default": "docker-compose.yml", "type": "string" },
+                "dockerfile": { "default": "Dockerfile", "type": "string" },
+                "enabled": { "default": false, "type": "boolean" },
+                "health_endpoint": { "default": "/actuator/health", "type": "string" },
+                "health_timeout": { "default": 300, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "jacoco": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "min_coverage": {
-              "default": 70,
-              "maximum": 100,
-              "minimum": 0,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": true, "type": "boolean" },
+                "min_coverage": { "default": 70, "maximum": 100, "minimum": 0, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "jqwik": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "owasp": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_on_cvss": {
-              "default": 7,
-              "maximum": 10,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "use_nvd_api_key": {
-              "default": true,
-              "type": "boolean"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": true, "type": "boolean" },
+                "fail_on_cvss": { "default": 7, "maximum": 10, "minimum": 0, "type": "integer" },
+                "use_nvd_api_key": { "default": true, "type": "boolean" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "pitest": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "min_mutation_score": {
-              "default": 70,
-              "maximum": 100,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "threads": {
-              "default": 4,
-              "type": "integer"
-            },
-            "timeout_multiplier": {
-              "default": 2,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": true, "type": "boolean" },
+                "min_mutation_score": { "default": 70, "maximum": 100, "minimum": 0, "type": "integer" },
+                "threads": { "default": 4, "type": "integer" },
+                "timeout_multiplier": { "default": 2, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "pmd": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_on_violation": {
-              "default": false,
-              "type": "boolean"
-            },
-            "max_violations": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": true, "type": "boolean" },
+                "fail_on_violation": { "default": false, "type": "boolean" },
+                "max_violations": { "default": 0, "minimum": 0, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "semgrep": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "fail_on_findings": {
-              "default": false,
-              "type": "boolean"
-            },
-            "max_findings": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" },
+                "fail_on_findings": { "default": false, "type": "boolean" },
+                "max_findings": { "default": 0, "minimum": 0, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "sbom": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "format": {
-              "default": "cyclonedx",
-              "type": "string"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" },
+                "format": { "default": "cyclonedx", "type": "string" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "spotbugs": {
-          "additionalProperties": false,
-          "properties": {
-            "effort": {
-              "default": "max",
-              "enum": [
-                "min",
-                "default",
-                "max"
-              ],
-              "type": "string"
-            },
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_on_error": {
-              "default": true,
-              "type": "boolean"
-            },
-            "max_bugs": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "threshold": {
-              "default": "medium",
-              "enum": [
-                "low",
-                "medium",
-                "high"
-              ],
-              "type": "string"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "effort": { "default": "max", "enum": ["min", "default", "max"], "type": "string" },
+                "enabled": { "default": true, "type": "boolean" },
+                "fail_on_error": { "default": true, "type": "boolean" },
+                "max_bugs": { "default": 0, "minimum": 0, "type": "integer" },
+                "threshold": { "default": "medium", "enum": ["low", "medium", "high"], "type": "string" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "trivy": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "fail_on_critical": {
-              "default": false,
-              "type": "boolean"
-            },
-            "fail_on_high": {
-              "default": false,
-              "type": "boolean"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" },
+                "fail_on_critical": { "default": false, "type": "boolean" },
+                "fail_on_high": { "default": false, "type": "boolean" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         }
       },
       "type": "object"
@@ -399,235 +321,214 @@
       "additionalProperties": false,
       "properties": {
         "bandit": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_on_high": {
-              "default": true,
-              "type": "boolean"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "type": "boolean"
+                },
+                "fail_on_high": {
+                  "default": true,
+                  "type": "boolean"
+                }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "black": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_on_format_issues": {
-              "default": false,
-              "type": "boolean"
-            },
-            "max_issues": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "default": true,
+                  "type": "boolean"
+                },
+                "fail_on_format_issues": {
+                  "default": false,
+                  "type": "boolean"
+                },
+                "max_issues": {
+                  "default": 0,
+                  "minimum": 0,
+                  "type": "integer"
+                }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "codeql": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "languages": {
-              "default": [
-                "python"
-              ],
-              "items": {
-                "type": "string"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": {
+                  "default": false,
+                  "type": "boolean"
+                },
+                "languages": {
+                  "default": ["python"],
+                  "items": { "type": "string" },
+                  "type": "array"
+                }
               },
-              "type": "array"
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "docker": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "hypothesis": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": true, "type": "boolean" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "isort": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_on_issues": {
-              "default": false,
-              "type": "boolean"
-            },
-            "max_issues": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": true, "type": "boolean" },
+                "fail_on_issues": { "default": false, "type": "boolean" },
+                "max_issues": { "default": 0, "minimum": 0, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "mutmut": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "min_mutation_score": {
-              "default": 70,
-              "maximum": 100,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "min_score": {
-              "default": 0,
-              "maximum": 100,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "timeout_minutes": {
-              "default": 15,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" },
+                "min_mutation_score": { "default": 70, "maximum": 100, "minimum": 0, "type": "integer" },
+                "min_score": { "default": 0, "maximum": 100, "minimum": 0, "type": "integer" },
+                "timeout_minutes": { "default": 15, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "mypy": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "pip_audit": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_on_vuln": {
-              "default": true,
-              "type": "boolean"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": true, "type": "boolean" },
+                "fail_on_vuln": { "default": true, "type": "boolean" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "pytest": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_fast": {
-              "default": false,
-              "type": "boolean"
-            },
-            "min_coverage": {
-              "default": 70,
-              "maximum": 100,
-              "minimum": 0,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": true, "type": "boolean" },
+                "fail_fast": { "default": false, "type": "boolean" },
+                "min_coverage": { "default": 70, "maximum": 100, "minimum": 0, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "ruff": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": true,
-              "type": "boolean"
-            },
-            "fail_on_error": {
-              "default": true,
-              "type": "boolean"
-            },
-            "max_errors": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": true, "type": "boolean" },
+                "fail_on_error": { "default": true, "type": "boolean" },
+                "max_errors": { "default": 0, "minimum": 0, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "sbom": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "format": {
-              "default": "cyclonedx",
-              "type": "string"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" },
+                "format": { "default": "cyclonedx", "type": "string" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "semgrep": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "fail_on_findings": {
-              "default": false,
-              "type": "boolean"
-            },
-            "max_findings": {
-              "default": 0,
-              "minimum": 0,
-              "type": "integer"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" },
+                "fail_on_findings": { "default": false, "type": "boolean" },
+                "max_findings": { "default": 0, "minimum": 0, "type": "integer" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         },
         "trivy": {
-          "additionalProperties": false,
-          "properties": {
-            "enabled": {
-              "default": false,
-              "type": "boolean"
-            },
-            "fail_on_critical": {
-              "default": false,
-              "type": "boolean"
-            },
-            "fail_on_high": {
-              "default": false,
-              "type": "boolean"
+          "oneOf": [
+            { "type": "boolean" },
+            {
+              "additionalProperties": false,
+              "properties": {
+                "enabled": { "default": false, "type": "boolean" },
+                "fail_on_critical": { "default": false, "type": "boolean" },
+                "fail_on_high": { "default": false, "type": "boolean" }
+              },
+              "type": "object"
             }
-          },
-          "type": "object"
+          ]
         }
       },
       "type": "object"

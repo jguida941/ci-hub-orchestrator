@@ -18,6 +18,8 @@ from typing import Any
 import yaml
 from jsonschema import Draft7Validator
 
+from cihub.config.normalize import normalize_tool_configs
+
 
 class ConfigValidationError(Exception):
     """Raised when a merged CI/CD Hub config fails schema validation."""
@@ -100,10 +102,11 @@ def load_config(
     if not config:
         print(f"Warning: No defaults found at {defaults_path}", file=sys.stderr)
         config = {}
+    config = normalize_tool_configs(config)
 
     # 2. Merge hub's repo-specific config
     repo_override_path = hub_root / "config" / "repos" / f"{repo_name}.yaml"
-    repo_override = load_yaml_file(repo_override_path)
+    repo_override = normalize_tool_configs(load_yaml_file(repo_override_path))
 
     if repo_override:
         config = deep_merge(config, repo_override)
@@ -121,6 +124,7 @@ def load_config(
                 repo_block.pop("dispatch_workflow", None)
                 repo_block.pop("dispatch_enabled", None)
                 repo_local_config["repo"] = repo_block
+            repo_local_config = normalize_tool_configs(repo_local_config)
             config = deep_merge(config, repo_local_config)
 
     # Validate merged config once more
@@ -187,6 +191,9 @@ def generate_workflow_inputs(config: dict) -> dict:
 
     Returns a flat dict. Keys prefixed with _ are for internal use, not dispatch.
     """
+    # Normalize shorthand booleans (e.g., pytest: true -> pytest: {enabled: true})
+    config = normalize_tool_configs(config)
+
     # Determine language
     language = config.get("language") or config.get("repo", {}).get("language", "java")
 

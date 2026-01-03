@@ -34,10 +34,13 @@ positional arguments:
     update              Refresh hub-ci.yml and .ci-hub.yml
     validate            Validate .ci-hub.yml against schema
     setup-secrets       Set HUB_DISPATCH_TOKEN on hub and connected repos
-    setup-nvd           Set NVD_API_KEY on Java repos for OWASP Dependency Check
-    fix-pom             Add missing Maven plugins/dependencies to pom.xml for Java repos
+    setup-nvd           Set NVD_API_KEY on Java repos for OWASP Dependency
+                        Check
+    fix-pom             Add missing Maven plugins/dependencies to pom.xml for
+                        Java repos
     fix-deps            Add missing Maven dependencies for Java repos
-    sync-templates      Sync caller workflow templates to dispatch-enabled repos
+    sync-templates      Sync caller workflow templates to dispatch-enabled
+                        repos
     config              Manage hub-side repo configs (config/repos/*.yaml)
 
 options:
@@ -48,7 +51,8 @@ options:
 ## cihub detect
 
 ```
-usage: cihub detect [-h] [--json] --repo REPO [--language {java,python}] [--explain]
+usage: cihub detect [-h] [--json] --repo REPO [--language {java,python}]
+                    [--explain]
 
 options:
   -h, --help            show this help message and exit
@@ -87,7 +91,8 @@ options:
 usage: cihub scaffold [-h] [--json] [--list] [--force] [type] [path]
 
 positional arguments:
-  type        Fixture type (python-pyproject, python-setup, java-maven, java-gradle, monorepo)
+  type        Fixture type (python-pyproject, python-setup, java-maven, java-
+              gradle, monorepo)
   path        Destination path
 
 options:
@@ -100,7 +105,9 @@ options:
 ## cihub smoke
 
 ```
-usage: cihub smoke [-h] [--json] [--subdir SUBDIR] [--type TYPE] [--all] [--full] [--install-deps] [--force] [--relax] [--keep] [repo]
+usage: cihub smoke [-h] [--json] [--subdir SUBDIR] [--type TYPE] [--all]
+                   [--full] [--install-deps] [--force] [--relax] [--keep]
+                   [repo]
 
 positional arguments:
   repo             Path to repo (omit to scaffold fixtures)
@@ -109,7 +116,8 @@ options:
   -h, --help       show this help message and exit
   --json           Output machine-readable JSON
   --subdir SUBDIR  Subdirectory for monorepos
-  --type TYPE      Fixture type to generate (repeatable): python-pyproject, python-setup, java-maven, java-gradle, monorepo
+  --type TYPE      Fixture type to generate (repeatable): python-pyproject,
+                   python-setup, java-maven, java-gradle, monorepo
   --all            Generate and test all fixture types
   --full           Run cihub ci after init/validate
   --install-deps   Install repo dependencies during cihub ci
@@ -121,7 +129,8 @@ options:
 ## cihub smoke-validate
 
 ```
-usage: cihub smoke-validate [-h] [--json] [--count COUNT] [--min-count MIN_COUNT] [--status STATUS]
+usage: cihub smoke-validate [-h] [--json] [--count COUNT]
+                            [--min-count MIN_COUNT] [--status STATUS]
 
 options:
   -h, --help            show this help message and exit
@@ -135,14 +144,17 @@ options:
 ## cihub check
 
 ```
-usage: cihub check [-h] [--json] [--smoke-repo SMOKE_REPO] [--smoke-subdir SMOKE_SUBDIR] [--install-deps] [--relax] [--keep] [--install-missing]
-                   [--require-optional] [--audit] [--security] [--full] [--mutation] [--all]
+usage: cihub check [-h] [--json] [--smoke-repo SMOKE_REPO]
+                   [--smoke-subdir SMOKE_SUBDIR] [--install-deps] [--relax]
+                   [--keep] [--install-missing] [--require-optional] [--audit]
+                   [--security] [--full] [--mutation] [--all]
 
 options:
   -h, --help            show this help message and exit
   --json                Output machine-readable JSON
   --smoke-repo SMOKE_REPO
-                        Path to repo for smoke test (omit to scaffold fixtures)
+                        Path to repo for smoke test (omit to scaffold
+                        fixtures)
   --smoke-subdir SMOKE_SUBDIR
                         Subdirectory for monorepo smoke test
   --install-deps        Install repo dependencies during smoke test
@@ -151,8 +163,10 @@ options:
   --install-missing     Prompt to install missing optional tools
   --require-optional    Fail if optional tools are missing
   --audit               Add drift detection checks (links, adr, configs)
-  --security            Add security checks (bandit, pip-audit, trivy, gitleaks)
-  --full                Add validation checks (templates, matrix, license, zizmor)
+  --security            Add security checks (bandit, pip-audit, trivy,
+                        gitleaks)
+  --full                Add validation checks (templates, matrix, license,
+                        zizmor)
   --mutation            Add mutation testing with mutmut (~15min, very slow)
   --all                 Run all checks (audit + security + full + mutation)
 ```
@@ -160,25 +174,33 @@ options:
 ## cihub verify
 
 ```
-usage: cihub verify [-h] [--json] [--remote] [--integration] [--repo REPO] [--include-disabled] [--install-deps] [--workdir WORKDIR] [--keep]
+usage: cihub verify [-h] [--json] [--remote] [--integration] [--repo REPO]
+                    [--include-disabled] [--install-deps] [--workdir WORKDIR]
+                    [--keep]
 
 options:
   -h, --help          show this help message and exit
   --json              Output machine-readable JSON
-  --remote            Check connected repos for template drift (requires gh auth)
-  --integration       Clone connected repos and run cihub ci (slow, requires gh auth)
+  --remote            Check connected repos for template drift (requires gh
+                      auth)
+  --integration       Clone connected repos and run cihub ci (slow, requires
+                      gh auth)
   --repo REPO         Target repo (owner/name). Repeatable.
   --include-disabled  Include repos with dispatch_enabled=false
   --install-deps      Install repo dependencies during integration runs
-  --workdir WORKDIR   Optional base directory for cloned repos (integration mode)
+  --workdir WORKDIR   Optional base directory for cloned repos (integration
+                      mode)
   --keep              Keep cloned repos on disk (integration mode)
 ```
 
 ## cihub ci
 
 ```
-usage: cihub ci [-h] [--json] [--repo REPO] [--workdir WORKDIR] [--correlation-id CORRELATION_ID] [--config-from-hub BASENAME] [--output-dir OUTPUT_DIR]
-                [--install-deps] [--report REPORT] [--summary SUMMARY] [--no-summary] [--write-github-summary] [--no-write-github-summary]
+usage: cihub ci [-h] [--json] [--repo REPO] [--workdir WORKDIR]
+                [--correlation-id CORRELATION_ID] [--config-from-hub BASENAME]
+                [--output-dir OUTPUT_DIR] [--install-deps] [--report REPORT]
+                [--summary SUMMARY] [--no-summary] [--write-github-summary]
+                [--no-write-github-summary]
 
 options:
   -h, --help            show this help message and exit
@@ -188,7 +210,8 @@ options:
   --correlation-id CORRELATION_ID
                         Hub correlation id
   --config-from-hub BASENAME
-                        Load config from hub's config/repos/<BASENAME>.yaml (for hub-run-all)
+                        Load config from hub's config/repos/<BASENAME>.yaml
+                        (for hub-run-all)
   --output-dir OUTPUT_DIR
                         Output directory for reports (default: .cihub)
   --install-deps        Install repo dependencies before running tools
@@ -196,15 +219,19 @@ options:
   --summary SUMMARY     Override summary.md path
   --no-summary          Skip writing summary.md file
   --write-github-summary
-                        Write summary to GITHUB_STEP_SUMMARY if set (overrides config)
+                        Write summary to GITHUB_STEP_SUMMARY if set (overrides
+                        config)
   --no-write-github-summary
-                        Do not write summary to GITHUB_STEP_SUMMARY (overrides config)
+                        Do not write summary to GITHUB_STEP_SUMMARY (overrides
+                        config)
 ```
 
 ## cihub run
 
 ```
-usage: cihub run [-h] [--json] [--repo REPO] [--workdir WORKDIR] [--output-dir OUTPUT_DIR] [--output OUTPUT] [--force] tool
+usage: cihub run [-h] [--json] [--repo REPO] [--workdir WORKDIR]
+                 [--output-dir OUTPUT_DIR] [--output OUTPUT] [--force]
+                 tool
 
 positional arguments:
   tool                  Tool name (pytest, ruff, bandit, etc.)
@@ -223,7 +250,9 @@ options:
 ## cihub report
 
 ```
-usage: cihub report [-h] [--json] {build,summary,outputs,aggregate,validate,dashboard,security-summary,smoke-summary,kyverno-summary,orchestrator-summary} ...
+usage: cihub report [-h] [--json]
+                    {build,summary,outputs,aggregate,validate,dashboard,security-summary,smoke-summary,kyverno-summary,orchestrator-summary}
+                    ...
 
 positional arguments:
   {build,summary,outputs,aggregate,validate,dashboard,security-summary,smoke-summary,kyverno-summary,orchestrator-summary}
@@ -232,7 +261,8 @@ positional arguments:
     outputs             Write workflow outputs from report.json
     aggregate           Aggregate hub reports across repos
     validate            Validate report.json structure and content
-    dashboard           Generate HTML or JSON dashboard from aggregated reports
+    dashboard           Generate HTML or JSON dashboard from aggregated
+                        reports
     security-summary    Render hub security summaries
     smoke-summary       Render smoke test summaries
     kyverno-summary     Render Kyverno summaries
@@ -247,7 +277,9 @@ options:
 ## cihub report build
 
 ```
-usage: cihub report build [-h] [--json] [--repo REPO] [--workdir WORKDIR] [--correlation-id CORRELATION_ID] [--output-dir OUTPUT_DIR] [--tool-dir TOOL_DIR]
+usage: cihub report build [-h] [--json] [--repo REPO] [--workdir WORKDIR]
+                          [--correlation-id CORRELATION_ID]
+                          [--output-dir OUTPUT_DIR] [--tool-dir TOOL_DIR]
                           [--report REPORT] [--summary SUMMARY]
 
 options:
@@ -267,7 +299,8 @@ options:
 ## cihub report summary
 
 ```
-usage: cihub report summary [-h] [--json] --report REPORT [--output OUTPUT] [--write-github-summary]
+usage: cihub report summary [-h] [--json] --report REPORT [--output OUTPUT]
+                            [--write-github-summary]
 
 options:
   -h, --help            show this help message and exit
@@ -293,15 +326,23 @@ options:
 ## cihub report aggregate
 
 ```
-usage: cihub report aggregate [-h] [--json] [--reports-dir REPORTS_DIR] [--dispatch-dir DISPATCH_DIR] [--output OUTPUT] [--summary-file SUMMARY_FILE]
-                              [--write-github-summary | --no-write-github-summary] [--defaults-file DEFAULTS_FILE] [--token TOKEN] [--token-env TOKEN_ENV]
-                              [--total-repos TOTAL_REPOS] [--hub-run-id HUB_RUN_ID] [--hub-event HUB_EVENT] [--timeout TIMEOUT] [--strict]
+usage: cihub report aggregate [-h] [--json] [--reports-dir REPORTS_DIR]
+                              [--dispatch-dir DISPATCH_DIR] [--output OUTPUT]
+                              [--summary-file SUMMARY_FILE]
+                              [--write-github-summary | --no-write-github-summary]
+                              [--defaults-file DEFAULTS_FILE] [--token TOKEN]
+                              [--token-env TOKEN_ENV]
+                              [--total-repos TOTAL_REPOS]
+                              [--hub-run-id HUB_RUN_ID]
+                              [--hub-event HUB_EVENT] [--timeout TIMEOUT]
+                              [--strict]
 
 options:
   -h, --help            show this help message and exit
   --json                Output machine-readable JSON
   --reports-dir REPORTS_DIR
-                        Directory containing downloaded report artifacts (hub-run-all mode)
+                        Directory containing downloaded report artifacts (hub-
+                        run-all mode)
   --dispatch-dir DISPATCH_DIR
                         Directory containing dispatch metadata artifacts
   --output OUTPUT       Path to write aggregated report JSON
@@ -313,7 +354,8 @@ options:
                         Defaults file for threshold checks
   --token TOKEN         GitHub token for artifact access
   --token-env TOKEN_ENV
-                        Env var name to read token from (default: HUB_DISPATCH_TOKEN)
+                        Env var name to read token from (default:
+                        HUB_DISPATCH_TOKEN)
   --total-repos TOTAL_REPOS
                         Total expected repos
   --hub-run-id HUB_RUN_ID
@@ -327,7 +369,10 @@ options:
 ## cihub report validate
 
 ```
-usage: cihub report validate [-h] [--json] --report REPORT [--expect {clean,issues}] [--coverage-min COVERAGE_MIN] [--strict] [--verbose] [--summary SUMMARY]
+usage: cihub report validate [-h] [--json] --report REPORT
+                             [--expect {clean,issues}]
+                             [--coverage-min COVERAGE_MIN] [--strict]
+                             [--verbose] [--summary SUMMARY]
                              [--reports-dir REPORTS_DIR] [--debug]
 
 options:
@@ -335,7 +380,8 @@ options:
   --json                Output machine-readable JSON
   --report REPORT       Path to report.json
   --expect {clean,issues}
-                        Expected mode: 'clean' for passing builds, 'issues' for failing fixtures
+                        Expected mode: 'clean' for passing builds, 'issues'
+                        for failing fixtures
   --coverage-min COVERAGE_MIN
                         Minimum coverage percentage (default: 70)
   --strict              Fail on warnings (not just errors)
@@ -349,7 +395,9 @@ options:
 ## cihub report dashboard
 
 ```
-usage: cihub report dashboard [-h] [--json] --reports-dir REPORTS_DIR --output OUTPUT [--format {json,html}] [--schema-mode {warn,strict}]
+usage: cihub report dashboard [-h] [--json] --reports-dir REPORTS_DIR --output
+                              OUTPUT [--format {json,html}]
+                              [--schema-mode {warn,strict}]
 
 options:
   -h, --help            show this help message and exit
@@ -359,16 +407,28 @@ options:
   --output OUTPUT       Output file path (e.g., dashboard.html or report.json)
   --format {json,html}  Output format (default: html)
   --schema-mode {warn,strict}
-                        Schema validation: 'warn' includes non-2.0, 'strict' skips them
+                        Schema validation: 'warn' includes non-2.0, 'strict'
+                        skips them
 ```
 
 ## cihub report security-summary
 
 ```
-usage: cihub report security-summary [-h] [--mode {repo,zap,overall}] [--repo REPO] [--language LANGUAGE] [--has-source HAS_SOURCE]
-                                     [--pip-audit-vulns PIP_AUDIT_VULNS] [--bandit-high BANDIT_HIGH] [--ruff-issues RUFF_ISSUES] [--owasp-critical OWASP_CRITICAL]
-                                     [--owasp-high OWASP_HIGH] [--repo-present REPO_PRESENT] [--run-zap RUN_ZAP] [--has-docker HAS_DOCKER] [--repo-count REPO_COUNT]
-                                     [--run-number RUN_NUMBER] [--summary SUMMARY] [--write-github-summary | --no-write-github-summary]
+usage: cihub report security-summary [-h] [--mode {repo,zap,overall}]
+                                     [--repo REPO] [--language LANGUAGE]
+                                     [--has-source HAS_SOURCE]
+                                     [--pip-audit-vulns PIP_AUDIT_VULNS]
+                                     [--bandit-high BANDIT_HIGH]
+                                     [--ruff-issues RUFF_ISSUES]
+                                     [--owasp-critical OWASP_CRITICAL]
+                                     [--owasp-high OWASP_HIGH]
+                                     [--repo-present REPO_PRESENT]
+                                     [--run-zap RUN_ZAP]
+                                     [--has-docker HAS_DOCKER]
+                                     [--repo-count REPO_COUNT]
+                                     [--run-number RUN_NUMBER]
+                                     [--summary SUMMARY]
+                                     [--write-github-summary | --no-write-github-summary]
 
 options:
   -h, --help            show this help message and exit
@@ -405,11 +465,24 @@ options:
 ## cihub report smoke-summary
 
 ```
-usage: cihub report smoke-summary [-h] [--mode {repo,overall}] [--owner OWNER] [--repo REPO] [--branch BRANCH] [--language LANGUAGE] [--config CONFIG]
-                                  [--tests-total TESTS_TOTAL] [--tests-failed TESTS_FAILED] [--coverage COVERAGE] [--coverage-lines COVERAGE_LINES]
-                                  [--checkstyle-violations CHECKSTYLE_VIOLATIONS] [--spotbugs-issues SPOTBUGS_ISSUES] [--ruff-errors RUFF_ERRORS]
-                                  [--ruff-security RUFF_SECURITY] [--black-issues BLACK_ISSUES] [--repo-count REPO_COUNT] [--run-number RUN_NUMBER]
-                                  [--event-name EVENT_NAME] [--test-result TEST_RESULT] [--summary SUMMARY] [--write-github-summary | --no-write-github-summary]
+usage: cihub report smoke-summary [-h] [--mode {repo,overall}] [--owner OWNER]
+                                  [--repo REPO] [--branch BRANCH]
+                                  [--language LANGUAGE] [--config CONFIG]
+                                  [--tests-total TESTS_TOTAL]
+                                  [--tests-failed TESTS_FAILED]
+                                  [--coverage COVERAGE]
+                                  [--coverage-lines COVERAGE_LINES]
+                                  [--checkstyle-violations CHECKSTYLE_VIOLATIONS]
+                                  [--spotbugs-issues SPOTBUGS_ISSUES]
+                                  [--ruff-errors RUFF_ERRORS]
+                                  [--ruff-security RUFF_SECURITY]
+                                  [--black-issues BLACK_ISSUES]
+                                  [--repo-count REPO_COUNT]
+                                  [--run-number RUN_NUMBER]
+                                  [--event-name EVENT_NAME]
+                                  [--test-result TEST_RESULT]
+                                  [--summary SUMMARY]
+                                  [--write-github-summary | --no-write-github-summary]
 
 options:
   -h, --help            show this help message and exit
@@ -453,8 +526,11 @@ options:
 ## cihub report kyverno-summary
 
 ```
-usage: cihub report kyverno-summary [-h] [--policies-dir POLICIES_DIR] [--validated VALIDATED] [--failed FAILED] [--run-tests RUN_TESTS] [--title TITLE]
-                                    [--summary SUMMARY] [--write-github-summary | --no-write-github-summary]
+usage: cihub report kyverno-summary [-h] [--policies-dir POLICIES_DIR]
+                                    [--validated VALIDATED] [--failed FAILED]
+                                    [--run-tests RUN_TESTS] [--title TITLE]
+                                    [--summary SUMMARY]
+                                    [--write-github-summary | --no-write-github-summary]
 
 options:
   -h, --help            show this help message and exit
@@ -474,8 +550,15 @@ options:
 ## cihub report orchestrator-summary
 
 ```
-usage: cihub report orchestrator-summary [-h] [--mode {load-config,trigger-record}] [--repo-count REPO_COUNT] [--owner OWNER] [--repo REPO] [--language LANGUAGE]
-                                         [--branch BRANCH] [--workflow-id WORKFLOW_ID] [--run-id RUN_ID] [--status STATUS] [--summary SUMMARY]
+usage: cihub report orchestrator-summary [-h]
+                                         [--mode {load-config,trigger-record}]
+                                         [--repo-count REPO_COUNT]
+                                         [--owner OWNER] [--repo REPO]
+                                         [--language LANGUAGE]
+                                         [--branch BRANCH]
+                                         [--workflow-id WORKFLOW_ID]
+                                         [--run-id RUN_ID] [--status STATUS]
+                                         [--summary SUMMARY]
                                          [--write-github-summary | --no-write-github-summary]
 
 options:
@@ -599,7 +682,8 @@ options:
 ## cihub config-outputs
 
 ```
-usage: cihub config-outputs [-h] [--json] [--repo REPO] [--workdir WORKDIR] [--github-output]
+usage: cihub config-outputs [-h] [--json] [--repo REPO] [--workdir WORKDIR]
+                            [--github-output]
 
 options:
   -h, --help         show this help message and exit
@@ -612,7 +696,9 @@ options:
 ## cihub discover
 
 ```
-usage: cihub discover [-h] [--json] [--hub-root HUB_ROOT] [--repos REPOS] [--run-group RUN_GROUP] [--central-only] [--dispatch-only] [--github-output]
+usage: cihub discover [-h] [--json] [--hub-root HUB_ROOT] [--repos REPOS]
+                      [--run-group RUN_GROUP] [--central-only]
+                      [--dispatch-only] [--github-output]
 
 options:
   -h, --help            show this help message and exit
@@ -620,7 +706,8 @@ options:
   --hub-root HUB_ROOT   Path to hub-release directory (default: auto-detect)
   --repos REPOS         Filter to specific repos (comma-separated)
   --run-group RUN_GROUP
-                        Filter by run group (comma-separated: full,smoke,fixtures)
+                        Filter by run group (comma-separated:
+                        full,smoke,fixtures)
   --central-only        Only include repos with repo.use_central_runner=true
   --dispatch-only       Only include repos with repo.use_central_runner=false
   --github-output       Write matrix and count to GITHUB_OUTPUT
@@ -643,8 +730,12 @@ options:
 ## cihub dispatch trigger
 
 ```
-usage: cihub dispatch trigger [-h] [--json] --owner OWNER --repo REPO --ref REF [--workflow WORKFLOW] [--correlation-id CORRELATION_ID]
-                              [--dispatch-enabled DISPATCH_ENABLED] [--token TOKEN] [--token-env TOKEN_ENV] [--timeout TIMEOUT]
+usage: cihub dispatch trigger [-h] [--json] --owner OWNER --repo REPO --ref
+                              REF [--workflow WORKFLOW]
+                              [--correlation-id CORRELATION_ID]
+                              [--dispatch-enabled DISPATCH_ENABLED]
+                              [--token TOKEN] [--token-env TOKEN_ENV]
+                              [--timeout TIMEOUT]
 
 options:
   -h, --help            show this help message and exit
@@ -666,8 +757,13 @@ options:
 ## cihub dispatch metadata
 
 ```
-usage: cihub dispatch metadata [-h] [--json] --config-basename CONFIG_BASENAME --owner OWNER --repo REPO [--output-dir OUTPUT_DIR] [--subdir SUBDIR]
-                               [--language LANGUAGE] [--branch BRANCH] [--workflow WORKFLOW] [--run-id RUN_ID] [--correlation-id CORRELATION_ID] [--status STATUS]
+usage: cihub dispatch metadata [-h] [--json] --config-basename CONFIG_BASENAME
+                               --owner OWNER --repo REPO
+                               [--output-dir OUTPUT_DIR] [--subdir SUBDIR]
+                               [--language LANGUAGE] [--branch BRANCH]
+                               [--workflow WORKFLOW] [--run-id RUN_ID]
+                               [--correlation-id CORRELATION_ID]
+                               [--status STATUS]
 
 options:
   -h, --help            show this help message and exit
@@ -743,7 +839,8 @@ positional arguments:
     summary             Generate hub CI summary
     outputs             Emit hub CI toggle outputs
     enforce             Fail if critical hub checks failed
-    verify-matrix-keys  Verify hub-run-all.yml matrix keys match discover.py output
+    verify-matrix-keys  Verify hub-run-all.yml matrix keys match discover.py
+                        output
     quarantine-check    Fail if any file imports from _quarantine
 
 options:
@@ -753,7 +850,9 @@ options:
 ## cihub hub-ci actionlint-install
 
 ```
-usage: cihub hub-ci actionlint-install [-h] [--version VERSION] [--checksum CHECKSUM] [--dest DEST] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci actionlint-install [-h] [--version VERSION]
+                                       [--checksum CHECKSUM] [--dest DEST]
+                                       [--output OUTPUT] [--github-output]
 
 options:
   -h, --help           show this help message and exit
@@ -767,7 +866,8 @@ options:
 ## cihub hub-ci actionlint
 
 ```
-usage: cihub hub-ci actionlint [-h] [--workflow WORKFLOW] [--bin BIN] [--reviewdog]
+usage: cihub hub-ci actionlint [-h] [--workflow WORKFLOW] [--bin BIN]
+                               [--reviewdog]
 
 options:
   -h, --help           show this help message and exit
@@ -779,7 +879,8 @@ options:
 ## cihub hub-ci syntax-check
 
 ```
-usage: cihub hub-ci syntax-check [-h] [--root ROOT] [--paths PATHS [PATHS ...]]
+usage: cihub hub-ci syntax-check [-h] [--root ROOT]
+                                 [--paths PATHS [PATHS ...]]
 
 options:
   -h, --help            show this help message and exit
@@ -791,7 +892,9 @@ options:
 ## cihub hub-ci repo-check
 
 ```
-usage: cihub hub-ci repo-check [-h] [--path PATH] [--owner OWNER] [--name NAME] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci repo-check [-h] [--path PATH] [--owner OWNER]
+                               [--name NAME] [--output OUTPUT]
+                               [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -805,7 +908,8 @@ options:
 ## cihub hub-ci source-check
 
 ```
-usage: cihub hub-ci source-check [-h] [--path PATH] --language LANGUAGE [--output OUTPUT] [--github-output]
+usage: cihub hub-ci source-check [-h] [--path PATH] --language LANGUAGE
+                                 [--output OUTPUT] [--github-output]
 
 options:
   -h, --help           show this help message and exit
@@ -818,7 +922,9 @@ options:
 ## cihub hub-ci security-pip-audit
 
 ```
-usage: cihub hub-ci security-pip-audit [-h] [--path PATH] [--report REPORT] [--requirements [REQUIREMENTS ...]] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci security-pip-audit [-h] [--path PATH] [--report REPORT]
+                                       [--requirements [REQUIREMENTS ...]]
+                                       [--output OUTPUT] [--github-output]
 
 options:
   -h, --help            show this help message and exit
@@ -833,7 +939,8 @@ options:
 ## cihub hub-ci security-bandit
 
 ```
-usage: cihub hub-ci security-bandit [-h] [--path PATH] [--report REPORT] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci security-bandit [-h] [--path PATH] [--report REPORT]
+                                    [--output OUTPUT] [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -846,7 +953,8 @@ options:
 ## cihub hub-ci security-ruff
 
 ```
-usage: cihub hub-ci security-ruff [-h] [--path PATH] [--report REPORT] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci security-ruff [-h] [--path PATH] [--report REPORT]
+                                  [--output OUTPUT] [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -859,7 +967,8 @@ options:
 ## cihub hub-ci security-owasp
 
 ```
-usage: cihub hub-ci security-owasp [-h] [--path PATH] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci security-owasp [-h] [--path PATH] [--output OUTPUT]
+                                   [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -871,7 +980,8 @@ options:
 ## cihub hub-ci docker-compose-check
 
 ```
-usage: cihub hub-ci docker-compose-check [-h] [--path PATH] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci docker-compose-check [-h] [--path PATH] [--output OUTPUT]
+                                         [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -893,7 +1003,8 @@ options:
 ## cihub hub-ci kyverno-install
 
 ```
-usage: cihub hub-ci kyverno-install [-h] [--version VERSION] [--dest DEST] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci kyverno-install [-h] [--version VERSION] [--dest DEST]
+                                    [--output OUTPUT] [--github-output]
 
 options:
   -h, --help         show this help message and exit
@@ -906,7 +1017,10 @@ options:
 ## cihub hub-ci kyverno-validate
 
 ```
-usage: cihub hub-ci kyverno-validate [-h] [--policies-dir POLICIES_DIR] [--templates-dir TEMPLATES_DIR] [--bin BIN] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci kyverno-validate [-h] [--policies-dir POLICIES_DIR]
+                                     [--templates-dir TEMPLATES_DIR]
+                                     [--bin BIN] [--output OUTPUT]
+                                     [--github-output]
 
 options:
   -h, --help            show this help message and exit
@@ -922,7 +1036,9 @@ options:
 ## cihub hub-ci kyverno-test
 
 ```
-usage: cihub hub-ci kyverno-test [-h] [--policies-dir POLICIES_DIR] [--fixtures-dir FIXTURES_DIR] [--bin BIN] [--fail-on-warn FAIL_ON_WARN]
+usage: cihub hub-ci kyverno-test [-h] [--policies-dir POLICIES_DIR]
+                                 [--fixtures-dir FIXTURES_DIR] [--bin BIN]
+                                 [--fail-on-warn FAIL_ON_WARN]
 
 options:
   -h, --help            show this help message and exit
@@ -948,7 +1064,8 @@ options:
 ## cihub hub-ci smoke-java-tests
 
 ```
-usage: cihub hub-ci smoke-java-tests [-h] [--path PATH] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci smoke-java-tests [-h] [--path PATH] [--output OUTPUT]
+                                     [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -960,7 +1077,8 @@ options:
 ## cihub hub-ci smoke-java-coverage
 
 ```
-usage: cihub hub-ci smoke-java-coverage [-h] [--path PATH] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci smoke-java-coverage [-h] [--path PATH] [--output OUTPUT]
+                                        [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -972,7 +1090,8 @@ options:
 ## cihub hub-ci smoke-java-checkstyle
 
 ```
-usage: cihub hub-ci smoke-java-checkstyle [-h] [--path PATH] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci smoke-java-checkstyle [-h] [--path PATH] [--output OUTPUT]
+                                          [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -984,7 +1103,8 @@ options:
 ## cihub hub-ci smoke-java-spotbugs
 
 ```
-usage: cihub hub-ci smoke-java-spotbugs [-h] [--path PATH] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci smoke-java-spotbugs [-h] [--path PATH] [--output OUTPUT]
+                                        [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -1006,7 +1126,9 @@ options:
 ## cihub hub-ci smoke-python-tests
 
 ```
-usage: cihub hub-ci smoke-python-tests [-h] [--path PATH] [--output-file OUTPUT_FILE] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci smoke-python-tests [-h] [--path PATH]
+                                       [--output-file OUTPUT_FILE]
+                                       [--output OUTPUT] [--github-output]
 
 options:
   -h, --help            show this help message and exit
@@ -1020,7 +1142,8 @@ options:
 ## cihub hub-ci smoke-python-ruff
 
 ```
-usage: cihub hub-ci smoke-python-ruff [-h] [--path PATH] [--report REPORT] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci smoke-python-ruff [-h] [--path PATH] [--report REPORT]
+                                      [--output OUTPUT] [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -1033,7 +1156,9 @@ options:
 ## cihub hub-ci smoke-python-black
 
 ```
-usage: cihub hub-ci smoke-python-black [-h] [--path PATH] [--output-file OUTPUT_FILE] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci smoke-python-black [-h] [--path PATH]
+                                       [--output-file OUTPUT_FILE]
+                                       [--output OUTPUT] [--github-output]
 
 options:
   -h, --help            show this help message and exit
@@ -1047,7 +1172,8 @@ options:
 ## cihub hub-ci release-parse-tag
 
 ```
-usage: cihub hub-ci release-parse-tag [-h] [--ref REF] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci release-parse-tag [-h] [--ref REF] [--output OUTPUT]
+                                      [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -1059,7 +1185,8 @@ options:
 ## cihub hub-ci release-update-tag
 
 ```
-usage: cihub hub-ci release-update-tag [-h] [--repo REPO] --major MAJOR --version VERSION [--remote REMOTE]
+usage: cihub hub-ci release-update-tag [-h] [--repo REPO] --major MAJOR
+                                       --version VERSION [--remote REMOTE]
 
 options:
   -h, --help         show this help message and exit
@@ -1072,7 +1199,8 @@ options:
 ## cihub hub-ci ruff
 
 ```
-usage: cihub hub-ci ruff [-h] [--path PATH] [--force-exclude] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci ruff [-h] [--path PATH] [--force-exclude]
+                         [--output OUTPUT] [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -1085,7 +1213,8 @@ options:
 ## cihub hub-ci black
 
 ```
-usage: cihub hub-ci black [-h] [--path PATH] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci black [-h] [--path PATH] [--output OUTPUT]
+                          [--github-output]
 
 options:
   -h, --help       show this help message and exit
@@ -1097,7 +1226,9 @@ options:
 ## cihub hub-ci mutmut
 
 ```
-usage: cihub hub-ci mutmut [-h] [--workdir WORKDIR] [--output-dir OUTPUT_DIR] [--min-score MIN_SCORE] [--output OUTPUT] [--github-output] [--summary SUMMARY]
+usage: cihub hub-ci mutmut [-h] [--workdir WORKDIR] [--output-dir OUTPUT_DIR]
+                           [--min-score MIN_SCORE] [--output OUTPUT]
+                           [--github-output] [--summary SUMMARY]
                            [--github-summary]
 
 options:
@@ -1116,7 +1247,9 @@ options:
 ## cihub hub-ci bandit
 
 ```
-usage: cihub hub-ci bandit [-h] [--paths PATHS [PATHS ...]] [--output OUTPUT] [--severity SEVERITY] [--confidence CONFIDENCE] [--summary SUMMARY] [--github-summary]
+usage: cihub hub-ci bandit [-h] [--paths PATHS [PATHS ...]] [--output OUTPUT]
+                           [--severity SEVERITY] [--confidence CONFIDENCE]
+                           [--summary SUMMARY] [--github-summary]
 
 options:
   -h, --help            show this help message and exit
@@ -1133,7 +1266,10 @@ options:
 ## cihub hub-ci pip-audit
 
 ```
-usage: cihub hub-ci pip-audit [-h] [--requirements REQUIREMENTS [REQUIREMENTS ...]] [--output OUTPUT] [--summary SUMMARY] [--github-summary]
+usage: cihub hub-ci pip-audit [-h]
+                              [--requirements REQUIREMENTS [REQUIREMENTS ...]]
+                              [--output OUTPUT] [--summary SUMMARY]
+                              [--github-summary]
 
 options:
   -h, --help            show this help message and exit
@@ -1160,7 +1296,8 @@ options:
 ## cihub hub-ci zizmor-check
 
 ```
-usage: cihub hub-ci zizmor-check [-h] [--sarif SARIF] [--summary SUMMARY] [--github-summary]
+usage: cihub hub-ci zizmor-check [-h] [--sarif SARIF] [--summary SUMMARY]
+                                 [--github-summary]
 
 options:
   -h, --help         show this help message and exit
@@ -1172,13 +1309,15 @@ options:
 ## cihub hub-ci validate-configs
 
 ```
-usage: cihub hub-ci validate-configs [-h] [--configs-dir CONFIGS_DIR] [--repo REPO]
+usage: cihub hub-ci validate-configs [-h] [--configs-dir CONFIGS_DIR]
+                                     [--repo REPO]
 
 options:
   -h, --help            show this help message and exit
   --configs-dir CONFIGS_DIR
                         Directory containing config repos
-  --repo REPO           Validate a single repo config by name (e.g., fixtures-python-passing)
+  --repo REPO           Validate a single repo config by name (e.g., fixtures-
+                        python-passing)
 ```
 
 ## cihub hub-ci validate-profiles
@@ -1206,7 +1345,8 @@ options:
 ## cihub hub-ci gitleaks-summary
 
 ```
-usage: cihub hub-ci gitleaks-summary [-h] [--outcome OUTCOME] [--summary SUMMARY] [--github-summary]
+usage: cihub hub-ci gitleaks-summary [-h] [--outcome OUTCOME]
+                                     [--summary SUMMARY] [--github-summary]
 
 options:
   -h, --help         show this help message and exit
@@ -1218,14 +1358,21 @@ options:
 ## cihub hub-ci badges
 
 ```
-usage: cihub hub-ci badges [-h] [--check] [--config CONFIG] [--output-dir OUTPUT_DIR] [--artifacts-dir ARTIFACTS_DIR] [--ruff-issues RUFF_ISSUES]
-                           [--mutation-score MUTATION_SCORE] [--mypy-errors MYPY_ERRORS] [--black-issues BLACK_ISSUES] [--black-status {clean,failed,n/a}]
+usage: cihub hub-ci badges [-h] [--check] [--config CONFIG]
+                           [--output-dir OUTPUT_DIR]
+                           [--artifacts-dir ARTIFACTS_DIR]
+                           [--ruff-issues RUFF_ISSUES]
+                           [--mutation-score MUTATION_SCORE]
+                           [--mypy-errors MYPY_ERRORS]
+                           [--black-issues BLACK_ISSUES]
+                           [--black-status {clean,failed,n/a}]
                            [--zizmor-sarif ZIZMOR_SARIF]
 
 options:
   -h, --help            show this help message and exit
   --check               Validate badges match current metrics
-  --config CONFIG       Config file to read reports.badges.enabled from (defaults to config/defaults.yaml)
+  --config CONFIG       Config file to read reports.badges.enabled from
+                        (defaults to config/defaults.yaml)
   --output-dir OUTPUT_DIR
                         Output directory for badges
   --artifacts-dir ARTIFACTS_DIR
@@ -1267,11 +1414,13 @@ options:
 ## cihub hub-ci outputs
 
 ```
-usage: cihub hub-ci outputs [-h] [--config CONFIG] [--output OUTPUT] [--github-output]
+usage: cihub hub-ci outputs [-h] [--config CONFIG] [--output OUTPUT]
+                            [--github-output]
 
 options:
   -h, --help       show this help message and exit
-  --config CONFIG  Config file with hub_ci settings (defaults to config/defaults.yaml)
+  --config CONFIG  Config file with hub_ci settings (defaults to
+                   config/defaults.yaml)
   --output OUTPUT  Write outputs to file
   --github-output  Write outputs to GITHUB_OUTPUT
 ```
@@ -1307,8 +1456,9 @@ options:
 ## cihub new
 
 ```
-usage: cihub new [-h] [--json] [--owner OWNER] [--language {java,python}] [--branch BRANCH] [--subdir SUBDIR] [--profile PROFILE] [--interactive] [--dry-run]
-                 [--yes]
+usage: cihub new [-h] [--json] [--owner OWNER] [--language {java,python}]
+                 [--branch BRANCH] [--subdir SUBDIR] [--profile PROFILE]
+                 [--interactive] [--dry-run] [--yes]
                  name
 
 positional arguments:
@@ -1331,8 +1481,10 @@ options:
 ## cihub init
 
 ```
-usage: cihub init [-h] [--json] --repo REPO [--language {java,python}] [--owner OWNER] [--name NAME] [--branch BRANCH] [--subdir SUBDIR] [--workdir SUBDIR]
-                  [--fix-pom] [--apply] [--force] [--wizard] [--dry-run]
+usage: cihub init [-h] [--json] --repo REPO [--language {java,python}]
+                  [--owner OWNER] [--name NAME] [--branch BRANCH]
+                  [--subdir SUBDIR] [--workdir SUBDIR] [--fix-pom] [--apply]
+                  [--force] [--wizard] [--dry-run]
 
 options:
   -h, --help            show this help message and exit
@@ -1345,7 +1497,8 @@ options:
   --branch BRANCH       Default branch (e.g., main)
   --subdir SUBDIR       Subdirectory for monorepos (repo.subdir)
   --workdir SUBDIR      Alias for --subdir
-  --fix-pom             Fix pom.xml for Java repos (adds missing plugins/dependencies)
+  --fix-pom             Fix pom.xml for Java repos (adds missing
+                        plugins/dependencies)
   --apply               Write files (default: dry-run)
   --force               Override repo_side_execution guardrails
   --wizard              Run interactive wizard (requires cihub[wizard])
@@ -1355,8 +1508,10 @@ options:
 ## cihub update
 
 ```
-usage: cihub update [-h] [--json] --repo REPO [--language {java,python}] [--owner OWNER] [--name NAME] [--branch BRANCH] [--subdir SUBDIR] [--workdir SUBDIR]
-                    [--fix-pom] [--apply] [--force] [--dry-run]
+usage: cihub update [-h] [--json] --repo REPO [--language {java,python}]
+                    [--owner OWNER] [--name NAME] [--branch BRANCH]
+                    [--subdir SUBDIR] [--workdir SUBDIR] [--fix-pom] [--apply]
+                    [--force] [--dry-run]
 
 options:
   -h, --help            show this help message and exit
@@ -1369,7 +1524,8 @@ options:
   --branch BRANCH       Default branch (e.g., main)
   --subdir SUBDIR       Subdirectory for monorepos (repo.subdir)
   --workdir SUBDIR      Alias for --subdir
-  --fix-pom             Fix pom.xml for Java repos (adds missing plugins/dependencies)
+  --fix-pom             Fix pom.xml for Java repos (adds missing
+                        plugins/dependencies)
   --apply               Write files (default: dry-run)
   --force               Override repo_side_execution guardrails
   --dry-run             Print output instead of writing
@@ -1390,7 +1546,8 @@ options:
 ## cihub setup-secrets
 
 ```
-usage: cihub setup-secrets [-h] [--json] [--hub-repo HUB_REPO] [--token TOKEN] [--all] [--verify]
+usage: cihub setup-secrets [-h] [--json] [--hub-repo HUB_REPO] [--token TOKEN]
+                           [--all] [--verify]
 
 options:
   -h, --help           show this help message and exit
@@ -1440,7 +1597,9 @@ options:
 ## cihub sync-templates
 
 ```
-usage: cihub sync-templates [-h] [--json] [--repo REPO] [--include-disabled] [--check] [--dry-run] [--commit-message COMMIT_MESSAGE] [--update-tag]
+usage: cihub sync-templates [-h] [--json] [--repo REPO] [--include-disabled]
+                            [--check] [--dry-run]
+                            [--commit-message COMMIT_MESSAGE] [--update-tag]
                             [--no-update-tag] [--yes]
 
 options:
@@ -1460,7 +1619,8 @@ options:
 ## cihub config
 
 ```
-usage: cihub config [-h] [--json] [--repo REPO] [--dry-run] {edit,show,set,enable,disable,apply-profile} ...
+usage: cihub config [-h] [--json] [--repo REPO] [--dry-run]
+                    {edit,show,set,enable,disable,apply-profile} ...
 
 positional arguments:
   {edit,show,set,enable,disable,apply-profile}
@@ -1542,12 +1702,14 @@ options:
 ## cihub config apply-profile
 
 ```
-usage: cihub config apply-profile [-h] [--json] --profile PROFILE [--target TARGET] [--output OUTPUT]
+usage: cihub config apply-profile [-h] [--json] --profile PROFILE
+                                  [--target TARGET] [--output OUTPUT]
 
 options:
   -h, --help         show this help message and exit
   --json             Output machine-readable JSON
-  --profile PROFILE  Path to profile YAML (e.g., templates/profiles/python-fast.yaml)
+  --profile PROFILE  Path to profile YAML (e.g., templates/profiles/python-
+                     fast.yaml)
   --target TARGET    Path to target repo config YAML (overrides --repo)
   --output OUTPUT    Optional output path (defaults to target path)
 ```

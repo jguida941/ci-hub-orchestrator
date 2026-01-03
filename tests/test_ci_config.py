@@ -75,6 +75,33 @@ class TestLoadCiConfig:
         # Defaults should still be present
         assert result["java"]["build_tool"] == "maven"
 
+    def test_shorthand_preserves_tool_defaults(self, tmp_path: Path) -> None:
+        ci_hub = tmp_path / ".ci-hub.yml"
+        ci_hub.write_text(
+            "language: python\npython:\n  tools:\n    pytest: true\n    ruff: false\n"
+        )
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "defaults.yaml").write_text(
+            "python:\n"
+            "  tools:\n"
+            "    pytest:\n"
+            "      enabled: true\n"
+            "      min_coverage: 75\n"
+            "    ruff:\n"
+            "      enabled: true\n"
+            "      max_errors: 3\n"
+        )
+
+        with patch("cihub.ci_config.hub_root") as mock_root:
+            mock_root.return_value = tmp_path
+            result = load_ci_config(tmp_path)
+
+        assert result["python"]["tools"]["pytest"]["enabled"] is True
+        assert result["python"]["tools"]["pytest"]["min_coverage"] == 75
+        assert result["python"]["tools"]["ruff"]["enabled"] is False
+        assert result["python"]["tools"]["ruff"]["max_errors"] == 3
+
     def test_uses_fallback_when_defaults_file_missing(self, tmp_path: Path) -> None:
         ci_hub = tmp_path / ".ci-hub.yml"
         ci_hub.write_text("language: python\n")

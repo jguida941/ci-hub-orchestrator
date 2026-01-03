@@ -21,6 +21,7 @@ import defusedxml.ElementTree as ET  # Secure XML parsing (prevents XXE)
 from cihub import __version__
 from cihub.config.io import load_yaml_file
 from cihub.config.merge import deep_merge
+from cihub.config.normalize import normalize_tool_configs
 from cihub.exit_codes import EXIT_FAILURE, EXIT_INTERNAL_ERROR, EXIT_SUCCESS
 
 GIT_REMOTE_RE = re.compile(r"(?:github\.com[:/])(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?$")
@@ -109,10 +110,11 @@ def detect_language(repo_path: Path) -> tuple[str | None, list[str]]:
 
 def load_effective_config(repo_path: Path) -> dict[str, Any]:
     defaults_path = hub_root() / "config" / "defaults.yaml"
-    defaults = load_yaml_file(defaults_path)
+    defaults = normalize_tool_configs(load_yaml_file(defaults_path))
     local_path = repo_path / ".ci-hub.yml"
-    local_config = load_yaml_file(local_path)
+    local_config = normalize_tool_configs(load_yaml_file(local_path))
     merged = deep_merge(defaults, local_config)
+    merged = normalize_tool_configs(merged)
     repo_info = merged.get("repo", {})
     if repo_info.get("language"):
         merged["language"] = repo_info["language"]

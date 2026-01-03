@@ -6,6 +6,7 @@ import copy
 from typing import Any
 
 from cihub.config.paths import PathConfig
+from cihub.config.normalize import normalize_tool_configs
 
 
 def deep_merge(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, Any]:
@@ -61,15 +62,15 @@ def build_effective_config(
     Returns:
         The merged effective configuration.
     """
-    result = copy.deepcopy(defaults)
+    result = normalize_tool_configs(defaults)
 
     if profile:
-        result = deep_merge(result, profile)
+        result = deep_merge(result, normalize_tool_configs(profile))
 
     if repo_config:
-        result = deep_merge(result, repo_config)
+        result = deep_merge(result, normalize_tool_configs(repo_config))
 
-    return result
+    return normalize_tool_configs(result)
 
 
 def get_effective_config_for_repo(

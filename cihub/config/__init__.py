@@ -19,6 +19,7 @@ from cihub.config.merge import (
     deep_merge,
     get_effective_config_for_repo,
 )
+from cihub.config.normalize import normalize_tool_configs
 from cihub.config.paths import PathConfig
 from cihub.config.schema import get_schema, validate_config
 
@@ -36,6 +37,7 @@ __all__ = [
     "load_profile_strict",
     "load_repo_config",
     "load_yaml_file",
+    "normalize_tool_configs",
     "save_repo_config",
     "save_yaml_file",
     "validate_config",

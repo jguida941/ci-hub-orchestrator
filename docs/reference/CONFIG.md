@@ -47,55 +47,18 @@ Source: `schema/ci-hub-config.schema.json`
 | `java.build_tool` | string | no | maven |  |
 | `java.distribution` | string | no | temurin |  |
 | `java.tools` | object | no |  |  |
-| `java.tools.checkstyle` | object | no |  |  |
-| `java.tools.checkstyle.config_file` | string, null | no |  |  |
-| `java.tools.checkstyle.enabled` | boolean | no | true |  |
-| `java.tools.checkstyle.fail_on_violation` | boolean | no | true |  |
-| `java.tools.checkstyle.max_errors` | integer | no | 0 |  |
-| `java.tools.codeql` | object | no |  |  |
-| `java.tools.codeql.enabled` | boolean | no | false |  |
-| `java.tools.codeql.languages` | array | no | ["java"] |  |
-| `java.tools.docker` | object | no |  |  |
-| `java.tools.docker.compose_file` | string | no | docker-compose.yml |  |
-| `java.tools.docker.dockerfile` | string | no | Dockerfile |  |
-| `java.tools.docker.enabled` | boolean | no | false |  |
-| `java.tools.docker.health_endpoint` | string | no | /actuator/health |  |
-| `java.tools.docker.health_timeout` | integer | no | 300 |  |
-| `java.tools.jacoco` | object | no |  |  |
-| `java.tools.jacoco.enabled` | boolean | no | true |  |
-| `java.tools.jacoco.min_coverage` | integer | no | 70 |  |
-| `java.tools.jqwik` | object | no |  |  |
-| `java.tools.jqwik.enabled` | boolean | no | false |  |
-| `java.tools.owasp` | object | no |  |  |
-| `java.tools.owasp.enabled` | boolean | no | true |  |
-| `java.tools.owasp.fail_on_cvss` | integer | no | 7 |  |
-| `java.tools.owasp.use_nvd_api_key` | boolean | no | true |  |
-| `java.tools.pitest` | object | no |  |  |
-| `java.tools.pitest.enabled` | boolean | no | true |  |
-| `java.tools.pitest.min_mutation_score` | integer | no | 70 |  |
-| `java.tools.pitest.threads` | integer | no | 4 |  |
-| `java.tools.pitest.timeout_multiplier` | integer | no | 2 |  |
-| `java.tools.pmd` | object | no |  |  |
-| `java.tools.pmd.enabled` | boolean | no | true |  |
-| `java.tools.pmd.fail_on_violation` | boolean | no | false |  |
-| `java.tools.pmd.max_violations` | integer | no | 0 |  |
-| `java.tools.semgrep` | object | no |  |  |
-| `java.tools.semgrep.enabled` | boolean | no | false |  |
-| `java.tools.semgrep.fail_on_findings` | boolean | no | false |  |
-| `java.tools.semgrep.max_findings` | integer | no | 0 |  |
-| `java.tools.sbom` | object | no |  |  |
-| `java.tools.sbom.enabled` | boolean | no | false |  |
-| `java.tools.sbom.format` | string | no | cyclonedx |  |
-| `java.tools.spotbugs` | object | no |  |  |
-| `java.tools.spotbugs.effort` | string | no | max |  |
-| `java.tools.spotbugs.enabled` | boolean | no | true |  |
-| `java.tools.spotbugs.fail_on_error` | boolean | no | true |  |
-| `java.tools.spotbugs.max_bugs` | integer | no | 0 |  |
-| `java.tools.spotbugs.threshold` | string | no | medium |  |
-| `java.tools.trivy` | object | no |  |  |
-| `java.tools.trivy.enabled` | boolean | no | false |  |
-| `java.tools.trivy.fail_on_critical` | boolean | no | false |  |
-| `java.tools.trivy.fail_on_high` | boolean | no | false |  |
+| `java.tools.checkstyle` | oneOf | no |  |  |
+| `java.tools.codeql` | oneOf | no |  |  |
+| `java.tools.docker` | oneOf | no |  |  |
+| `java.tools.jacoco` | oneOf | no |  |  |
+| `java.tools.jqwik` | oneOf | no |  |  |
+| `java.tools.owasp` | oneOf | no |  |  |
+| `java.tools.pitest` | oneOf | no |  |  |
+| `java.tools.pmd` | oneOf | no |  |  |
+| `java.tools.semgrep` | oneOf | no |  |  |
+| `java.tools.sbom` | oneOf | no |  |  |
+| `java.tools.spotbugs` | oneOf | no |  |  |
+| `java.tools.trivy` | oneOf | no |  |  |
 | `java.version` | string | no | 21 |  |
 | `kyverno` | object | no |  |  |
 | `kyverno.enabled` | boolean | no | false |  |
@@ -117,53 +80,20 @@ Source: `schema/ci-hub-config.schema.json`
 | `notifications.slack.webhook_env` | string | no | CIHUB_SLACK_WEBHOOK_URL |  |
 | `python` | object | no |  |  |
 | `python.tools` | object | no |  |  |
-| `python.tools.bandit` | object | no |  |  |
-| `python.tools.bandit.enabled` | boolean | no | true |  |
-| `python.tools.bandit.fail_on_high` | boolean | no | true |  |
-| `python.tools.black` | object | no |  |  |
-| `python.tools.black.enabled` | boolean | no | true |  |
-| `python.tools.black.fail_on_format_issues` | boolean | no | false |  |
-| `python.tools.black.max_issues` | integer | no | 0 |  |
-| `python.tools.codeql` | object | no |  |  |
-| `python.tools.codeql.enabled` | boolean | no | false |  |
-| `python.tools.codeql.languages` | array | no | ["python"] |  |
-| `python.tools.docker` | object | no |  |  |
-| `python.tools.docker.enabled` | boolean | no | false |  |
-| `python.tools.hypothesis` | object | no |  |  |
-| `python.tools.hypothesis.enabled` | boolean | no | true |  |
-| `python.tools.isort` | object | no |  |  |
-| `python.tools.isort.enabled` | boolean | no | true |  |
-| `python.tools.isort.fail_on_issues` | boolean | no | false |  |
-| `python.tools.isort.max_issues` | integer | no | 0 |  |
-| `python.tools.mutmut` | object | no |  |  |
-| `python.tools.mutmut.enabled` | boolean | no | false |  |
-| `python.tools.mutmut.min_mutation_score` | integer | no | 70 |  |
-| `python.tools.mutmut.min_score` | integer | no | 0 |  |
-| `python.tools.mutmut.timeout_minutes` | integer | no | 15 |  |
-| `python.tools.mypy` | object | no |  |  |
-| `python.tools.mypy.enabled` | boolean | no | false |  |
-| `python.tools.pip_audit` | object | no |  |  |
-| `python.tools.pip_audit.enabled` | boolean | no | true |  |
-| `python.tools.pip_audit.fail_on_vuln` | boolean | no | true |  |
-| `python.tools.pytest` | object | no |  |  |
-| `python.tools.pytest.enabled` | boolean | no | true |  |
-| `python.tools.pytest.fail_fast` | boolean | no | false |  |
-| `python.tools.pytest.min_coverage` | integer | no | 70 |  |
-| `python.tools.ruff` | object | no |  |  |
-| `python.tools.ruff.enabled` | boolean | no | true |  |
-| `python.tools.ruff.fail_on_error` | boolean | no | true |  |
-| `python.tools.ruff.max_errors` | integer | no | 0 |  |
-| `python.tools.sbom` | object | no |  |  |
-| `python.tools.sbom.enabled` | boolean | no | false |  |
-| `python.tools.sbom.format` | string | no | cyclonedx |  |
-| `python.tools.semgrep` | object | no |  |  |
-| `python.tools.semgrep.enabled` | boolean | no | false |  |
-| `python.tools.semgrep.fail_on_findings` | boolean | no | false |  |
-| `python.tools.semgrep.max_findings` | integer | no | 0 |  |
-| `python.tools.trivy` | object | no |  |  |
-| `python.tools.trivy.enabled` | boolean | no | false |  |
-| `python.tools.trivy.fail_on_critical` | boolean | no | false |  |
-| `python.tools.trivy.fail_on_high` | boolean | no | false |  |
+| `python.tools.bandit` | oneOf | no |  |  |
+| `python.tools.black` | oneOf | no |  |  |
+| `python.tools.codeql` | oneOf | no |  |  |
+| `python.tools.docker` | oneOf | no |  |  |
+| `python.tools.hypothesis` | oneOf | no |  |  |
+| `python.tools.isort` | oneOf | no |  |  |
+| `python.tools.mutmut` | oneOf | no |  |  |
+| `python.tools.mypy` | oneOf | no |  |  |
+| `python.tools.pip_audit` | oneOf | no |  |  |
+| `python.tools.pytest` | oneOf | no |  |  |
+| `python.tools.ruff` | oneOf | no |  |  |
+| `python.tools.sbom` | oneOf | no |  |  |
+| `python.tools.semgrep` | oneOf | no |  |  |
+| `python.tools.trivy` | oneOf | no |  |  |
 | `python.version` | string | no | 3.12 |  |
 | `repo` | object | yes |  |  |
 | `repo.default_branch` | string | no | main |  |

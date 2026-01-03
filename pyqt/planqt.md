@@ -288,31 +288,38 @@ Execution order (avoid rework):
  - Test with fixture repos
 
  ---
- PHASE B: Shorthand Booleans + Schema Updates (After Workflows Stabilize)
+ PHASE B: Shorthand Booleans + Schema Updates ✅ COMPLETE (2026-01-03)
 
  Goal: Support cleaner config syntax with shorthand booleans.
 
- Why defer: Requires schema + validation updates. Better to stabilize core workflows first.
+ Step B1: Update JSON schema ✅
 
- Step B1: Update JSON schema
+ - Added oneOf pattern to allow both pytest: true AND pytest: { enabled: true }
+ - Updated all Python tools (14) and Java tools (12)
+ - File: schema/ci-hub-config.schema.json
 
- - Allow both pytest: true AND pytest: { enabled: true }
- - Add oneOf or anyOf schema patterns
+ Step B2: Add config normalization ✅
 
- Step B2: Add config normalization
+ - Added normalize_tool_configs() in cihub/config/normalize.py
+ - Normalize each config layer before merges (defaults, hub override, repo local)
+ - Apply normalization at load boundaries (ci_config, loader, load_effective_config)
+ - Keeps defaults intact when shorthand booleans are used
 
- - In config loading, normalize pytest: true → pytest: { enabled: true }
- - Keeps downstream code simple (always sees full format)
+ Step B3: Update validation ✅
 
- Step B3: Update validation
+ - Added shorthand tests in tests/test_config_pipeline.py:
+   - test_normalize_tool_configs_python
+   - test_normalize_tool_configs_java
+   - test_normalize_tool_configs_preserves_other_keys
+   - test_generate_workflow_inputs_with_shorthand_booleans
+   - test_generate_workflow_inputs_java_with_shorthand
+   - test_load_config_with_shorthand_booleans
+ - Added default-preservation test in tests/test_ci_config.py
 
- - Ensure both formats pass validation
- - Add tests for shorthand format
+ Step B4: Update documentation ✅
 
- Step B4: Update documentation
-
- - Show shorthand examples in docs
- - Keep full format as "canonical" for generated configs
+ - Added "Tool Configuration Syntax" section to docs/guides/GETTING_STARTED.md
+ - Shows shorthand, full, and mixed examples
 
  ---
  PHASE C: PyQt6 GUI (Follow-up - After Workflows Stabilize)

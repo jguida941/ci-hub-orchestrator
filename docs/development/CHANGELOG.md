@@ -11,6 +11,9 @@ All notable changes to this project will be documented in this file.
 - Security helpers now warn and set tool_status when a tool fails without valid output.
 - `cihub sync-templates --check/--dry-run` skips gracefully with a warning when no GitHub token is available.
 
+### Config
+- Allow shorthand booleans for tool configs and normalize at load boundaries to preserve defaults.
+
 ### Workflows
 - Removed all multi-line `run: |` blocks; workflows now call CLI helpers for logic.
 - hub-security, smoke-test, kyverno, release, and hub-production workflow steps now delegate parsing/validation to CLI commands.
@@ -299,16 +302,16 @@ All notable changes to this project will be documented in this file.
 ## 2025-12-24 - ADR-0024 Threshold Resolution
 
 ### Reusable Workflows
-- Added `threshold_overrides_yaml` input to `java-ci.yml` and `python-ci.yml`; thresholds now resolve in order: override YAML → `.ci-hub.yml` → input defaults.
+- Removed `threshold_overrides_yaml`; thresholds now resolve from `.ci-hub.yml` and hub defaults via the CLI (config-only).
 - Exported effective thresholds (`eff_*`) and wired all gates/summaries to use them (coverage, mutation, OWASP/Trivy, Semgrep, PMD, lint).
 - Updated Java `report.json` to emit effective thresholds instead of raw inputs; summaries now show effective values.
 
 ### Orchestrator / Contract
-- Kept dispatch inputs to booleans only; thresholds flow from config/override per ADR-0024.
+- Kept dispatch inputs minimal; thresholds flow from config only per ADR-0024.
 - Added ADR-0024 (`docs/adr/0024-workflow-dispatch-input-limit.md`) to document the 25-input limit strategy and single-override approach.
 
 ### Caller Templates
-- Templates adjusted for threshold/input cleanup (pending final sync); templates still need the `threshold_overrides_yaml` input added and synced via `cihub sync-templates`.
+- Templates aligned with simplified callers; no `threshold_overrides_yaml` input required.
 
 ## 2025-12-24 - Quarantine System, NEW_PLAN, and CLI/Validation Hardening
 

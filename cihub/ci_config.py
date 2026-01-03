@@ -8,6 +8,7 @@ from typing import Any
 from cihub.cli import hub_root
 from cihub.config.io import load_yaml_file
 from cihub.config.merge import deep_merge
+from cihub.config.normalize import normalize_tool_configs
 
 FALLBACK_DEFAULTS: dict[str, Any] = {
     "java": {
@@ -66,11 +67,13 @@ def load_ci_config(repo_path: Path) -> dict[str, Any]:
     defaults = load_yaml_file(defaults_path) if defaults_path.exists() else {}
     if not defaults:
         defaults = FALLBACK_DEFAULTS
+    defaults = normalize_tool_configs(defaults)
     local_path = repo_path / ".ci-hub.yml"
     if not local_path.exists():
         raise FileNotFoundError(f"Missing .ci-hub.yml in {repo_path}")
-    local_config = load_yaml_file(local_path)
+    local_config = normalize_tool_configs(load_yaml_file(local_path))
     merged = deep_merge(defaults, local_config)
+    merged = normalize_tool_configs(merged)
     repo_info = merged.get("repo", {})
     if isinstance(repo_info, dict) and repo_info.get("language"):
         merged["language"] = repo_info["language"]
@@ -93,19 +96,20 @@ def load_hub_config(config_basename: str, repo_path: Path | None = None) -> dict
     defaults = load_yaml_file(defaults_path) if defaults_path.exists() else {}
     if not defaults:
         defaults = FALLBACK_DEFAULTS
+    defaults = normalize_tool_configs(defaults)
 
     hub_config_path = hub / "config" / "repos" / f"{config_basename}.yaml"
     if not hub_config_path.exists():
         raise FileNotFoundError(f"Hub config not found: {hub_config_path}")
 
-    hub_config = load_yaml_file(hub_config_path)
+    hub_config = normalize_tool_configs(load_yaml_file(hub_config_path))
     merged = deep_merge(defaults, hub_config)
 
     # Optionally merge repo's .ci-hub.yml (but hub config wins for protected keys)
     if repo_path:
         local_path = repo_path / ".ci-hub.yml"
         if local_path.exists():
-            local_config = load_yaml_file(local_path)
+            local_config = normalize_tool_configs(load_yaml_file(local_path))
             # Block repo-local from overriding protected keys (hub controls these)
             repo_block = local_config.get("repo", {})
             if isinstance(repo_block, dict):
@@ -114,6 +118,7 @@ def load_hub_config(config_basename: str, repo_path: Path | None = None) -> dict
                 local_config["repo"] = repo_block
             # Merge local config with lower priority (hub wins)
             merged = deep_merge(local_config, merged)
+    merged = normalize_tool_configs(merged)
 
     repo_info = merged.get("repo", {})
     if isinstance(repo_info, dict) and repo_info.get("language"):
