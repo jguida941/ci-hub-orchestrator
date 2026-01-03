@@ -6,7 +6,7 @@ import json
 import tempfile
 import time
 import zipfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib import request
@@ -768,7 +768,7 @@ def run_aggregation(
 
     report: dict[str, Any] = {
         "hub_run_id": hub_run_id,
-        "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "triggered_by": hub_event,
         "total_repos": total_repos,
         "dispatched_repos": dispatched,
@@ -919,7 +919,7 @@ def run_reports_aggregation(
 
     report: dict[str, Any] = {
         "hub_run_id": hub_run_id,
-        "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "triggered_by": hub_event,
         "total_repos": total_repos,
         "dispatched_repos": processed,

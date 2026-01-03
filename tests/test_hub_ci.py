@@ -199,7 +199,7 @@ class TestCountPipAuditVulns:
 class TestCmdRuff:
     """Tests for cmd_ruff command."""
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.python_tools._run_command")
     @mock.patch("subprocess.run")
     def test_returns_success_when_no_issues(self, mock_subprocess: mock.Mock, mock_run: mock.Mock) -> None:
         from cihub.commands.hub_ci import cmd_ruff
@@ -217,7 +217,7 @@ class TestCmdRuff:
         result = cmd_ruff(args)
         assert result == EXIT_SUCCESS
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.python_tools._run_command")
     @mock.patch("subprocess.run")
     def test_returns_failure_when_issues_found(self, mock_subprocess: mock.Mock, mock_run: mock.Mock) -> None:
         from cihub.commands.hub_ci import cmd_ruff
@@ -242,7 +242,7 @@ class TestCmdRuff:
 class TestCmdBlack:
     """Tests for cmd_black command."""
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.python_tools._run_command")
     def test_returns_success_no_issues(self, mock_run: mock.Mock) -> None:
         from cihub.commands.hub_ci import cmd_black
         from cihub.exit_codes import EXIT_SUCCESS
@@ -261,9 +261,9 @@ class TestCmdBlack:
 class TestCmdBadges:
     """Tests for cmd_badges command."""
 
-    @mock.patch("cihub.commands.hub_ci._compare_badges")
-    @mock.patch("cihub.commands.hub_ci.badge_tools.main")
-    @mock.patch("cihub.commands.hub_ci.hub_root")
+    @mock.patch("cihub.commands.hub_ci.badges._compare_badges")
+    @mock.patch("cihub.commands.hub_ci.badges.badge_tools.main")
+    @mock.patch("cihub.commands.hub_ci.badges.hub_root")
     def test_check_mode_success(
         self,
         mock_root: mock.Mock,
@@ -299,9 +299,9 @@ class TestCmdBadges:
         assert env["UPDATE_BADGES"] == "true"
         assert "BADGE_OUTPUT_DIR" in env
 
-    @mock.patch("cihub.commands.hub_ci._compare_badges")
-    @mock.patch("cihub.commands.hub_ci.badge_tools.main")
-    @mock.patch("cihub.commands.hub_ci.hub_root")
+    @mock.patch("cihub.commands.hub_ci.badges._compare_badges")
+    @mock.patch("cihub.commands.hub_ci.badges.badge_tools.main")
+    @mock.patch("cihub.commands.hub_ci.badges.hub_root")
     def test_check_mode_detects_drift(
         self,
         mock_root: mock.Mock,
@@ -333,8 +333,8 @@ class TestCmdBadges:
 
         assert result == EXIT_FAILURE
 
-    @mock.patch("cihub.commands.hub_ci.badge_tools.main")
-    @mock.patch("cihub.commands.hub_ci.hub_root")
+    @mock.patch("cihub.commands.hub_ci.badges.badge_tools.main")
+    @mock.patch("cihub.commands.hub_ci.badges.hub_root")
     def test_updates_badges_with_output_dir(
         self,
         mock_root: mock.Mock,
@@ -369,7 +369,7 @@ class TestCmdBadges:
         assert env["MUTATION_SCORE"] == "88.5"
         assert env["MYPY_ERRORS"] == "2"
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.python_tools._run_command")
     def test_counts_would_reformat(self, mock_run: mock.Mock, capsys) -> None:
         from cihub.commands.hub_ci import cmd_black
 
@@ -392,8 +392,8 @@ class TestCmdBadges:
 class TestCmdBadgesCommit:
     """Tests for cmd_badges_commit command."""
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
-    @mock.patch("cihub.commands.hub_ci.hub_root")
+    @mock.patch("cihub.commands.hub_ci.badges._run_command")
+    @mock.patch("cihub.commands.hub_ci.badges.hub_root")
     def test_no_changes(self, mock_root: mock.Mock, mock_run: mock.Mock, tmp_path: Path) -> None:
         from cihub.commands.hub_ci import cmd_badges_commit
         from cihub.exit_codes import EXIT_SUCCESS
@@ -410,8 +410,8 @@ class TestCmdBadgesCommit:
         assert result == EXIT_SUCCESS
         assert mock_run.call_count == 4
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
-    @mock.patch("cihub.commands.hub_ci.hub_root")
+    @mock.patch("cihub.commands.hub_ci.badges._run_command")
+    @mock.patch("cihub.commands.hub_ci.badges.hub_root")
     def test_commits_and_pushes(self, mock_root: mock.Mock, mock_run: mock.Mock, tmp_path: Path) -> None:
         from cihub.commands.hub_ci import cmd_badges_commit
         from cihub.exit_codes import EXIT_SUCCESS
@@ -434,7 +434,7 @@ class TestCmdBadgesCommit:
 class TestCmdBandit:
     """Tests for cmd_bandit command."""
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.security._run_command")
     def test_returns_success_no_high_issues(self, mock_run: mock.Mock, tmp_path: Path) -> None:
         from cihub.commands.hub_ci import cmd_bandit
         from cihub.exit_codes import EXIT_SUCCESS
@@ -455,7 +455,7 @@ class TestCmdBandit:
         assert result == EXIT_SUCCESS
 
     @mock.patch("subprocess.run")
-    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.security._run_command")
     def test_returns_failure_with_high_issues(
         self, mock_run: mock.Mock, mock_subprocess: mock.Mock, tmp_path: Path
     ) -> None:
@@ -634,7 +634,7 @@ class TestCmdValidateProfiles:
 class TestCmdLicenseCheck:
     """Tests for cmd_license_check command."""
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.release._run_command")
     def test_returns_success_no_copyleft(self, mock_run: mock.Mock) -> None:
         from cihub.commands.hub_ci import cmd_license_check
         from cihub.exit_codes import EXIT_SUCCESS
@@ -648,7 +648,7 @@ class TestCmdLicenseCheck:
         result = cmd_license_check(args)
         assert result == EXIT_SUCCESS
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.release._run_command")
     def test_warns_on_copyleft(self, mock_run: mock.Mock, capsys) -> None:
         from cihub.commands.hub_ci import cmd_license_check
         from cihub.exit_codes import EXIT_SUCCESS
@@ -762,6 +762,7 @@ class TestVerifyMatrixKeys:
 
     def test_verify_matrix_keys_passes(self, tmp_path: Path, monkeypatch) -> None:
         from cihub.commands import hub_ci
+        from cihub.commands.hub_ci import validation
         from cihub.exit_codes import EXIT_SUCCESS
 
         hub = tmp_path
@@ -771,12 +772,14 @@ class TestVerifyMatrixKeys:
             encoding="utf-8",
         )
 
-        monkeypatch.setattr(hub_ci, "hub_root", lambda: hub)
+        # Patch hub_root in the validation module where it's used
+        monkeypatch.setattr(validation, "hub_root", lambda: hub)
         result = hub_ci.cmd_verify_matrix_keys(argparse.Namespace())
         assert result == EXIT_SUCCESS
 
     def test_verify_matrix_keys_fails_on_missing(self, tmp_path: Path, monkeypatch) -> None:
         from cihub.commands import hub_ci
+        from cihub.commands.hub_ci import validation
         from cihub.exit_codes import EXIT_FAILURE
 
         hub = tmp_path
@@ -786,7 +789,8 @@ class TestVerifyMatrixKeys:
             encoding="utf-8",
         )
 
-        monkeypatch.setattr(hub_ci, "hub_root", lambda: hub)
+        # Patch hub_root in the validation module where it's used
+        monkeypatch.setattr(validation, "hub_root", lambda: hub)
         result = hub_ci.cmd_verify_matrix_keys(argparse.Namespace())
         assert result == EXIT_FAILURE
 
@@ -959,7 +963,7 @@ class TestCmdSmokeJava:
 class TestCmdSmokePython:
     """Tests for smoke Python commands."""
 
-    @mock.patch("cihub.commands.hub_ci._run_command")
+    @mock.patch("cihub.commands.hub_ci.smoke._run_command")
     def test_smoke_python_tests_parses_output(self, mock_run: mock.Mock, tmp_path: Path) -> None:
         from cihub.commands.hub_ci import cmd_smoke_python_tests
         from cihub.exit_codes import EXIT_SUCCESS
@@ -999,7 +1003,8 @@ class TestCmdHubCi:
     def test_routes_to_correct_handler(self) -> None:
         from cihub.commands.hub_ci import cmd_hub_ci
 
-        with mock.patch("cihub.commands.hub_ci.cmd_validate_profiles") as mock_handler:
+        # Patch at the router module where cmd_validate_profiles is looked up
+        with mock.patch("cihub.commands.hub_ci.router.cmd_validate_profiles") as mock_handler:
             mock_handler.return_value = 0
             args = argparse.Namespace(subcommand="validate-profiles", profiles_dir=None)
             cmd_hub_ci(args)
