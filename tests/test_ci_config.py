@@ -77,9 +77,7 @@ class TestLoadCiConfig:
 
     def test_shorthand_preserves_tool_defaults(self, tmp_path: Path) -> None:
         ci_hub = tmp_path / ".ci-hub.yml"
-        ci_hub.write_text(
-            "language: python\npython:\n  tools:\n    pytest: true\n    ruff: false\n"
-        )
+        ci_hub.write_text("language: python\npython:\n  tools:\n    pytest: true\n    ruff: false\n")
         config_dir = tmp_path / "config"
         config_dir.mkdir()
         (config_dir / "defaults.yaml").write_text(
@@ -220,11 +218,7 @@ def test_load_ci_config_applies_thresholds_profile(tmp_path: Path) -> None:
     ci_hub.write_text("language: python\nthresholds_profile: coverage-gate\n")
     config_dir = tmp_path / "config"
     config_dir.mkdir()
-    (config_dir / "defaults.yaml").write_text(
-        "thresholds:\n"
-        "  coverage_min: 70\n"
-        "  mutation_score_min: 70\n"
-    )
+    (config_dir / "defaults.yaml").write_text("thresholds:\n  coverage_min: 70\n  mutation_score_min: 70\n")
 
     with patch("cihub.ci_config.hub_root") as mock_root:
         mock_root.return_value = tmp_path
@@ -249,11 +243,7 @@ def test_load_hub_config_applies_thresholds_profile(tmp_path: Path) -> None:
         "  mutation_score_min: 70\n"
     )
     (repos_dir / "example.yaml").write_text(
-        "repo:\n"
-        "  owner: owner\n"
-        "  name: example\n"
-        "  language: python\n"
-        "thresholds_profile: coverage-gate\n"
+        "repo:\n  owner: owner\n  name: example\n  language: python\nthresholds_profile: coverage-gate\n"
     )
 
     with patch("cihub.ci_config.hub_root") as mock_root:

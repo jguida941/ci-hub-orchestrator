@@ -69,6 +69,7 @@ class CiRunResult(ServiceResult):
     data: dict[str, Any] = field(default_factory=dict)
     problems: list[dict[str, Any]] = field(default_factory=list)
 
+
 PYTHON_TOOLS = [
     "pytest",
     "ruff",
@@ -1087,14 +1088,14 @@ def run_ci(
             config = load_ci_config(repo_path)
     except Exception as exc:
         message = f"Failed to load config: {exc}"
-        problems = [{"severity": "error", "message": message, "code": "CIHUB-CI-CONFIG"}]
-        errors, warnings = _split_problems(problems)
+        config_problems = [{"severity": "error", "message": message, "code": "CIHUB-CI-CONFIG"}]
+        errors, warnings = _split_problems(config_problems)
         return CiRunResult(
             success=False,
             errors=errors,
             warnings=warnings,
             exit_code=EXIT_FAILURE,
-            problems=problems,
+            problems=config_problems,
         )
 
     language = config.get("language") or ""

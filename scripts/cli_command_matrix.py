@@ -142,7 +142,7 @@ def _format_markdown(rows: Iterable[dict[str, str]]) -> str:
     lines = ["| Name | Category | Command | Notes |", "| --- | --- | --- | --- |"]
     for row in rows:
         lines.append(
-            f"| {row.get('name','')} | {row.get('category','')} | {row.get('command','')} | {row.get('notes','')} |"
+            f"| {row.get('name', '')} | {row.get('category', '')} | {row.get('command', '')} | {row.get('notes', '')} |"
         )
     return "\n".join(lines)
 

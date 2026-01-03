@@ -318,9 +318,7 @@ def test_load_config_with_shorthand_booleans(tmp_path: Path):
     schema_src = ROOT / "schema" / "ci-hub-config.schema.json"
     schema_dst = hub_root / "schema"
     schema_dst.mkdir(parents=True, exist_ok=True)
-    schema_dst.joinpath("ci-hub-config.schema.json").write_text(
-        schema_src.read_text(), encoding="utf-8"
-    )
+    schema_dst.joinpath("ci-hub-config.schema.json").write_text(schema_src.read_text(), encoding="utf-8")
 
     defaults = {
         "repo": {"owner": "owner", "name": "shorthand-test", "language": "python"},
@@ -336,9 +334,7 @@ def test_load_config_with_shorthand_booleans(tmp_path: Path):
 
     (hub_root / "config" / "repos").mkdir(parents=True, exist_ok=True)
     (hub_root / "config" / "defaults.yaml").write_text(json.dumps(defaults), encoding="utf-8")
-    (hub_root / "config" / "repos" / "shorthand-test.yaml").write_text(
-        json.dumps(repo_override), encoding="utf-8"
-    )
+    (hub_root / "config" / "repos" / "shorthand-test.yaml").write_text(json.dumps(repo_override), encoding="utf-8")
 
     cfg = load_config(repo_name="shorthand-test", hub_root=hub_root, exit_on_validation_error=False)
 
@@ -351,9 +347,7 @@ def test_load_config_applies_thresholds_profile(tmp_path: Path) -> None:
     schema_src = ROOT / "schema" / "ci-hub-config.schema.json"
     schema_dst = hub_root / "schema"
     schema_dst.mkdir(parents=True, exist_ok=True)
-    schema_dst.joinpath("ci-hub-config.schema.json").write_text(
-        schema_src.read_text(), encoding="utf-8"
-    )
+    schema_dst.joinpath("ci-hub-config.schema.json").write_text(schema_src.read_text(), encoding="utf-8")
 
     defaults = {
         "repo": {"owner": "owner", "name": "base", "language": "python"},
@@ -368,9 +362,7 @@ def test_load_config_applies_thresholds_profile(tmp_path: Path) -> None:
 
     (hub_root / "config" / "repos").mkdir(parents=True, exist_ok=True)
     (hub_root / "config" / "defaults.yaml").write_text(json.dumps(defaults), encoding="utf-8")
-    (hub_root / "config" / "repos" / "example.yaml").write_text(
-        json.dumps(repo_override), encoding="utf-8"
-    )
+    (hub_root / "config" / "repos" / "example.yaml").write_text(json.dumps(repo_override), encoding="utf-8")
 
     cfg = load_config(repo_name="example", hub_root=hub_root, exit_on_validation_error=False)
 
