@@ -520,3 +520,351 @@ class TestRunMypy:
 
         assert result.tool == "mypy"
         assert result.metrics["mypy_errors"] == 2
+
+
+class TestRunPytest:
+    """Tests for run_pytest function."""
+
+    def test_runs_pytest_successfully(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_pytest
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # pytest writes to output_dir (pytest-junit.xml and coverage.xml)
+        (output_dir / "pytest-junit.xml").write_text(
+            '<?xml version="1.0"?><testsuite tests="5" failures="0" errors="0" skipped="1" time="1.0"/>'
+        )
+        (output_dir / "coverage.xml").write_text(
+            '<?xml version="1.0"?><coverage line-rate="0.85"><packages/></coverage>'
+        )
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = ""
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_pytest(tmp_path, output_dir)
+
+        assert result.tool == "pytest"
+        assert result.ran is True
+        assert result.success is True
+        assert result.metrics["coverage"] == 85
+        assert result.metrics["tests_passed"] == 4
+        assert result.metrics["tests_skipped"] == 1
+
+    def test_pytest_failure(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_pytest
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # pytest writes to output_dir
+        (output_dir / "pytest-junit.xml").write_text(
+            '<?xml version="1.0"?><testsuite tests="5" failures="2" errors="0" skipped="0" time="1.0"/>'
+        )
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 1
+        mock_proc.stdout = ""
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_pytest(tmp_path, output_dir)
+
+        assert result.tool == "pytest"
+        assert result.success is False
+        assert result.metrics["tests_failed"] == 2
+
+
+class TestRunBandit:
+    """Tests for run_bandit function."""
+
+    def test_parses_bandit_json(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_bandit
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # Write the report file that bandit will create
+        (output_dir / "bandit-report.json").write_text(json.dumps({
+            "results": [
+                {"issue_severity": "HIGH", "test_id": "B101"},
+                {"issue_severity": "MEDIUM", "test_id": "B105"},
+                {"issue_severity": "LOW", "test_id": "B106"},
+            ]
+        }))
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = ""
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_bandit(tmp_path, output_dir)
+
+        assert result.tool == "bandit"
+        assert result.ran is True
+        assert result.metrics["bandit_high"] == 1
+        assert result.metrics["bandit_medium"] == 1
+        assert result.metrics["bandit_low"] == 1
+
+
+class TestRunPipAudit:
+    """Tests for run_pip_audit function."""
+
+    def test_parses_vulnerabilities(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_pip_audit
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # pip_audit uses list format
+        (output_dir / "pip-audit-report.json").write_text(json.dumps([
+            {"name": "requests", "vulns": [{"id": "CVE-2023-001"}]},
+            {"name": "flask", "vulns": [{"id": "CVE-2023-002"}, {"id": "CVE-2023-003"}]},
+        ]))
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 1
+        mock_proc.stdout = ""
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_pip_audit(tmp_path, output_dir)
+
+        assert result.tool == "pip_audit"
+        assert result.ran is True
+        assert result.metrics["pip_audit_vulns"] == 3
+
+
+class TestRunSbom:
+    """Tests for run_sbom function."""
+
+    def test_generates_sbom(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_sbom
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # Create pyproject.toml
+        (tmp_path / "pyproject.toml").write_text('[project]\nname = "test"\n')
+
+        # syft writes stdout which gets saved to sbom.cyclonedx.json
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = '{"bomFormat": "CycloneDX", "components": []}'
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_sbom(tmp_path, output_dir)
+
+        assert result.tool == "sbom"
+        assert result.ran is True
+        assert result.success is True
+        # Verify the output file was created
+        assert (output_dir / "sbom.cyclonedx.json").exists()
+
+
+class TestRunJavaBuild:
+    """Tests for run_java_build function."""
+
+    def test_maven_build_success(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_java_build
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        (tmp_path / "pom.xml").write_text("<project/>")
+        (tmp_path / "mvnw").write_text("#!/bin/sh\n")
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "BUILD SUCCESS"
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_java_build(tmp_path, output_dir, "maven", jacoco_enabled=False)
+
+        assert result.tool == "build"  # run_java_build uses "build" as tool name
+        assert result.ran is True
+        assert result.success is True
+
+    def test_gradle_build_success(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_java_build
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        (tmp_path / "build.gradle").write_text("apply plugin: 'java'")
+        (tmp_path / "gradlew").write_text("#!/bin/sh\n")
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "BUILD SUCCESSFUL"
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_java_build(tmp_path, output_dir, "gradle", jacoco_enabled=False)
+
+        assert result.tool == "build"  # run_java_build uses "build" as tool name
+        assert result.ran is True
+        assert result.success is True
+
+    def test_maven_build_with_jacoco(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_java_build
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        (tmp_path / "pom.xml").write_text("<project/>")
+        (tmp_path / "mvnw").write_text("#!/bin/sh\n")
+
+        # Create jacoco report
+        jacoco_dir = tmp_path / "target" / "site" / "jacoco"
+        jacoco_dir.mkdir(parents=True)
+        (jacoco_dir / "jacoco.xml").write_text(
+            '''<?xml version="1.0"?>
+            <report name="test">
+              <counter type="LINE" missed="20" covered="80"/>
+            </report>'''
+        )
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = "BUILD SUCCESS"
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_java_build(tmp_path, output_dir, "maven", jacoco_enabled=True)
+
+        assert result.tool == "build"
+        assert result.success is True
+        assert result.metrics["coverage"] == 80
+
+
+class TestRunJacoco:
+    """Tests for run_jacoco function."""
+
+    def test_parses_jacoco_xml(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_jacoco
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        # Create jacoco.xml
+        target_dir = tmp_path / "target" / "site" / "jacoco"
+        target_dir.mkdir(parents=True)
+        (target_dir / "jacoco.xml").write_text(
+            '''<?xml version="1.0"?>
+            <report name="test">
+              <counter type="LINE" missed="20" covered="80"/>
+            </report>'''
+        )
+
+        result = run_jacoco(tmp_path, output_dir)
+
+        assert result.tool == "jacoco"
+        assert result.ran is True
+        assert result.metrics["coverage"] == 80.0
+
+
+class TestRunCheckstyle:
+    """Tests for run_checkstyle function."""
+
+    def test_parses_checkstyle_xml(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_checkstyle
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        (tmp_path / "mvnw").write_text("#!/bin/sh\n")
+
+        target_dir = tmp_path / "target"
+        target_dir.mkdir(parents=True)
+        (target_dir / "checkstyle-result.xml").write_text(
+            '''<?xml version="1.0"?>
+            <checkstyle>
+              <file name="Test.java">
+                <error severity="error" message="Missing Javadoc"/>
+                <error severity="error" message="Another error"/>
+              </file>
+            </checkstyle>'''
+        )
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = ""
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_checkstyle(tmp_path, output_dir, "maven")
+
+        assert result.tool == "checkstyle"
+        assert result.ran is True
+        assert result.metrics["checkstyle_issues"] == 2
+
+
+class TestRunSpotbugs:
+    """Tests for run_spotbugs function."""
+
+    def test_parses_spotbugs_xml(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_spotbugs
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        (tmp_path / "mvnw").write_text("#!/bin/sh\n")
+
+        target_dir = tmp_path / "target"
+        target_dir.mkdir(parents=True)
+        (target_dir / "spotbugsXml.xml").write_text(
+            '''<?xml version="1.0"?>
+            <BugCollection>
+              <BugInstance type="NP_NULL_ON_SOME_PATH" priority="1"/>
+              <BugInstance type="DM_DEFAULT_ENCODING" priority="2"/>
+            </BugCollection>'''
+        )
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = ""
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_spotbugs(tmp_path, output_dir, "maven")
+
+        assert result.tool == "spotbugs"
+        assert result.ran is True
+        assert result.metrics["spotbugs_issues"] == 2
+
+
+class TestRunPmd:
+    """Tests for run_pmd function."""
+
+    def test_parses_pmd_xml(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_pmd
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        (tmp_path / "mvnw").write_text("#!/bin/sh\n")
+
+        target_dir = tmp_path / "target"
+        target_dir.mkdir(parents=True)
+        (target_dir / "pmd.xml").write_text(
+            '''<?xml version="1.0"?>
+            <pmd>
+              <file name="Test.java">
+                <violation priority="1">Issue 1</violation>
+                <violation priority="3">Issue 2</violation>
+              </file>
+            </pmd>'''
+        )
+
+        mock_proc = MagicMock()
+        mock_proc.returncode = 0
+        mock_proc.stdout = ""
+        mock_proc.stderr = ""
+
+        with patch("cihub.ci_runner._run_command", return_value=mock_proc):
+            result = run_pmd(tmp_path, output_dir, "maven")
+
+        assert result.tool == "pmd"
+        assert result.ran is True
+        assert result.metrics["pmd_violations"] == 2

@@ -81,12 +81,123 @@ def test_tool_enabled_and_gate() -> None:
     assert ci_engine._tool_gate_enabled(config, "spotbugs", "java") is True
 
 
+def test_tool_gate_enabled_python_tools() -> None:
+    """Test all Python tool gate options."""
+    # Test each Python tool gate option
+    config = {
+        "python": {
+            "tools": {
+                "black": {"enabled": True, "fail_on_format_issues": False},
+                "isort": {"enabled": True, "fail_on_issues": False},
+                "bandit": {"enabled": True, "fail_on_high": False},
+                "pip_audit": {"enabled": True, "fail_on_vuln": False},
+                "semgrep": {"enabled": True, "fail_on_findings": False},
+                "trivy": {"enabled": True, "fail_on_critical": False, "fail_on_high": False},
+            }
+        }
+    }
+    assert ci_engine._tool_gate_enabled(config, "black", "python") is False
+    assert ci_engine._tool_gate_enabled(config, "isort", "python") is False
+    assert ci_engine._tool_gate_enabled(config, "bandit", "python") is False
+    assert ci_engine._tool_gate_enabled(config, "pip_audit", "python") is False
+    assert ci_engine._tool_gate_enabled(config, "semgrep", "python") is False
+    assert ci_engine._tool_gate_enabled(config, "trivy", "python") is False
+
+
+def test_tool_gate_enabled_java_tools() -> None:
+    """Test all Java tool gate options."""
+    config = {
+        "java": {
+            "tools": {
+                "checkstyle": {"enabled": True, "fail_on_violation": False},
+                "pmd": {"enabled": True, "fail_on_violation": False},
+                "semgrep": {"enabled": True, "fail_on_findings": False},
+                "trivy": {"enabled": True, "fail_on_critical": False, "fail_on_high": False},
+            }
+        }
+    }
+    assert ci_engine._tool_gate_enabled(config, "checkstyle", "java") is False
+    assert ci_engine._tool_gate_enabled(config, "pmd", "java") is False
+    assert ci_engine._tool_gate_enabled(config, "semgrep", "java") is False
+    assert ci_engine._tool_gate_enabled(config, "trivy", "java") is False
+
+
 def test_warn_reserved_features_adds_problem() -> None:
     problems: list[dict[str, object]] = []
     config = {"chaos": {"enabled": True}}
     ci_engine._warn_reserved_features(config, problems)
     assert problems
     assert problems[0]["code"] == "CIHUB-CI-RESERVED-FEATURE"
+
+
+def test_warn_reserved_features_kyverno() -> None:
+    """Test that kyverno also triggers reserved feature warning."""
+    problems: list[dict[str, object]] = []
+    config = {"kyverno": {"enabled": True}}
+    ci_engine._warn_reserved_features(config, problems)
+    assert problems
+    assert problems[0]["code"] == "CIHUB-CI-RESERVED-FEATURE"
+    assert "Kyverno" in problems[0]["message"]
+
+
+def test_get_env_name_returns_config_value() -> None:
+    config = {"codecov_env_name": "CODECOV_CUSTOM"}
+    assert ci_engine._get_env_name(config, "codecov_env_name", "CODECOV_TOKEN") == "CODECOV_CUSTOM"
+
+
+def test_get_env_name_returns_default() -> None:
+    config = {}
+    assert ci_engine._get_env_name(config, "codecov_env_name", "CODECOV_TOKEN") == "CODECOV_TOKEN"
+
+
+def test_get_env_name_ignores_whitespace_only() -> None:
+    config = {"codecov_env_name": "   "}
+    assert ci_engine._get_env_name(config, "codecov_env_name", "CODECOV_TOKEN") == "CODECOV_TOKEN"
+
+
+def test_split_problems() -> None:
+    problems = [
+        {"severity": "error", "message": "Error 1"},
+        {"severity": "warning", "message": "Warning 1"},
+        {"severity": "error", "message": "Error 2"},
+        {"severity": "info", "message": "Info 1"},
+    ]
+    errors, warnings = ci_engine._split_problems(problems)
+    assert errors == ["Error 1", "Error 2"]
+    assert warnings == ["Warning 1"]
+
+
+def test_split_problems_empty_messages_filtered() -> None:
+    problems = [
+        {"severity": "error", "message": ""},
+        {"severity": "warning", "message": "Valid warning"},
+    ]
+    errors, warnings = ci_engine._split_problems(problems)
+    assert errors == []
+    assert warnings == ["Valid warning"]
+
+
+def test_detect_java_project_type_settings_gradle(tmp_path: Path) -> None:
+    """Test detection of multi-module Gradle project via settings.gradle."""
+    (tmp_path / "settings.gradle").write_text("include 'sub1', 'sub2'", encoding="utf-8")
+    assert ci_engine._detect_java_project_type(tmp_path) == "Multi-module"
+
+
+def test_detect_java_project_type_settings_gradle_kts(tmp_path: Path) -> None:
+    """Test detection of multi-module Gradle project via settings.gradle.kts."""
+    (tmp_path / "settings.gradle.kts").write_text("include(\"sub1\")", encoding="utf-8")
+    assert ci_engine._detect_java_project_type(tmp_path) == "Multi-module"
+
+
+def test_detect_java_project_type_unknown(tmp_path: Path) -> None:
+    """Test unknown project type when no build files present."""
+    assert ci_engine._detect_java_project_type(tmp_path) == "Unknown"
+
+
+def test_detect_java_project_type_pom_single_module(tmp_path: Path) -> None:
+    """Test single module Maven project (pom without modules)."""
+    (tmp_path / "pom.xml").write_text("<project></project>", encoding="utf-8")
+    assert ci_engine._detect_java_project_type(tmp_path) == "Single module"
 
 
 def test_apply_env_overrides_sets_tools_and_summary() -> None:
@@ -217,3 +328,67 @@ def test_cmd_ci_unknown_language(tmp_path: Path) -> None:
         result = ci_cmd.cmd_ci(args)
 
     assert result.exit_code == EXIT_FAILURE
+
+
+def test_print_result_with_paths(tmp_path: Path, capsys) -> None:
+    """Test _print_result outputs report and summary paths."""
+    report = tmp_path / "report.json"
+    summary = tmp_path / "summary.md"
+    result = ci_engine.CiRunResult(
+        success=True,
+        exit_code=EXIT_SUCCESS,
+        report_path=report,
+        summary_path=summary,
+    )
+
+    ci_cmd._print_result(result)
+
+    out = capsys.readouterr().out
+    assert f"Wrote report: {report}" in out
+    assert f"Wrote summary: {summary}" in out
+
+
+def test_print_result_with_problems(capsys) -> None:
+    """Test _print_result outputs problems list."""
+    result = ci_engine.CiRunResult(
+        success=False,
+        exit_code=EXIT_FAILURE,
+        problems=[
+            {"severity": "error", "message": "Test failed"},
+            {"severity": "warning", "message": "Coverage low"},
+        ],
+    )
+
+    ci_cmd._print_result(result)
+
+    out = capsys.readouterr().out
+    assert "CI findings:" in out
+    assert "[error] Test failed" in out
+    assert "[warning] Coverage low" in out
+
+
+def test_summary_for_result_with_errors_no_report() -> None:
+    """Test _summary_for_result returns first error when no report."""
+    result = ci_engine.CiRunResult(
+        success=False,
+        exit_code=EXIT_FAILURE,
+        errors=["First error", "Second error"],
+        report={},
+    )
+    assert ci_cmd._summary_for_result(result) == "First error"
+
+
+def test_summary_for_result_with_problems() -> None:
+    """Test _summary_for_result returns issues message when problems exist."""
+    result = ci_engine.CiRunResult(
+        success=True,
+        exit_code=EXIT_SUCCESS,
+        problems=[{"severity": "warning", "message": "Low coverage"}],
+    )
+    assert ci_cmd._summary_for_result(result) == "CI completed with issues"
+
+
+def test_summary_for_result_success() -> None:
+    """Test _summary_for_result returns success message."""
+    result = ci_engine.CiRunResult(success=True, exit_code=EXIT_SUCCESS)
+    assert ci_cmd._summary_for_result(result) == "CI completed"

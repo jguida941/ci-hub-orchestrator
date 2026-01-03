@@ -170,3 +170,114 @@ class TestAggregateFromReportsDir:
 
         assert result.success is True
         assert result.summary_path is None
+
+
+class TestBuildResultEdgeCases:
+    """Tests for _build_result edge cases."""
+
+    def test_handles_json_decode_error(self, tmp_path: Path):
+        """Handles corrupted JSON in output file."""
+        from cihub.services.aggregation import _build_result
+
+        output_file = tmp_path / "corrupted.json"
+        output_file.write_text("not valid {json", encoding="utf-8")
+
+        result = _build_result(
+            exit_code=0,
+            output_file=output_file,
+            summary_file=None,
+        )
+
+        assert "Failed to read output file" in result.errors[0]
+        assert result.report_data == {}
+
+    def test_records_failed_runs(self, tmp_path: Path):
+        """Records failed runs in errors when exit code is non-zero."""
+        from cihub.services.aggregation import _build_result
+
+        output_file = tmp_path / "report.json"
+        output_file.write_text(
+            json.dumps({
+                "runs": [
+                    {"status": "completed", "conclusion": "failure"},
+                    {"status": "completed", "conclusion": "failure"},
+                ],
+            }),
+            encoding="utf-8",
+        )
+
+        result = _build_result(
+            exit_code=1,
+            output_file=output_file,
+            summary_file=None,
+        )
+
+        assert result.success is False
+        assert result.failed_count == 2
+        assert "2 runs failed" in result.errors[0]
+
+    def test_records_threshold_violation(self, tmp_path: Path):
+        """Records threshold violations in errors."""
+        from cihub.services.aggregation import _build_result
+
+        output_file = tmp_path / "report.json"
+        output_file.write_text(
+            json.dumps({
+                "runs": [],
+                "total_critical_vulns": 5,
+            }),
+            encoding="utf-8",
+        )
+
+        result = _build_result(
+            exit_code=1,
+            output_file=output_file,
+            summary_file=None,
+        )
+
+        assert result.threshold_exceeded is True
+        assert "Vulnerability thresholds exceeded" in result.errors
+
+
+class TestAggregateFromDispatch:
+    """Tests for aggregate_from_dispatch function."""
+
+    def test_calls_run_aggregation(self, tmp_path: Path):
+        """Calls the underlying run_aggregation function."""
+        from unittest.mock import patch
+
+        from cihub.services.aggregation import aggregate_from_dispatch
+
+        dispatch_dir = tmp_path / "dispatches"
+        dispatch_dir.mkdir()
+        output_file = tmp_path / "output.json"
+        defaults_file = tmp_path / "defaults.yaml"
+        defaults_file.write_text("thresholds: {}\n", encoding="utf-8")
+
+        # Mock the underlying function to just create an empty report
+        def mock_run_agg(**kwargs):
+            kwargs["output_file"].write_text(
+                '{"runs": [], "total_repos": 0, "dispatched_repos": 0}',
+                encoding="utf-8",
+            )
+            return 0
+
+        with patch(
+            "cihub.services.aggregation._run_aggregation",
+            side_effect=mock_run_agg,
+        ) as mock_agg:
+            result = aggregate_from_dispatch(
+                dispatch_dir=dispatch_dir,
+                output_file=output_file,
+                defaults_file=defaults_file,
+                token="test-token",
+                hub_run_id="hub-123",
+                hub_event="workflow_dispatch",
+                total_repos=5,
+                summary_file=None,
+                strict=False,
+                timeout_sec=60,
+            )
+
+        mock_agg.assert_called_once()
+        assert result.success is True

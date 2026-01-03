@@ -252,3 +252,135 @@ def test_load_hub_config_applies_thresholds_profile(tmp_path: Path) -> None:
 
     assert result["thresholds"]["coverage_min"] == 90
     assert result["thresholds"]["mutation_score_min"] == 80
+
+
+def test_load_hub_config_raises_when_config_missing(tmp_path: Path) -> None:
+    """Test that load_hub_config raises FileNotFoundError when hub config not found."""
+    config_dir = tmp_path / "config"
+    repos_dir = config_dir / "repos"
+    repos_dir.mkdir(parents=True)
+    (config_dir / "defaults.yaml").write_text("language: python\n")
+    # No repos/missing.yaml file
+
+    with patch("cihub.ci_config.hub_root") as mock_root:
+        mock_root.return_value = tmp_path
+        with pytest.raises(FileNotFoundError, match="Hub config not found"):
+            load_hub_config("missing")
+
+
+def test_load_hub_config_uses_fallback_when_defaults_empty(tmp_path: Path) -> None:
+    """Test load_hub_config uses FALLBACK_DEFAULTS when defaults.yaml is empty."""
+    config_dir = tmp_path / "config"
+    repos_dir = config_dir / "repos"
+    repos_dir.mkdir(parents=True)
+    (config_dir / "defaults.yaml").write_text("")  # Empty defaults
+    (repos_dir / "example.yaml").write_text(
+        "repo:\n  owner: owner\n  name: example\n  language: python\n"
+    )
+
+    with patch("cihub.ci_config.hub_root") as mock_root:
+        mock_root.return_value = tmp_path
+        result = load_hub_config("example")
+
+    # Should use FALLBACK_DEFAULTS
+    assert result["python"]["version"] == "3.12"
+    assert result["thresholds"]["coverage_min"] == 70
+
+
+def test_load_hub_config_with_repo_path_merges_local(tmp_path: Path) -> None:
+    """Test load_hub_config merges repo's .ci-hub.yml when repo_path provided."""
+    config_dir = tmp_path / "config"
+    repos_dir = config_dir / "repos"
+    repos_dir.mkdir(parents=True)
+    (config_dir / "defaults.yaml").write_text(
+        "repo:\n  owner: owner\n  name: base\n  language: python\n"
+    )
+    (repos_dir / "example.yaml").write_text(
+        "repo:\n  owner: owner\n  name: example\n  language: python\n"
+        "python:\n  version: '3.11'\n"
+    )
+
+    # Create a separate repo with .ci-hub.yml
+    repo_dir = tmp_path / "target-repo"
+    repo_dir.mkdir()
+    (repo_dir / ".ci-hub.yml").write_text(
+        "python:\n"
+        "  tools:\n"
+        "    pytest:\n"
+        "      enabled: true\n"
+        "      min_coverage: 95\n"
+        "custom_setting: from_repo\n"
+    )
+
+    with patch("cihub.ci_config.hub_root") as mock_root:
+        mock_root.return_value = tmp_path
+        result = load_hub_config("example", repo_path=repo_dir)
+
+    # Hub config should be used for version
+    assert result["python"]["version"] == "3.11"
+    # Repo's .ci-hub.yml settings should be merged
+    assert result.get("custom_setting") == "from_repo"
+
+
+def test_load_hub_config_with_repo_path_blocks_protected_keys(tmp_path: Path) -> None:
+    """Test that protected keys from repo's .ci-hub.yml are blocked."""
+    config_dir = tmp_path / "config"
+    repos_dir = config_dir / "repos"
+    repos_dir.mkdir(parents=True)
+    (config_dir / "defaults.yaml").write_text(
+        "repo:\n  owner: hub-owner\n  name: base\n  language: python\n"
+    )
+    (repos_dir / "example.yaml").write_text(
+        "repo:\n  owner: hub-owner\n  name: hub-project\n  language: python\n"
+    )
+
+    repo_dir = tmp_path / "target-repo"
+    repo_dir.mkdir()
+    (repo_dir / ".ci-hub.yml").write_text(
+        "repo:\n"
+        "  owner: malicious-owner\n"  # Should be blocked
+        "  name: malicious-name\n"  # Should be blocked
+        "  language: java\n"  # Should be blocked
+        "  dispatch_workflow: hack.yml\n"  # Should be blocked
+        "  dispatch_enabled: true\n"  # Should be blocked
+        "  custom_key: allowed\n"  # Should be allowed
+        "other_setting: value\n"
+    )
+
+    with patch("cihub.ci_config.hub_root") as mock_root:
+        mock_root.return_value = tmp_path
+        result = load_hub_config("example", repo_path=repo_dir)
+
+    # Protected keys should come from hub config, not repo
+    assert result["repo"]["owner"] == "hub-owner"
+    assert result["repo"]["name"] == "hub-project"
+    assert result["language"] == "python"
+    # Non-protected keys from repo should be allowed
+    assert result["repo"].get("custom_key") == "allowed"
+    assert result.get("other_setting") == "value"
+
+
+def test_load_hub_config_with_repo_path_no_ci_hub_yml(tmp_path: Path) -> None:
+    """Test load_hub_config when repo_path exists but has no .ci-hub.yml."""
+    config_dir = tmp_path / "config"
+    repos_dir = config_dir / "repos"
+    repos_dir.mkdir(parents=True)
+    (config_dir / "defaults.yaml").write_text(
+        "repo:\n  owner: owner\n  name: base\n  language: python\n"
+    )
+    (repos_dir / "example.yaml").write_text(
+        "repo:\n  owner: owner\n  name: example\n  language: python\n"
+    )
+
+    # Create repo without .ci-hub.yml
+    repo_dir = tmp_path / "target-repo"
+    repo_dir.mkdir()
+    # No .ci-hub.yml file
+
+    with patch("cihub.ci_config.hub_root") as mock_root:
+        mock_root.return_value = tmp_path
+        result = load_hub_config("example", repo_path=repo_dir)
+
+    # Should still work, just use hub config only
+    assert result["repo"]["name"] == "example"
+    assert result["language"] == "python"

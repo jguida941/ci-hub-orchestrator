@@ -60,6 +60,53 @@ class TestValidateCorrelationId:
         assert validate_correlation_id("expected-id", "") is False
 
 
+class TestDownloadArtifact:
+    """Tests for download_artifact function."""
+
+    def test_download_success(self, tmp_path: Path):
+        """Successfully downloads and extracts artifact."""
+        from cihub.correlation import download_artifact
+        from io import BytesIO
+
+        # Create a mock ZIP file
+        zip_content = tmp_path / "source"
+        zip_content.mkdir()
+        (zip_content / "report.json").write_text('{"status": "success"}')
+
+        zip_file = tmp_path / "test.zip"
+        with zipfile.ZipFile(zip_file, "w") as zf:
+            zf.write(zip_content / "report.json", "report.json")
+
+        zip_bytes = zip_file.read_bytes()
+
+        # Create a proper mock response
+        mock_response = BytesIO(zip_bytes)
+
+        with patch("cihub.correlation.request.urlopen") as mock_urlopen:
+            mock_urlopen.return_value.__enter__ = lambda self: mock_response
+            mock_urlopen.return_value.__exit__ = lambda self, *args: None
+
+            target = tmp_path / "extracted"
+            result = download_artifact("https://example.com/artifact.zip", target, "token")
+
+            assert result == target
+            assert (target / "report.json").exists()
+
+    def test_download_failure(self, tmp_path: Path, capsys):
+        """Returns None on network error."""
+        from cihub.correlation import download_artifact
+
+        with patch("cihub.correlation.request.urlopen") as mock_urlopen:
+            mock_urlopen.side_effect = Exception("Network error")
+
+            target = tmp_path / "extracted"
+            result = download_artifact("https://example.com/artifact.zip", target, "token")
+
+            assert result is None
+            out = capsys.readouterr().out
+            assert "Warning:" in out
+
+
 class TestExtractCorrelationIdFromArtifact:
     """Tests for extract_correlation_id_from_artifact function."""
 
@@ -111,6 +158,42 @@ class TestExtractCorrelationIdFromArtifact:
         artifact_dir = tmp_path / "artifact"
         artifact_dir.mkdir()
         (artifact_dir / "report.json").write_text("not valid json {{{")
+
+        with patch("cihub.correlation.download_artifact") as mock_download:
+            mock_download.return_value = artifact_dir
+
+            result = extract_correlation_id_from_artifact("https://fake-url/artifact.zip", "fake-token")
+            assert result is None
+
+    def test_report_data_not_dict(self, tmp_path: Path):
+        """Returns None if report.json contains non-dict data."""
+        artifact_dir = tmp_path / "artifact"
+        artifact_dir.mkdir()
+        (artifact_dir / "report.json").write_text('["list", "not", "dict"]')
+
+        with patch("cihub.correlation.download_artifact") as mock_download:
+            mock_download.return_value = artifact_dir
+
+            result = extract_correlation_id_from_artifact("https://fake-url/artifact.zip", "fake-token")
+            assert result is None
+
+    def test_no_report_json_found(self, tmp_path: Path):
+        """Returns None if no report.json in artifact."""
+        artifact_dir = tmp_path / "artifact"
+        artifact_dir.mkdir()
+        (artifact_dir / "other_file.txt").write_text("no report here")
+
+        with patch("cihub.correlation.download_artifact") as mock_download:
+            mock_download.return_value = artifact_dir
+
+            result = extract_correlation_id_from_artifact("https://fake-url/artifact.zip", "fake-token")
+            assert result is None
+
+    def test_correlation_id_not_string(self, tmp_path: Path):
+        """Returns None if hub_correlation_id is not a string."""
+        artifact_dir = tmp_path / "artifact"
+        artifact_dir.mkdir()
+        (artifact_dir / "report.json").write_text('{"hub_correlation_id": 12345}')
 
         with patch("cihub.correlation.download_artifact") as mock_download:
             mock_download.return_value = artifact_dir
@@ -257,6 +340,43 @@ class TestFindRunByCorrelationId:
         )
 
         assert result is None
+
+    def test_run_without_id_skipped(self):
+        """Skips runs that have no id field."""
+        runs_response = {
+            "workflow_runs": [
+                {"status": "completed"},  # No id
+                {"id": 222, "status": "completed"},
+            ]
+        }
+
+        artifacts_222 = {
+            "artifacts": [
+                {"name": "ci-report", "archive_download_url": "url2"},
+            ]
+        }
+
+        def mock_gh_get(url: str) -> dict:
+            if "workflows" in url and "runs" in url:
+                return runs_response
+            elif "runs/222/artifacts" in url:
+                return artifacts_222
+            return {}
+
+        with patch("cihub.correlation.extract_correlation_id_from_artifact") as mock_extract:
+            mock_extract.return_value = "target-id"
+
+            result = find_run_by_correlation_id(
+                "owner",
+                "repo",
+                "workflow.yml",
+                "target-id",
+                "token",
+                gh_get=mock_gh_get,
+            )
+
+            # Should find run 222, skipping the run without id
+            assert result == "222"
 
     def test_artifact_check_error_continues(self):
         """Continues checking other runs if one artifact check fails."""
