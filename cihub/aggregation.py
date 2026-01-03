@@ -434,6 +434,23 @@ def generate_summary_markdown(
     def fmt(val, suffix=""):
         return f"{val}{suffix}" if val is not None else "-"
 
+    def status_label_for(entry: dict[str, Any]) -> str:
+        status = entry.get("status", "unknown")
+        conclusion = entry.get("conclusion", status)
+        if status in {"missing_run_id", "fetch_failed", "timed_out"}:
+            return "MISSING"
+        if conclusion == "success":
+            return "PASS"
+        if conclusion in {"failure", "failed", "cancelled", "timed_out"}:
+            return "FAIL"
+        if status == "completed" and isinstance(conclusion, str) and conclusion:
+            return conclusion.upper()
+        return "PENDING"
+
+    failed_runs = len([r for r in results if status_label_for(r) == "FAIL"])
+    missing_runs = len([r for r in results if status_label_for(r) == "MISSING"])
+    pending_runs = len([r for r in results if status_label_for(r) == "PENDING"])
+
     lines = [
         "# CI/CD Hub Report",
         "",
@@ -445,6 +462,9 @@ def generate_summary_markdown(
         f"- {dispatched_label}: {dispatched}",
         f"- {missing_label}: {missing}",
         f"- Missing run IDs: {missing_run_id}",
+        f"- Failed runs: {failed_runs}",
+        f"- Missing reports: {missing_runs}",
+        f"- Pending runs: {pending_runs}",
         "",
     ]
 
@@ -462,13 +482,7 @@ def generate_summary_markdown(
         )
         for entry in java_results:
             config = entry.get("config", "unknown")
-            status = entry.get("conclusion", entry.get("status", "unknown"))
-            if status == "success":
-                status_label = "PASS"
-            elif status in ("failure", "failed"):
-                status_label = "FAIL"
-            else:
-                status_label = "PENDING"
+            status_label = status_label_for(entry)
 
             cov = fmt(entry.get("coverage"), "%")
             mut = fmt(entry.get("mutation_score"), "%")
@@ -504,13 +518,7 @@ def generate_summary_markdown(
         lines.extend(["## Python Repos", "", hdr, sep])
         for entry in python_results:
             config = entry.get("config", "unknown")
-            status = entry.get("conclusion", entry.get("status", "unknown"))
-            if status == "success":
-                status_label = "PASS"
-            elif status in ("failure", "failed"):
-                status_label = "FAIL"
-            else:
-                status_label = "PENDING"
+            status_label = status_label_for(entry)
 
             cov = fmt(entry.get("coverage"), "%")
             mut = fmt(entry.get("mutation_score"), "%")

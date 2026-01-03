@@ -26,6 +26,11 @@ def test_load_config_shim_calls_loader(monkeypatch) -> None:
 
 def test_python_ci_badges_shim_imports_main(capsys) -> None:
     import importlib
+    import sys
+
+    # Remove from cache if already imported to ensure deprecation warning prints
+    if "scripts.python_ci_badges" in sys.modules:
+        del sys.modules["scripts.python_ci_badges"]
 
     module = importlib.import_module("scripts.python_ci_badges")
     captured = capsys.readouterr()

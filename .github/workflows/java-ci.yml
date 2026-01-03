@@ -249,6 +249,10 @@ jobs:
       - name: Install cihub + tools
         run: pip install -e "hub[ci]"
 
+      - name: Install Trivy
+        if: ${{ inputs.run_trivy }}
+        run: cihub hub-ci trivy-install --dest .cihub/tools --github-path
+
       - name: Run cihub ci
         env:
           WORKDIR: ${{ inputs.workdir }}

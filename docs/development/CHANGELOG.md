@@ -7,6 +7,7 @@ All notable changes to this project will be documented in this file.
 ### CLI
 - Moved CI execution core into `cihub.services` with CLI adapter delegation.
 - Added Trivy CVSS threshold outputs for workflow inputs.
+- Added `cihub hub-ci trivy-install` for workflow-managed Trivy setup.
 
 ### Config
 - Added `thresholds.trivy_cvss_fail` and `python.tools.trivy.fail_on_cvss`.
@@ -16,6 +17,8 @@ All notable changes to this project will be documented in this file.
 
 ### Workflows
 - Added `trivy_cvss_fail` input to `python-ci.yml` and passthrough from `hub-ci.yml`.
+- Install Trivy in `python-ci.yml`/`java-ci.yml` when `run_trivy` is enabled.
+- Wired hub CI bandit severity env toggles into `hub-production-ci.yml`.
 
 ### Docs
 - Updated ADRs and workflow docs for split CVSS thresholds and services boundary.

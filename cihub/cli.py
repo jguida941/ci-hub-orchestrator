@@ -1969,6 +1969,32 @@ def build_parser() -> argparse.ArgumentParser:
         help="Write outputs to GITHUB_OUTPUT",
     )
 
+    hub_ci_trivy_install = hub_ci_sub.add_parser(
+        "trivy-install",
+        help="Download the trivy CLI",
+    )
+    hub_ci_trivy_install.add_argument(
+        "--version",
+        default="0.55.0",
+        help="Trivy CLI version (default: 0.55.0)",
+    )
+    hub_ci_trivy_install.add_argument(
+        "--dest",
+        default=".cihub/tools",
+        help="Destination directory for trivy",
+    )
+    hub_ci_trivy_install.add_argument(
+        "--github-path",
+        action="store_true",
+        help="Append destination dir to GITHUB_PATH",
+    )
+    hub_ci_trivy_install.add_argument("--output", help="Write outputs to file")
+    hub_ci_trivy_install.add_argument(
+        "--github-output",
+        action="store_true",
+        help="Write outputs to GITHUB_OUTPUT",
+    )
+
     hub_ci_kyverno_validate = hub_ci_sub.add_parser(
         "kyverno-validate",
         help="Validate kyverno policy syntax",

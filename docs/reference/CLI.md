@@ -788,11 +788,11 @@ options:
 
 ```
 usage: cihub hub-ci [-h]
-                    {actionlint-install,actionlint,syntax-check,repo-check,source-check,security-pip-audit,security-bandit,security-ruff,security-owasp,docker-compose-check,codeql-build,kyverno-install,kyverno-validate,kyverno-test,smoke-java-build,smoke-java-tests,smoke-java-coverage,smoke-java-checkstyle,smoke-java-spotbugs,smoke-python-install,smoke-python-tests,smoke-python-ruff,smoke-python-black,release-parse-tag,release-update-tag,ruff,black,mutmut,bandit,pip-audit,zizmor-run,zizmor-check,validate-configs,validate-profiles,license-check,gitleaks-summary,badges,badges-commit,summary,outputs,enforce,verify-matrix-keys,quarantine-check}
+                    {actionlint-install,actionlint,syntax-check,repo-check,source-check,security-pip-audit,security-bandit,security-ruff,security-owasp,docker-compose-check,codeql-build,kyverno-install,trivy-install,kyverno-validate,kyverno-test,smoke-java-build,smoke-java-tests,smoke-java-coverage,smoke-java-checkstyle,smoke-java-spotbugs,smoke-python-install,smoke-python-tests,smoke-python-ruff,smoke-python-black,release-parse-tag,release-update-tag,ruff,black,mutmut,bandit,pip-audit,zizmor-run,zizmor-check,validate-configs,validate-profiles,license-check,gitleaks-summary,badges,badges-commit,summary,outputs,enforce,verify-matrix-keys,quarantine-check}
                     ...
 
 positional arguments:
-  {actionlint-install,actionlint,syntax-check,repo-check,source-check,security-pip-audit,security-bandit,security-ruff,security-owasp,docker-compose-check,codeql-build,kyverno-install,kyverno-validate,kyverno-test,smoke-java-build,smoke-java-tests,smoke-java-coverage,smoke-java-checkstyle,smoke-java-spotbugs,smoke-python-install,smoke-python-tests,smoke-python-ruff,smoke-python-black,release-parse-tag,release-update-tag,ruff,black,mutmut,bandit,pip-audit,zizmor-run,zizmor-check,validate-configs,validate-profiles,license-check,gitleaks-summary,badges,badges-commit,summary,outputs,enforce,verify-matrix-keys,quarantine-check}
+  {actionlint-install,actionlint,syntax-check,repo-check,source-check,security-pip-audit,security-bandit,security-ruff,security-owasp,docker-compose-check,codeql-build,kyverno-install,trivy-install,kyverno-validate,kyverno-test,smoke-java-build,smoke-java-tests,smoke-java-coverage,smoke-java-checkstyle,smoke-java-spotbugs,smoke-python-install,smoke-python-tests,smoke-python-ruff,smoke-python-black,release-parse-tag,release-update-tag,ruff,black,mutmut,bandit,pip-audit,zizmor-run,zizmor-check,validate-configs,validate-profiles,license-check,gitleaks-summary,badges,badges-commit,summary,outputs,enforce,verify-matrix-keys,quarantine-check}
     actionlint-install  Download the actionlint binary
     actionlint          Run actionlint (optionally with reviewdog)
     syntax-check        Compile Python files to catch syntax errors
@@ -806,6 +806,7 @@ positional arguments:
                         Check for docker-compose files in a repo
     codeql-build        Run Java build for CodeQL analysis
     kyverno-install     Download the kyverno CLI
+    trivy-install       Download the trivy CLI
     kyverno-validate    Validate kyverno policy syntax
     kyverno-test        Test kyverno policies against fixtures
     smoke-java-build    Run Java smoke build/test
@@ -1010,6 +1011,22 @@ options:
   -h, --help         show this help message and exit
   --version VERSION  Kyverno CLI version (default: v1.16.1)
   --dest DEST        Destination directory for kyverno
+  --output OUTPUT    Write outputs to file
+  --github-output    Write outputs to GITHUB_OUTPUT
+```
+
+## cihub hub-ci trivy-install
+
+```
+usage: cihub hub-ci trivy-install [-h] [--version VERSION] [--dest DEST]
+                                  [--github-path] [--output OUTPUT]
+                                  [--github-output]
+
+options:
+  -h, --help         show this help message and exit
+  --version VERSION  Trivy CLI version (default: 0.55.0)
+  --dest DEST        Destination directory for trivy
+  --github-path      Append destination dir to GITHUB_PATH
   --output OUTPUT    Write outputs to file
   --github-output    Write outputs to GITHUB_OUTPUT
 ```
