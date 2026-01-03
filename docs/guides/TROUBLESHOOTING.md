@@ -407,6 +407,13 @@ exclude_dirs = tests,docs
        docker:
          health_endpoint: /health  # or /actuator/health
    ```
+2. Ensure the compose file matches your config (default: `docker-compose.yml`):
+   ```yaml
+   java:
+     tools:
+       docker:
+         compose_file: docker-compose.yml
+   ```
 2. Increase timeout:
    ```yaml
    java:

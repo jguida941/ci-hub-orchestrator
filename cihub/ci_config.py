@@ -49,7 +49,12 @@ FALLBACK_DEFAULTS: dict[str, Any] = {
             "semgrep": {"enabled": False, "max_findings": 0},
             "trivy": {"enabled": False, "fail_on_cvss": 7},
             "codeql": {"enabled": False},
-            "docker": {"enabled": False},
+            "docker": {
+                "enabled": False,
+                "compose_file": "docker-compose.yml",
+                "health_endpoint": "/actuator/health",
+                "health_timeout": 300,
+            },
         },
     },
     "thresholds": {

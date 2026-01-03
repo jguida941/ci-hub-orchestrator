@@ -645,7 +645,7 @@ def _wait_for_health(ports: list[int], endpoint: str, timeout_seconds: int) -> b
                 with urllib.request.urlopen(url, timeout=5) as resp:  # noqa: S310 - local health check
                     if 200 <= resp.status < 400:
                         return True
-            except Exception:
+            except Exception:  # noqa: S112 - expected failures during health poll
                 continue
         time.sleep(interval)
     return False

@@ -1217,7 +1217,9 @@ def run_ci(
         docker_cfg = config.get("python", {}).get("tools", {}).get("docker", {}) or {}
         if not isinstance(docker_cfg, dict):
             docker_cfg = {}
-        docker_compose = docker_cfg.get("compose_file", "docker-compose.yml") if tools_configured.get("docker") else None
+        docker_compose = (
+            docker_cfg.get("compose_file", "docker-compose.yml") if tools_configured.get("docker") else None
+        )
         docker_health = docker_cfg.get("health_endpoint") if tools_configured.get("docker") else None
         context = _build_context(
             repo_path,

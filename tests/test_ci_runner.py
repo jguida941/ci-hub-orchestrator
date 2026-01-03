@@ -876,3 +876,40 @@ class TestRunPmd:
         assert result.tool == "pmd"
         assert result.ran is True
         assert result.metrics["pmd_violations"] == 2
+
+
+class TestRunDocker:
+    """Tests for run_docker function."""
+
+    def test_missing_compose_file(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_docker
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+
+        result = run_docker(tmp_path, output_dir, compose_file="docker-compose.yml")
+
+        assert result.tool == "docker"
+        assert result.ran is False
+        assert result.success is False
+        assert result.metrics["docker_missing_compose"] is True
+
+    def test_runs_compose(self, tmp_path: Path) -> None:
+        from cihub.ci_runner import run_docker
+
+        output_dir = tmp_path / "output"
+        output_dir.mkdir()
+        (tmp_path / "docker-compose.yml").write_text("services: {}\n")
+
+        mock_up = MagicMock(returncode=0, stdout="up", stderr="")
+        mock_logs = MagicMock(returncode=0, stdout="logs", stderr="")
+        mock_down = MagicMock(returncode=0, stdout="down", stderr="")
+
+        with patch("cihub.ci_runner.resolve_executable", return_value="docker"):
+            with patch("cihub.ci_runner._run_command", side_effect=[mock_up, mock_logs, mock_down]):
+                result = run_docker(tmp_path, output_dir, compose_file="docker-compose.yml")
+
+        assert result.tool == "docker"
+        assert result.ran is True
+        assert result.success is True
+        assert (output_dir / "docker-compose.log").exists()

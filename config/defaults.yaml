@@ -193,6 +193,9 @@ python:
     # Docker
     docker:
       enabled: false
+      compose_file: "docker-compose.yml"
+      health_endpoint: "/actuator/health"
+      health_timeout: 300  # seconds
 
 # ------------------------------------------------------------------------------
 # Report Settings
