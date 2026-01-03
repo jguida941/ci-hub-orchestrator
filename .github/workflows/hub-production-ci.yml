@@ -382,7 +382,7 @@ jobs:
         run: pip install -e ".[wizard]"
 
       - name: Install test dependencies
-        run: pip install pytest pytest-cov pyyaml jsonschema
+        run: pip install pytest pytest-cov pyyaml jsonschema syrupy
 
       - name: Run tests with coverage
         run: python -m pytest tests/ -v --cov=cihub --cov=scripts --cov-report=xml --cov-report=term-missing --cov-fail-under=${{ needs.hub-ci-config.outputs.coverage_min }} --junitxml=test-results.xml
@@ -840,7 +840,7 @@ jobs:
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          persist-credentials: false
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
