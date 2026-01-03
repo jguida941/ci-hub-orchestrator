@@ -297,7 +297,7 @@ def cmd_badges(args: argparse.Namespace) -> int:
         return bool(tools_cfg.get(name, default))
 
     # Collect disabled tools for deterministic "disabled" badges
-    all_badge_tools = ["ruff", "mutmut", "mypy", "bandit", "pip_audit", "zizmor", "black"]
+    all_badge_tools = ["ruff", "mutmut", "mypy", "bandit", "pip_audit", "zizmor"]
     disabled_tools: set[str] = set()
     for tool in all_badge_tools:
         if not tool_enabled(tool):

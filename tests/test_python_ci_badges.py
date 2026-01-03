@@ -422,31 +422,7 @@ class TestMain:
         assert mutmut_badge["label"] == "mutmut"
         assert mutmut_badge["message"] == "85%"
 
-    def test_black_clean_status(self, tmp_path: Path, monkeypatch):
-        """Black clean status creates clean badge."""
-        badge_dir = tmp_path / "badges"
-        monkeypatch.setenv("UPDATE_BADGES", "true")
-        monkeypatch.setenv("BADGE_OUTPUT_DIR", str(badge_dir))
-        monkeypatch.setenv("BLACK_STATUS", "clean")
-
-        main()
-
-        black_badge = json.loads((badge_dir / "black.json").read_text())
-        assert black_badge["message"] == "clean"
-        assert black_badge["color"] == "brightgreen"
-
-    def test_black_failed_status(self, tmp_path: Path, monkeypatch):
-        """Black failed status creates failed badge."""
-        badge_dir = tmp_path / "badges"
-        monkeypatch.setenv("UPDATE_BADGES", "true")
-        monkeypatch.setenv("BADGE_OUTPUT_DIR", str(badge_dir))
-        monkeypatch.setenv("BLACK_STATUS", "failed")
-
-        main()
-
-        black_badge = json.loads((badge_dir / "black.json").read_text())
-        assert black_badge["message"] == "failed"
-        assert black_badge["color"] == "red"
+    # Note: Black badge tests removed - we use ruff format, not black
 
 
 # =============================================================================

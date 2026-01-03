@@ -6,7 +6,6 @@
 [![codecov](https://img.shields.io/codecov/c/github/jguida941/ci-cd-hub?style=for-the-badge&logo=codecov&logoColor=white)](https://codecov.io/gh/jguida941/ci-cd-hub)
 [![mutmut](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/mutmut.json&style=for-the-badge)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/ruff.json&style=for-the-badge)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
-[![black](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/black.json&style=for-the-badge&logo=python&logoColor=white)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![bandit](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/bandit.json&style=for-the-badge)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![pip-audit](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/pip-audit.json&style=for-the-badge)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)
 [![zizmor](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/jguida941/ci-cd-hub/main/badges/zizmor.json&style=for-the-badge)](https://github.com/jguida941/ci-cd-hub/actions/workflows/hub-production-ci.yml)

@@ -161,19 +161,6 @@ def load_pip_audit(root: Path | None = None) -> Optional[int]:
         return None
 
 
-def load_black_output(root: Path | None = None) -> Optional[int]:
-    """Parse black-output.txt for reformat count."""
-    base = root or ROOT
-    report = base / "black-output.txt"
-    if not report.exists():
-        return None
-    try:
-        text = report.read_text(encoding="utf-8")
-    except OSError:
-        return None
-    return sum(1 for line in text.splitlines() if "would reformat" in line)
-
-
 def get_env_int(name: str, env: Mapping[str, str] | None = None) -> Optional[int]:
     """Get integer from environment variable."""
     env = env or os.environ
@@ -224,7 +211,6 @@ def build_badges(
         "pip_audit": "pip-audit.json",
         "pip-audit": "pip-audit.json",
         "zizmor": "zizmor.json",
-        "black": "black.json",
     }
 
     # Generate disabled badges first (these are final - metrics won't override)
@@ -264,19 +250,8 @@ def build_badges(
         if zizmor_findings is not None:
             badges["zizmor.json"] = count_badge("zizmor", zizmor_findings)
 
-    if "black" not in disabled_tools:
-        black_issues = get_env_int("BLACK_ISSUES", env)
-        if black_issues is None:
-            black_issues = load_black_output(base)
-        if black_issues is not None:
-            badges["black.json"] = count_badge("black", black_issues)
-        else:
-            black_status = env.get("BLACK_STATUS")
-            if black_status is not None:
-                if black_status.lower() in {"clean", "0", "pass", "passed"}:
-                    badges["black.json"] = status_badge("black", "clean", "brightgreen")
-                else:
-                    badges["black.json"] = status_badge("black", "failed", "red")
+    # Note: Black badge removed - we use ruff format, not black.
+    # The ruff badge already covers lint. Format check is a separate CI step.
 
     return badges
 
