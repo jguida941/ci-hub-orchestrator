@@ -32,6 +32,7 @@ def cmd_detect(args: argparse.Namespace) -> int | CommandResult:
             return error_result
         # Print user-friendly error to stderr and return exit code
         import sys
+
         print(f"Error: {exc}", file=sys.stderr)
         return EXIT_FAILURE
     payload: dict[str, Any] = {"language": language}

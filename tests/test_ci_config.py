@@ -274,9 +274,7 @@ def test_load_hub_config_uses_fallback_when_defaults_empty(tmp_path: Path) -> No
     repos_dir = config_dir / "repos"
     repos_dir.mkdir(parents=True)
     (config_dir / "defaults.yaml").write_text("")  # Empty defaults
-    (repos_dir / "example.yaml").write_text(
-        "repo:\n  owner: owner\n  name: example\n  language: python\n"
-    )
+    (repos_dir / "example.yaml").write_text("repo:\n  owner: owner\n  name: example\n  language: python\n")
 
     with patch("cihub.ci_config.hub_root") as mock_root:
         mock_root.return_value = tmp_path
@@ -292,24 +290,16 @@ def test_load_hub_config_with_repo_path_merges_local(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     repos_dir = config_dir / "repos"
     repos_dir.mkdir(parents=True)
-    (config_dir / "defaults.yaml").write_text(
-        "repo:\n  owner: owner\n  name: base\n  language: python\n"
-    )
+    (config_dir / "defaults.yaml").write_text("repo:\n  owner: owner\n  name: base\n  language: python\n")
     (repos_dir / "example.yaml").write_text(
-        "repo:\n  owner: owner\n  name: example\n  language: python\n"
-        "python:\n  version: '3.11'\n"
+        "repo:\n  owner: owner\n  name: example\n  language: python\npython:\n  version: '3.11'\n"
     )
 
     # Create a separate repo with .ci-hub.yml
     repo_dir = tmp_path / "target-repo"
     repo_dir.mkdir()
     (repo_dir / ".ci-hub.yml").write_text(
-        "python:\n"
-        "  tools:\n"
-        "    pytest:\n"
-        "      enabled: true\n"
-        "      min_coverage: 95\n"
-        "custom_setting: from_repo\n"
+        "python:\n  tools:\n    pytest:\n      enabled: true\n      min_coverage: 95\ncustom_setting: from_repo\n"
     )
 
     with patch("cihub.ci_config.hub_root") as mock_root:
@@ -327,12 +317,8 @@ def test_load_hub_config_with_repo_path_blocks_protected_keys(tmp_path: Path) ->
     config_dir = tmp_path / "config"
     repos_dir = config_dir / "repos"
     repos_dir.mkdir(parents=True)
-    (config_dir / "defaults.yaml").write_text(
-        "repo:\n  owner: hub-owner\n  name: base\n  language: python\n"
-    )
-    (repos_dir / "example.yaml").write_text(
-        "repo:\n  owner: hub-owner\n  name: hub-project\n  language: python\n"
-    )
+    (config_dir / "defaults.yaml").write_text("repo:\n  owner: hub-owner\n  name: base\n  language: python\n")
+    (repos_dir / "example.yaml").write_text("repo:\n  owner: hub-owner\n  name: hub-project\n  language: python\n")
 
     repo_dir = tmp_path / "target-repo"
     repo_dir.mkdir()
@@ -365,12 +351,8 @@ def test_load_hub_config_with_repo_path_no_ci_hub_yml(tmp_path: Path) -> None:
     config_dir = tmp_path / "config"
     repos_dir = config_dir / "repos"
     repos_dir.mkdir(parents=True)
-    (config_dir / "defaults.yaml").write_text(
-        "repo:\n  owner: owner\n  name: base\n  language: python\n"
-    )
-    (repos_dir / "example.yaml").write_text(
-        "repo:\n  owner: owner\n  name: example\n  language: python\n"
-    )
+    (config_dir / "defaults.yaml").write_text("repo:\n  owner: owner\n  name: base\n  language: python\n")
+    (repos_dir / "example.yaml").write_text("repo:\n  owner: owner\n  name: example\n  language: python\n")
 
     # Create repo without .ci-hub.yml
     repo_dir = tmp_path / "target-repo"

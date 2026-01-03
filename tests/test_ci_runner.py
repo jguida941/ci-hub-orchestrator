@@ -588,13 +588,17 @@ class TestRunBandit:
         output_dir.mkdir()
 
         # Write the report file that bandit will create
-        (output_dir / "bandit-report.json").write_text(json.dumps({
-            "results": [
-                {"issue_severity": "HIGH", "test_id": "B101"},
-                {"issue_severity": "MEDIUM", "test_id": "B105"},
-                {"issue_severity": "LOW", "test_id": "B106"},
-            ]
-        }))
+        (output_dir / "bandit-report.json").write_text(
+            json.dumps(
+                {
+                    "results": [
+                        {"issue_severity": "HIGH", "test_id": "B101"},
+                        {"issue_severity": "MEDIUM", "test_id": "B105"},
+                        {"issue_severity": "LOW", "test_id": "B106"},
+                    ]
+                }
+            )
+        )
 
         mock_proc = MagicMock()
         mock_proc.returncode = 0
@@ -621,10 +625,14 @@ class TestRunPipAudit:
         output_dir.mkdir()
 
         # pip_audit uses list format
-        (output_dir / "pip-audit-report.json").write_text(json.dumps([
-            {"name": "requests", "vulns": [{"id": "CVE-2023-001"}]},
-            {"name": "flask", "vulns": [{"id": "CVE-2023-002"}, {"id": "CVE-2023-003"}]},
-        ]))
+        (output_dir / "pip-audit-report.json").write_text(
+            json.dumps(
+                [
+                    {"name": "requests", "vulns": [{"id": "CVE-2023-001"}]},
+                    {"name": "flask", "vulns": [{"id": "CVE-2023-002"}, {"id": "CVE-2023-003"}]},
+                ]
+            )
+        )
 
         mock_proc = MagicMock()
         mock_proc.returncode = 1
@@ -722,10 +730,10 @@ class TestRunJavaBuild:
         jacoco_dir = tmp_path / "target" / "site" / "jacoco"
         jacoco_dir.mkdir(parents=True)
         (jacoco_dir / "jacoco.xml").write_text(
-            '''<?xml version="1.0"?>
+            """<?xml version="1.0"?>
             <report name="test">
               <counter type="LINE" missed="20" covered="80"/>
-            </report>'''
+            </report>"""
         )
 
         mock_proc = MagicMock()
@@ -754,10 +762,10 @@ class TestRunJacoco:
         target_dir = tmp_path / "target" / "site" / "jacoco"
         target_dir.mkdir(parents=True)
         (target_dir / "jacoco.xml").write_text(
-            '''<?xml version="1.0"?>
+            """<?xml version="1.0"?>
             <report name="test">
               <counter type="LINE" missed="20" covered="80"/>
-            </report>'''
+            </report>"""
         )
 
         result = run_jacoco(tmp_path, output_dir)
@@ -780,13 +788,13 @@ class TestRunCheckstyle:
         target_dir = tmp_path / "target"
         target_dir.mkdir(parents=True)
         (target_dir / "checkstyle-result.xml").write_text(
-            '''<?xml version="1.0"?>
+            """<?xml version="1.0"?>
             <checkstyle>
               <file name="Test.java">
                 <error severity="error" message="Missing Javadoc"/>
                 <error severity="error" message="Another error"/>
               </file>
-            </checkstyle>'''
+            </checkstyle>"""
         )
 
         mock_proc = MagicMock()
@@ -815,11 +823,11 @@ class TestRunSpotbugs:
         target_dir = tmp_path / "target"
         target_dir.mkdir(parents=True)
         (target_dir / "spotbugsXml.xml").write_text(
-            '''<?xml version="1.0"?>
+            """<?xml version="1.0"?>
             <BugCollection>
               <BugInstance type="NP_NULL_ON_SOME_PATH" priority="1"/>
               <BugInstance type="DM_DEFAULT_ENCODING" priority="2"/>
-            </BugCollection>'''
+            </BugCollection>"""
         )
 
         mock_proc = MagicMock()
@@ -848,13 +856,13 @@ class TestRunPmd:
         target_dir = tmp_path / "target"
         target_dir.mkdir(parents=True)
         (target_dir / "pmd.xml").write_text(
-            '''<?xml version="1.0"?>
+            """<?xml version="1.0"?>
             <pmd>
               <file name="Test.java">
                 <violation priority="1">Issue 1</violation>
                 <violation priority="3">Issue 2</violation>
               </file>
-            </pmd>'''
+            </pmd>"""
         )
 
         mock_proc = MagicMock()

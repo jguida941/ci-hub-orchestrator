@@ -16,9 +16,7 @@ from cihub.cli import main
 @pytest.fixture
 def python_repo(tmp_path: Path) -> Path:
     """Create a minimal Python repo fixture."""
-    (tmp_path / "pyproject.toml").write_text(
-        "[project]\nname = 'test-project'\nversion = '1.0.0'\n"
-    )
+    (tmp_path / "pyproject.toml").write_text("[project]\nname = 'test-project'\nversion = '1.0.0'\n")
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "__init__.py").write_text("")
     (tmp_path / "tests").mkdir()
@@ -48,6 +46,7 @@ class TestDetectPerformance:
 
     def test_detect_python_speed(self, benchmark, python_repo: Path) -> None:
         """Detect Python repo should be fast (<100ms)."""
+
         def run():
             return main(["detect", "--repo", str(python_repo)])
 
@@ -56,6 +55,7 @@ class TestDetectPerformance:
 
     def test_detect_java_speed(self, benchmark, java_repo: Path) -> None:
         """Detect Java repo should be fast (<100ms)."""
+
         def run():
             return main(["detect", "--repo", str(java_repo)])
 
@@ -76,15 +76,22 @@ class TestInitPerformance:
             repo.mkdir()
             (repo / "pyproject.toml").write_text("[project]\n")
             counter[0] += 1
-            return main([
-                "init",
-                "--repo", str(repo),
-                "--language", "python",
-                "--owner", "test",
-                "--name", "repo",
-                "--branch", "main",
-                "--apply",
-            ])
+            return main(
+                [
+                    "init",
+                    "--repo",
+                    str(repo),
+                    "--language",
+                    "python",
+                    "--owner",
+                    "test",
+                    "--name",
+                    "repo",
+                    "--branch",
+                    "main",
+                    "--apply",
+                ]
+            )
 
         result = benchmark(run)
         assert result == 0
@@ -98,15 +105,22 @@ class TestInitPerformance:
             repo.mkdir()
             (repo / "pom.xml").write_text("<project></project>")
             counter[0] += 1
-            return main([
-                "init",
-                "--repo", str(repo),
-                "--language", "java",
-                "--owner", "test",
-                "--name", "repo",
-                "--branch", "main",
-                "--apply",
-            ])
+            return main(
+                [
+                    "init",
+                    "--repo",
+                    str(repo),
+                    "--language",
+                    "java",
+                    "--owner",
+                    "test",
+                    "--name",
+                    "repo",
+                    "--branch",
+                    "main",
+                    "--apply",
+                ]
+            )
 
         result = benchmark(run)
         assert result == 0
@@ -149,6 +163,7 @@ class TestDiscoverPerformance:
 
     def test_discover_speed(self, benchmark) -> None:
         """Discover should complete in reasonable time."""
+
         def run():
             return main(["discover"])
 
@@ -203,21 +218,25 @@ class TestReportBuildPerformance:
         import json
 
         report = tmp_path / "report.json"
-        report.write_text(json.dumps({
-            "schema_version": "2.0",
-            "repository": "test/repo",
-            "branch": "main",
-            "python_version": "3.12",
-            "results": {
-                "coverage": 80,
-                "tests_passed": 100,
-                "tests_failed": 0,
-            },
-            "tool_metrics": {},
-            "tools_configured": {"pytest": True},
-            "tools_ran": {"pytest": True},
-            "tools_success": {"pytest": True},
-        }))
+        report.write_text(
+            json.dumps(
+                {
+                    "schema_version": "2.0",
+                    "repository": "test/repo",
+                    "branch": "main",
+                    "python_version": "3.12",
+                    "results": {
+                        "coverage": 80,
+                        "tests_passed": 100,
+                        "tests_failed": 0,
+                    },
+                    "tool_metrics": {},
+                    "tools_configured": {"pytest": True},
+                    "tools_ran": {"pytest": True},
+                    "tools_success": {"pytest": True},
+                }
+            )
+        )
 
         def run():
             return main(["report", "validate", "--report", str(report)])

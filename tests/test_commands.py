@@ -196,6 +196,7 @@ class TestDetectEdgeCases:
     def test_detect_empty_directory(self, tmp_path: Path, capsys) -> None:
         """Detect returns EXIT_FAILURE for empty directory with no language markers."""
         from cihub.exit_codes import EXIT_FAILURE
+
         args = argparse.Namespace(repo=str(tmp_path), language=None, explain=False, json=False)
         result = cmd_detect(args)
         assert result == EXIT_FAILURE

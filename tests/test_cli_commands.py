@@ -108,9 +108,7 @@ class TestDetectCommand:
 
     def test_detect_java_repo(self, tmp_path: Path, capsys) -> None:
         """detect identifies Java repo from pom.xml."""
-        (tmp_path / "pom.xml").write_text(
-            '<?xml version="1.0"?><project></project>'
-        )
+        (tmp_path / "pom.xml").write_text('<?xml version="1.0"?><project></project>')
 
         result = main(["detect", "--repo", str(tmp_path)])
 
@@ -179,15 +177,22 @@ class TestInitCommand:
 
     def test_init_dry_run(self, tmp_path: Path, capsys) -> None:
         """init --dry-run shows what would be created."""
-        result = main([
-            "init",
-            "--repo", str(tmp_path),
-            "--language", "python",
-            "--owner", "test",
-            "--name", "repo",
-            "--branch", "main",
-            "--dry-run",
-        ])
+        result = main(
+            [
+                "init",
+                "--repo",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--owner",
+                "test",
+                "--name",
+                "repo",
+                "--branch",
+                "main",
+                "--dry-run",
+            ]
+        )
 
         assert result == EXIT_SUCCESS
         out = capsys.readouterr().out
@@ -195,15 +200,22 @@ class TestInitCommand:
 
     def test_init_creates_files(self, tmp_path: Path) -> None:
         """init --apply creates config and workflow files."""
-        result = main([
-            "init",
-            "--repo", str(tmp_path),
-            "--language", "python",
-            "--owner", "testorg",
-            "--name", "testrepo",
-            "--branch", "main",
-            "--apply",
-        ])
+        result = main(
+            [
+                "init",
+                "--repo",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--owner",
+                "testorg",
+                "--name",
+                "testrepo",
+                "--branch",
+                "main",
+                "--apply",
+            ]
+        )
 
         assert result == EXIT_SUCCESS
         assert (tmp_path / ".ci-hub.yml").exists()
@@ -215,14 +227,21 @@ class TestUpdateCommand:
 
     def test_update_creates_config_in_dry_run(self, tmp_path: Path, capsys) -> None:
         """update in dry-run mode shows what would be created even without existing config."""
-        result = main([
-            "update",
-            "--repo", str(tmp_path),
-            "--language", "python",
-            "--owner", "test",
-            "--name", "repo",
-            "--branch", "main",
-        ])
+        result = main(
+            [
+                "update",
+                "--repo",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--owner",
+                "test",
+                "--name",
+                "repo",
+                "--branch",
+                "main",
+            ]
+        )
 
         # Dry-run mode (default) shows what would be written
         assert result == EXIT_SUCCESS
@@ -234,15 +253,22 @@ class TestUpdateCommand:
         ci_hub = tmp_path / ".ci-hub.yml"
         ci_hub.write_text("language: python\n")
 
-        result = main([
-            "update",
-            "--repo", str(tmp_path),
-            "--language", "python",
-            "--owner", "test",
-            "--name", "repo",
-            "--branch", "main",
-            "--dry-run",
-        ])
+        result = main(
+            [
+                "update",
+                "--repo",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--owner",
+                "test",
+                "--name",
+                "repo",
+                "--branch",
+                "main",
+                "--dry-run",
+            ]
+        )
 
         assert result == EXIT_SUCCESS
 
@@ -258,12 +284,7 @@ class TestValidateCommand:
     def test_validate_valid_config(self, tmp_path: Path, capsys) -> None:
         """validate passes for valid configuration."""
         ci_hub = tmp_path / ".ci-hub.yml"
-        ci_hub.write_text(
-            "language: python\n"
-            "repo:\n"
-            "  owner: test\n"
-            "  name: repo\n"
-        )
+        ci_hub.write_text("language: python\nrepo:\n  owner: test\n  name: repo\n")
 
         result = main(["validate", "--repo", str(tmp_path)])
 
@@ -277,18 +298,26 @@ class TestReportSubcommands:
 
     def test_report_build_missing_file(self, tmp_path: Path) -> None:
         """report build fails when report file doesn't exist."""
-        result = main([
-            "report", "build",
-            "--report", str(tmp_path / "nonexistent.json"),
-        ])
+        result = main(
+            [
+                "report",
+                "build",
+                "--report",
+                str(tmp_path / "nonexistent.json"),
+            ]
+        )
         assert result != EXIT_SUCCESS
 
     def test_report_summary_missing_file(self, tmp_path: Path, capsys) -> None:
         """report summary fails when report file doesn't exist with error."""
-        result = main([
-            "report", "summary",
-            "--report", str(tmp_path / "nonexistent.json"),
-        ])
+        result = main(
+            [
+                "report",
+                "summary",
+                "--report",
+                str(tmp_path / "nonexistent.json"),
+            ]
+        )
 
         assert result == EXIT_FAILURE
         err = capsys.readouterr().err
@@ -296,30 +325,38 @@ class TestReportSubcommands:
 
     def test_report_validate_missing_file(self, tmp_path: Path) -> None:
         """report validate fails for non-existent file."""
-        result = main([
-            "report", "validate",
-            "--report", str(tmp_path / "missing.json"),
-        ])
+        result = main(
+            [
+                "report",
+                "validate",
+                "--report",
+                str(tmp_path / "missing.json"),
+            ]
+        )
         assert result != EXIT_SUCCESS
 
     def test_report_validate_valid_report(self, tmp_path: Path, capsys) -> None:
         """report validate passes for valid report with all required fields."""
         report = tmp_path / "report.json"
-        report.write_text(json.dumps({
-            "schema_version": "2.0",
-            "repository": "test/repo",
-            "branch": "main",
-            "python_version": "3.12",
-            "results": {
-                "coverage": 80,
-                "tests_failed": 0,
-                "tests_passed": 10,  # Required field
-            },
-            "tool_metrics": {},
-            "tools_configured": {"pytest": True},
-            "tools_ran": {"pytest": True},
-            "tools_success": {"pytest": True},
-        }))
+        report.write_text(
+            json.dumps(
+                {
+                    "schema_version": "2.0",
+                    "repository": "test/repo",
+                    "branch": "main",
+                    "python_version": "3.12",
+                    "results": {
+                        "coverage": 80,
+                        "tests_failed": 0,
+                        "tests_passed": 10,  # Required field
+                    },
+                    "tool_metrics": {},
+                    "tools_configured": {"pytest": True},
+                    "tools_ran": {"pytest": True},
+                    "tools_success": {"pytest": True},
+                }
+            )
+        )
 
         result = main(["report", "validate", "--report", str(report)])
 
@@ -362,14 +399,18 @@ class TestRunCommand:
         (tmp_path / ".ci-hub.yml").write_text("language: python\n")
 
         # Tool is positional, not --tool
-        result = main([
-            "run",
-            "nonexistent_tool",
-            "--repo", str(tmp_path),
-        ])
+        result = main(
+            [
+                "run",
+                "nonexistent_tool",
+                "--repo",
+                str(tmp_path),
+            ]
+        )
 
         # EXIT_USAGE (2) for unknown tool - this is a usage error
         from cihub.exit_codes import EXIT_USAGE
+
         assert result == EXIT_USAGE
         out = capsys.readouterr().out
         assert "Unsupported tool" in out
@@ -442,16 +483,23 @@ class TestJsonOutputMode:
 
     def test_init_json_output(self, tmp_path: Path, capsys) -> None:
         """init --json outputs proper JSON."""
-        main([
-            "init",
-            "--repo", str(tmp_path),
-            "--language", "python",
-            "--owner", "test",
-            "--name", "repo",
-            "--branch", "main",
-            "--dry-run",
-            "--json",
-        ])
+        main(
+            [
+                "init",
+                "--repo",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--owner",
+                "test",
+                "--name",
+                "repo",
+                "--branch",
+                "main",
+                "--dry-run",
+                "--json",
+            ]
+        )
 
         out = capsys.readouterr().out
         data = json.loads(out)
@@ -475,11 +523,14 @@ class TestErrorHandling:
     def test_exception_in_json_mode(self, tmp_path: Path, capsys) -> None:
         """Expected errors in --json mode return structured error."""
         # Test with a directory that doesn't exist - FileNotFoundError
-        result = main([
-            "detect",
-            "--repo", str(tmp_path / "nonexistent"),
-            "--json",
-        ])
+        result = main(
+            [
+                "detect",
+                "--repo",
+                str(tmp_path / "nonexistent"),
+                "--json",
+            ]
+        )
 
         out = capsys.readouterr().out
         data = json.loads(out)
@@ -530,11 +581,13 @@ class TestScaffoldCommand:
     def test_scaffold_python_pyproject(self, tmp_path: Path, capsys) -> None:
         """scaffold creates a minimal Python pyproject fixture."""
         # scaffold uses positional args: type path
-        result = main([
-            "scaffold",
-            "python-pyproject",
-            str(tmp_path / "scaffold"),
-        ])
+        result = main(
+            [
+                "scaffold",
+                "python-pyproject",
+                str(tmp_path / "scaffold"),
+            ]
+        )
 
         capsys.readouterr()  # Consume output
         assert result == EXIT_SUCCESS
@@ -542,11 +595,13 @@ class TestScaffoldCommand:
 
     def test_scaffold_java_maven(self, tmp_path: Path, capsys) -> None:
         """scaffold creates a minimal Java Maven fixture."""
-        result = main([
-            "scaffold",
-            "java-maven",
-            str(tmp_path / "scaffold"),
-        ])
+        result = main(
+            [
+                "scaffold",
+                "java-maven",
+                str(tmp_path / "scaffold"),
+            ]
+        )
 
         capsys.readouterr()  # Consume output
         assert result == EXIT_SUCCESS
@@ -582,18 +637,20 @@ class TestNewCommand:
         """new --dry-run shows what would be created."""
         with patch("cihub.cli.hub_root", return_value=tmp_path):
             (tmp_path / "config" / "repos").mkdir(parents=True)
-            (tmp_path / "config" / "defaults.yaml").write_text(
-                "repo:\n  owner: test\n"
-            )
+            (tmp_path / "config" / "defaults.yaml").write_text("repo:\n  owner: test\n")
 
             # name is positional, not --name
-            result = main([
-                "new",
-                "test-repo",
-                "--owner", "testorg",
-                "--language", "python",
-                "--dry-run",
-            ])
+            result = main(
+                [
+                    "new",
+                    "test-repo",
+                    "--owner",
+                    "testorg",
+                    "--language",
+                    "python",
+                    "--dry-run",
+                ]
+            )
 
         out = capsys.readouterr().out
         assert "Would write" in out or result == EXIT_SUCCESS

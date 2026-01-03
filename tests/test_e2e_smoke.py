@@ -23,9 +23,7 @@ class TestPythonProjectWorkflow:
         repo.mkdir()
 
         # Step 1: Create a Python project marker
-        (repo / "pyproject.toml").write_text(
-            "[project]\nname = 'my-project'\nversion = '1.0.0'\n"
-        )
+        (repo / "pyproject.toml").write_text("[project]\nname = 'my-project'\nversion = '1.0.0'\n")
 
         # Step 2: Detect language
         result = main(["detect", "--repo", str(repo)])
@@ -35,15 +33,22 @@ class TestPythonProjectWorkflow:
         assert data["language"] == "python"
 
         # Step 3: Initialize CI config
-        result = main([
-            "init",
-            "--repo", str(repo),
-            "--language", "python",
-            "--owner", "myorg",
-            "--name", "my-python-project",
-            "--branch", "main",
-            "--apply",
-        ])
+        result = main(
+            [
+                "init",
+                "--repo",
+                str(repo),
+                "--language",
+                "python",
+                "--owner",
+                "myorg",
+                "--name",
+                "my-python-project",
+                "--branch",
+                "main",
+                "--apply",
+            ]
+        )
         assert result == EXIT_SUCCESS
 
         # Step 4: Verify files were created
@@ -82,15 +87,22 @@ class TestJavaProjectWorkflow:
         assert data["language"] == "java"
 
         # Step 3: Initialize CI config
-        result = main([
-            "init",
-            "--repo", str(repo),
-            "--language", "java",
-            "--owner", "myorg",
-            "--name", "my-java-project",
-            "--branch", "main",
-            "--apply",
-        ])
+        result = main(
+            [
+                "init",
+                "--repo",
+                str(repo),
+                "--language",
+                "java",
+                "--owner",
+                "myorg",
+                "--name",
+                "my-java-project",
+                "--branch",
+                "main",
+                "--apply",
+            ]
+        )
         assert result == EXIT_SUCCESS
 
         # Step 4: Verify files
@@ -111,15 +123,22 @@ class TestScaffoldAndInitWorkflow:
         assert (project / "pyproject.toml").exists()
 
         # Step 2: Initialize CI on the scaffolded project
-        result = main([
-            "init",
-            "--repo", str(project),
-            "--language", "python",
-            "--owner", "testorg",
-            "--name", "scaffolded",
-            "--branch", "main",
-            "--apply",
-        ])
+        result = main(
+            [
+                "init",
+                "--repo",
+                str(project),
+                "--language",
+                "python",
+                "--owner",
+                "testorg",
+                "--name",
+                "scaffolded",
+                "--branch",
+                "main",
+                "--apply",
+            ]
+        )
         assert result == EXIT_SUCCESS
         assert (project / ".ci-hub.yml").exists()
 
@@ -133,15 +152,22 @@ class TestScaffoldAndInitWorkflow:
         assert (project / "pom.xml").exists()
 
         # Step 2: Initialize CI
-        result = main([
-            "init",
-            "--repo", str(project),
-            "--language", "java",
-            "--owner", "testorg",
-            "--name", "scaffolded",
-            "--branch", "main",
-            "--apply",
-        ])
+        result = main(
+            [
+                "init",
+                "--repo",
+                str(project),
+                "--language",
+                "java",
+                "--owner",
+                "testorg",
+                "--name",
+                "scaffolded",
+                "--branch",
+                "main",
+                "--apply",
+            ]
+        )
         assert result == EXIT_SUCCESS
 
 
@@ -189,31 +215,45 @@ class TestUpdateWorkflow:
         (repo / "pyproject.toml").write_text("[project]\n")
 
         # Step 1: Initialize
-        result = main([
-            "init",
-            "--repo", str(repo),
-            "--language", "python",
-            "--owner", "org",
-            "--name", "project",
-            "--branch", "main",
-            "--apply",
-        ])
+        result = main(
+            [
+                "init",
+                "--repo",
+                str(repo),
+                "--language",
+                "python",
+                "--owner",
+                "org",
+                "--name",
+                "project",
+                "--branch",
+                "main",
+                "--apply",
+            ]
+        )
         assert result == EXIT_SUCCESS
 
         # Verify workflow exists before update
         assert (repo / ".github" / "workflows" / "hub-ci.yml").exists()
 
         # Step 2: Update with force
-        result = main([
-            "update",
-            "--repo", str(repo),
-            "--language", "python",
-            "--owner", "org",
-            "--name", "project",
-            "--branch", "main",
-            "--apply",
-            "--force",
-        ])
+        result = main(
+            [
+                "update",
+                "--repo",
+                str(repo),
+                "--language",
+                "python",
+                "--owner",
+                "org",
+                "--name",
+                "project",
+                "--branch",
+                "main",
+                "--apply",
+                "--force",
+            ]
+        )
         assert result == EXIT_SUCCESS
 
         # Workflow should still exist
@@ -241,16 +281,23 @@ class TestJsonModeWorkflow:
 
     def test_init_json_workflow(self, tmp_path: Path, capsys) -> None:
         """Init with JSON output."""
-        result = main([
-            "init",
-            "--repo", str(tmp_path),
-            "--language", "python",
-            "--owner", "test",
-            "--name", "repo",
-            "--branch", "main",
-            "--dry-run",
-            "--json",
-        ])
+        result = main(
+            [
+                "init",
+                "--repo",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--owner",
+                "test",
+                "--name",
+                "repo",
+                "--branch",
+                "main",
+                "--dry-run",
+                "--json",
+            ]
+        )
         assert result == EXIT_SUCCESS
 
         out = capsys.readouterr().out
@@ -293,15 +340,22 @@ class TestErrorRecoveryWorkflow:
 
         # Step 2: Initialize config
         (tmp_path / "pyproject.toml").write_text("[project]\n")
-        main([
-            "init",
-            "--repo", str(tmp_path),
-            "--language", "python",
-            "--owner", "test",
-            "--name", "repo",
-            "--branch", "main",
-            "--apply",
-        ])
+        main(
+            [
+                "init",
+                "--repo",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--owner",
+                "test",
+                "--name",
+                "repo",
+                "--branch",
+                "main",
+                "--apply",
+            ]
+        )
 
         # Step 3: Now should succeed
         result = main(["validate", "--repo", str(tmp_path)])
@@ -351,15 +405,22 @@ class TestMultiLanguageWorkflow:
         (tmp_path / "pom.xml").write_text("<project></project>")
 
         # Explicit language should work
-        result = main([
-            "init",
-            "--repo", str(tmp_path),
-            "--language", "python",
-            "--owner", "test",
-            "--name", "repo",
-            "--branch", "main",
-            "--apply",
-        ])
+        result = main(
+            [
+                "init",
+                "--repo",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--owner",
+                "test",
+                "--name",
+                "repo",
+                "--branch",
+                "main",
+                "--apply",
+            ]
+        )
         assert result == EXIT_SUCCESS
 
         # Config should be for Python

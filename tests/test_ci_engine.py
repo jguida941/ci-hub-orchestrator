@@ -117,7 +117,7 @@ class TestDetectJavaProjectType:
         assert result == "Multi-module"
 
     def test_gradle_kts_multi_module(self, tmp_path: Path) -> None:
-        (tmp_path / "settings.gradle.kts").write_text("include(\":a\")")
+        (tmp_path / "settings.gradle.kts").write_text('include(":a")')
         result = _detect_java_project_type(tmp_path)
         assert result == "Multi-module"
 
@@ -455,11 +455,7 @@ class TestNotify:
         mock_slack.assert_not_called()
 
     def test_sends_slack_on_failure(self) -> None:
-        config = {
-            "notifications": {
-                "slack": {"enabled": True, "on_failure": True, "on_success": False}
-            }
-        }
+        config = {"notifications": {"slack": {"enabled": True, "on_failure": True, "on_success": False}}}
         report = {"repository": "owner/repo", "branch": "main"}
         env = {"CIHUB_SLACK_WEBHOOK_URL": "https://hooks.slack.com/test"}
         problems: list = []
@@ -468,11 +464,7 @@ class TestNotify:
         mock_slack.assert_called_once()
 
     def test_warns_when_webhook_missing(self) -> None:
-        config = {
-            "notifications": {
-                "slack": {"enabled": True, "on_failure": True}
-            }
-        }
+        config = {"notifications": {"slack": {"enabled": True, "on_failure": True}}}
         report = {"repository": "owner/repo", "branch": "main"}
         problems: list = []
         _notify(False, config, report, problems, {})
@@ -480,11 +472,7 @@ class TestNotify:
         assert "CIHUB_SLACK_WEBHOOK_URL" in problems[0]["message"]
 
     def test_sends_email_on_failure(self) -> None:
-        config = {
-            "notifications": {
-                "email": {"enabled": True, "on_failure": True}
-            }
-        }
+        config = {"notifications": {"email": {"enabled": True, "on_failure": True}}}
         report = {"repository": "owner/repo", "branch": "main"}
         env = {"SMTP_HOST": "mail.example.com", "SMTP_TO": "test@example.com"}
         problems: list = []
@@ -573,11 +561,7 @@ class TestRunPythonTools:
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
-        config = {
-            "python": {
-                "tools": {"ruff": {"enabled": True}}
-            }
-        }
+        config = {"python": {"tools": {"ruff": {"enabled": True}}}}
         problems: list = []
 
         mock_result = ToolResult(tool="ruff", ran=True, success=True, metrics={"ruff_errors": 0})
@@ -628,9 +612,7 @@ class TestRunJavaTools:
         output_dir = tmp_path / "output"
         output_dir.mkdir()
 
-        config = {
-            "java": {"tools": {"jacoco": {"enabled": False}}}
-        }
+        config = {"java": {"tools": {"jacoco": {"enabled": False}}}}
         problems: list = []
 
         mock_build = ToolResult(tool="build", ran=True, success=True, metrics={})
@@ -654,9 +636,7 @@ class TestBuildContext:
 
     def test_builds_context_from_config(self, tmp_path: Path) -> None:
         # default_branch from config is used when GITHUB_REF_NAME is not set
-        config = {
-            "repo": {"owner": "myorg", "name": "myrepo", "default_branch": "main"}
-        }
+        config = {"repo": {"owner": "myorg", "name": "myrepo", "default_branch": "main"}}
         with patch.dict(os.environ, {}, clear=True):
             with patch("cihub.services.ci_engine.get_git_branch", return_value="develop"):
                 ctx = _build_context(tmp_path, config, ".", None)

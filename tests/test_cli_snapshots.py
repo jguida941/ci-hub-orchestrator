@@ -55,9 +55,7 @@ class TestHelpSnapshots:
 class TestJsonOutputSnapshots:
     """Snapshot tests for JSON output structure."""
 
-    def test_detect_json_structure(
-        self, tmp_path: Path, capsys, snapshot: SnapshotAssertion
-    ) -> None:
+    def test_detect_json_structure(self, tmp_path: Path, capsys, snapshot: SnapshotAssertion) -> None:
         """detect --json output structure should be stable."""
         (tmp_path / "pyproject.toml").write_text("[project]\nname='test'\n")
 
@@ -72,20 +70,25 @@ class TestJsonOutputSnapshots:
         }
         assert structure == snapshot
 
-    def test_init_json_structure(
-        self, tmp_path: Path, capsys, snapshot: SnapshotAssertion
-    ) -> None:
+    def test_init_json_structure(self, tmp_path: Path, capsys, snapshot: SnapshotAssertion) -> None:
         """init --json output structure should be stable."""
-        main([
-            "init",
-            "--repo", str(tmp_path),
-            "--language", "python",
-            "--owner", "test",
-            "--name", "repo",
-            "--branch", "main",
-            "--dry-run",
-            "--json",
-        ])
+        main(
+            [
+                "init",
+                "--repo",
+                str(tmp_path),
+                "--language",
+                "python",
+                "--owner",
+                "test",
+                "--name",
+                "repo",
+                "--branch",
+                "main",
+                "--dry-run",
+                "--json",
+            ]
+        )
         out = capsys.readouterr().out
         data = json.loads(out)
 
@@ -105,21 +108,25 @@ class TestReportSchemaSnapshots:
         """report.json required fields should be stable."""
         # Create a sample report matching schema v2.0
         report = tmp_path / "report.json"
-        report.write_text(json.dumps({
-            "schema_version": "2.0",
-            "repository": "test/repo",
-            "branch": "main",
-            "python_version": "3.12",
-            "results": {
-                "coverage": 80,
-                "tests_passed": 10,
-                "tests_failed": 0,
-            },
-            "tool_metrics": {},
-            "tools_configured": {"pytest": True},
-            "tools_ran": {"pytest": True},
-            "tools_success": {"pytest": True},
-        }))
+        report.write_text(
+            json.dumps(
+                {
+                    "schema_version": "2.0",
+                    "repository": "test/repo",
+                    "branch": "main",
+                    "python_version": "3.12",
+                    "results": {
+                        "coverage": 80,
+                        "tests_passed": 10,
+                        "tests_failed": 0,
+                    },
+                    "tool_metrics": {},
+                    "tools_configured": {"pytest": True},
+                    "tools_ran": {"pytest": True},
+                    "tools_success": {"pytest": True},
+                }
+            )
+        )
 
         report_dict = json.loads(report.read_text())
 
@@ -168,9 +175,7 @@ class TestConfigOutputSnapshots:
 class TestErrorOutputSnapshots:
     """Snapshot tests for error messages - ensures consistent UX."""
 
-    def test_detect_error_message(
-        self, tmp_path: Path, capsys, snapshot: SnapshotAssertion
-    ) -> None:
+    def test_detect_error_message(self, tmp_path: Path, capsys, snapshot: SnapshotAssertion) -> None:
         """Error messages should be user-friendly and stable."""
         main(["detect", "--repo", str(tmp_path)])
         err = capsys.readouterr().err
@@ -182,9 +187,7 @@ class TestErrorOutputSnapshots:
         }
         assert error_format == snapshot
 
-    def test_validate_json_error_structure(
-        self, tmp_path: Path, capsys, snapshot: SnapshotAssertion
-    ) -> None:
+    def test_validate_json_error_structure(self, tmp_path: Path, capsys, snapshot: SnapshotAssertion) -> None:
         """JSON error output structure should be stable."""
         main(["validate", "--repo", str(tmp_path), "--json"])
         out = capsys.readouterr().out

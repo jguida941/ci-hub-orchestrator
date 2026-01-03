@@ -185,7 +185,7 @@ def test_detect_java_project_type_settings_gradle(tmp_path: Path) -> None:
 
 def test_detect_java_project_type_settings_gradle_kts(tmp_path: Path) -> None:
     """Test detection of multi-module Gradle project via settings.gradle.kts."""
-    (tmp_path / "settings.gradle.kts").write_text("include(\"sub1\")", encoding="utf-8")
+    (tmp_path / "settings.gradle.kts").write_text('include("sub1")', encoding="utf-8")
     assert ci_engine._detect_java_project_type(tmp_path) == "Multi-module"
 
 

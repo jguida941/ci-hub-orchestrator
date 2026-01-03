@@ -218,9 +218,7 @@ def test_main_run_mode_skips_ci_only(monkeypatch, capsys) -> None:
     from scripts.cli_command_matrix import main
 
     # Run only version command which should succeed
-    monkeypatch.setattr(
-        sys, "argv", ["cli_command_matrix.py", "--run", "--only", "version"]
-    )
+    monkeypatch.setattr(sys, "argv", ["cli_command_matrix.py", "--run", "--only", "version"])
 
     code = main()
     # version command runs python -m cihub --version
@@ -235,9 +233,7 @@ def test_main_run_skips_missing_repo(monkeypatch, capsys) -> None:
 
     from scripts.cli_command_matrix import main
 
-    monkeypatch.setattr(
-        sys, "argv", ["cli_command_matrix.py", "--run", "--only", "detect"]
-    )
+    monkeypatch.setattr(sys, "argv", ["cli_command_matrix.py", "--run", "--only", "detect"])
 
     main()  # Return code not checked - we verify behavior via output
 
@@ -251,9 +247,7 @@ def test_main_run_skips_gh_required(monkeypatch, capsys) -> None:
 
     from scripts.cli_command_matrix import main
 
-    monkeypatch.setattr(
-        sys, "argv", ["cli_command_matrix.py", "--run", "--only", "verify-remote"]
-    )
+    monkeypatch.setattr(sys, "argv", ["cli_command_matrix.py", "--run", "--only", "verify-remote"])
 
     main()  # Return code not checked - we verify behavior via output
 

@@ -197,12 +197,14 @@ class TestBuildResultEdgeCases:
 
         output_file = tmp_path / "report.json"
         output_file.write_text(
-            json.dumps({
-                "runs": [
-                    {"status": "completed", "conclusion": "failure"},
-                    {"status": "completed", "conclusion": "failure"},
-                ],
-            }),
+            json.dumps(
+                {
+                    "runs": [
+                        {"status": "completed", "conclusion": "failure"},
+                        {"status": "completed", "conclusion": "failure"},
+                    ],
+                }
+            ),
             encoding="utf-8",
         )
 
@@ -222,10 +224,12 @@ class TestBuildResultEdgeCases:
 
         output_file = tmp_path / "report.json"
         output_file.write_text(
-            json.dumps({
-                "runs": [],
-                "total_critical_vulns": 5,
-            }),
+            json.dumps(
+                {
+                    "runs": [],
+                    "total_critical_vulns": 5,
+                }
+            ),
             encoding="utf-8",
         )
 
